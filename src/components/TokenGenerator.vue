@@ -3,24 +3,24 @@
     <div class="modal-overlay" @click="$emit('close')">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>生成新Token</h2>
+          <h2>生成Augment Token</h2>
           <button class="close-btn" @click="$emit('close')">×</button>
         </div>
         
         <div class="modal-body">
           <!-- Step 1: Generate Authorization URL -->
           <div class="section">
-            <h3>步骤 1: 生成授权URL</h3>
+            <h3>步骤 1: 生成Augment授权URL</h3>
             <button 
               @click="generateAuthUrl" 
               :class="['btn', 'primary', { loading: isGenerating }]"
               :disabled="isGenerating"
             >
-              生成授权URL
+              生成Augment授权URL
             </button>
             
             <div v-if="authUrl" class="url-section">
-              <p>授权URL已生成:</p>
+              <p>Augment授权URL已生成:</p>
               <div class="url-input-container">
                 <input
                   type="text"
@@ -57,7 +57,7 @@
 
           <!-- Step 3: Access Token -->
           <div class="section" v-if="tokenResult">
-            <h3>步骤 3: 访问令牌</h3>
+            <h3>步骤 3: Augment访问令牌</h3>
             <div class="token-section">
               <div class="result-container">
                 <label>访问令牌:</label>
@@ -158,12 +158,12 @@ const copyToClipboard = async (text) => {
 
 const generateAuthUrl = async () => {
   isGenerating.value = true
-  showStatus('正在生成授权URL...', 'info')
+  showStatus('正在生成Augment授权URL...', 'info')
   
   try {
-    const url = await invoke('generate_auth_url')
+    const url = await invoke('generate_augment_auth_url')
     authUrl.value = url
-    showStatus('授权URL生成成功!', 'success')
+    showStatus('Augment授权URL生成成功!', 'success')
   } catch (error) {
     showStatus(`错误: ${error}`, 'error')
   } finally {
@@ -195,12 +195,12 @@ const getAccessToken = async () => {
   }
   
   isGettingToken.value = true
-  showStatus('正在获取访问令牌...', 'info')
+  showStatus('正在获取Augment访问令牌...', 'info')
   
   try {
-    const result = await invoke('get_token', { code: authCode.value.trim() })
+    const result = await invoke('get_augment_token', { code: authCode.value.trim() })
     tokenResult.value = result
-    showStatus('访问令牌获取成功!', 'success')
+    showStatus('Augment访问令牌获取成功!', 'success')
   } catch (error) {
     showStatus(`错误: ${error}`, 'error')
   } finally {

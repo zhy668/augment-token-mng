@@ -2,12 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod oauth;
+mod augment_oauth;
 mod storage;
 mod bookmarks;
 mod user;
 mod http_server;
 
 use oauth::{create_oauth_state, generate_authorize_url, complete_oauth_flow, OAuthState, LoginResult};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, AugmentOAuthState, AugmentTokenResponse};
 use storage::{TokenManager, StoredToken};
 use bookmarks::{BookmarkManager, Bookmark};
 use user::{UserManager, UserMode, UserInfo, create_user_info_from_oauth};
@@ -19,15 +21,40 @@ use serde::{Serialize, Deserialize};
 // Global state to store OAuth state and user state
 struct AppState {
     oauth_state: Mutex<Option<OAuthState>>,
+    augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     user_manager: Mutex<UserManager>,
     http_server: Mutex<Option<HttpServer>>,
 }
 
 #[tauri::command]
 async fn generate_auth_url(state: State<'_, AppState>) -> Result<String, String> {
+    let augment_oauth_state = create_augment_oauth_state();
+    let auth_url = generate_augment_authorize_url(&augment_oauth_state)
+        .map_err(|e| format!("Failed to generate auth URL: {}", e))?;
+    
+    // Store the Augment OAuth state
+    *state.augment_oauth_state.lock().unwrap() = Some(augment_oauth_state);
+    
+    Ok(auth_url)
+}
+
+#[tauri::command]
+async fn generate_augment_auth_url(state: State<'_, AppState>) -> Result<String, String> {
+    let augment_oauth_state = create_augment_oauth_state();
+    let auth_url = generate_augment_authorize_url(&augment_oauth_state)
+        .map_err(|e| format!("Failed to generate Augment auth URL: {}", e))?;
+    
+    // Store the Augment OAuth state
+    *state.augment_oauth_state.lock().unwrap() = Some(augment_oauth_state);
+    
+    Ok(auth_url)
+}
+
+#[tauri::command]
+async fn generate_forum_auth_url(state: State<'_, AppState>) -> Result<String, String> {
     let oauth_state = create_oauth_state();
     let auth_url = generate_authorize_url(&oauth_state)
-        .map_err(|e| format!("Failed to generate auth URL: {}", e))?;
+        .map_err(|e| format!("Failed to generate forum auth URL: {}", e))?;
     
     // Store the OAuth state
     *state.oauth_state.lock().unwrap() = Some(oauth_state);
@@ -36,15 +63,29 @@ async fn generate_auth_url(state: State<'_, AppState>) -> Result<String, String>
 }
 
 #[tauri::command]
-async fn get_token(code: String, state: State<'_, AppState>) -> Result<LoginResult, String> {
-    let oauth_state = {
-        let guard = state.oauth_state.lock().unwrap();
+async fn get_token(code: String, state: State<'_, AppState>) -> Result<AugmentTokenResponse, String> {
+    let augment_oauth_state = {
+        let guard = state.augment_oauth_state.lock().unwrap();
         guard.clone()
-            .ok_or("No OAuth state found. Please generate auth URL first.")?
+            .ok_or("No Augment OAuth state found. Please generate auth URL first.")?
     };
 
-    // This command is for the old token generation flow, not forum login
-    Err("This command is deprecated. Use start_forum_oauth_login instead.".to_string())
+    complete_augment_oauth_flow(&augment_oauth_state, &code)
+        .await
+        .map_err(|e| format!("Failed to complete OAuth flow: {}", e))
+}
+
+#[tauri::command]
+async fn get_augment_token(code: String, state: State<'_, AppState>) -> Result<AugmentTokenResponse, String> {
+    let augment_oauth_state = {
+        let guard = state.augment_oauth_state.lock().unwrap();
+        guard.clone()
+            .ok_or("No Augment OAuth state found. Please generate auth URL first.")?
+    };
+
+    complete_augment_oauth_flow(&augment_oauth_state, &code)
+        .await
+        .map_err(|e| format!("Failed to complete Augment OAuth flow: {}", e))
 }
 
 #[tauri::command]
@@ -300,6 +341,7 @@ fn main() {
 
             app.manage(AppState {
                 oauth_state: Mutex::new(None),
+                augment_oauth_state: Mutex::new(None),
                 user_manager: Mutex::new(user_manager),
                 http_server: Mutex::new(None),
             });
@@ -308,7 +350,10 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             generate_auth_url,
+            generate_augment_auth_url,
+            generate_forum_auth_url,
             get_token,
+            get_augment_token,
             open_url,
             save_token,
             get_all_tokens,

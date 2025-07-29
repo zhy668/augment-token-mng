@@ -55,17 +55,28 @@
             </svg>
             退出
           </button>
-          <button
-            v-if="isGuest"
-            @click="showOAuthLogin"
-            class="btn primary small login-btn"
-            title="OAuth登录"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            登录
-          </button>
+          <div v-if="isGuest" class="login-buttons">
+            <button
+              @click="showOAuthLogin"
+              class="btn primary small login-btn"
+              title="OAuth登录（系统浏览器）"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              登录
+            </button>
+            <button
+              @click="showOAuthLoginInternal"
+              class="btn secondary small login-btn-internal"
+              title="OAuth登录（内置浏览器）"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+              </svg>
+              内置
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -280,6 +291,32 @@ const showOAuthLogin = async () => {
   }
 }
 
+const showOAuthLoginInternal = async () => {
+  try {
+    showStatus('正在启动内置浏览器OAuth登录...', 'info')
+    const windowLabel = await invoke('start_forum_oauth_login_internal')
+
+    // 监听OAuth完成事件
+    const { listen } = await import('@tauri-apps/api/event')
+
+    const unlistenSuccess = await listen('oauth_completed', (event) => {
+      showStatus(`登录成功！欢迎 ${event.payload.user_info.username}`, 'success')
+      loadUserMode()
+      unlistenSuccess()
+      unlistenError()
+    })
+
+    const unlistenError = await listen('oauth_error', (event) => {
+      showStatus(`登录失败: ${event.payload}`, 'error')
+      unlistenSuccess()
+      unlistenError()
+    })
+
+  } catch (error) {
+    showStatus(`启动内置浏览器失败: ${error}`, 'error')
+  }
+}
+
 const onAvatarError = (event) => {
   // 头像加载失败时隐藏图片，显示占位符
   event.target.style.display = 'none'
@@ -483,6 +520,12 @@ html, body {
   pointer-events: none;
 }
 
+.login-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .login-btn {
   background: linear-gradient(135deg, #007bff, #0056b3) !important;
   border: none !important;
@@ -493,6 +536,18 @@ html, body {
 .login-btn:hover {
   transform: translateY(-1px) !important;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !important;
+}
+
+.login-btn-internal {
+  background: linear-gradient(135deg, #6c757d, #545b62) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3) !important;
+  transition: all 0.2s ease !important;
+}
+
+.login-btn-internal:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4) !important;
 }
 
 /* 响应式设计 */

@@ -63,7 +63,7 @@
                       </svg>
                     </button>
                   </div>
-                  <div class="bookmark-content" @click="openBookmark(bookmark.url)">
+                  <div class="bookmark-content">
                     <div class="bookmark-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -71,6 +71,28 @@
                     </div>
                     <div class="bookmark-name">{{ bookmark.name }}</div>
                     <div v-if="bookmark.description" class="bookmark-desc">{{ bookmark.description }}</div>
+                    <div class="bookmark-buttons">
+                      <button
+                        @click="openBookmark(bookmark.url)"
+                        class="btn-small primary"
+                        title="在系统浏览器中打开"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                        </svg>
+                        外部
+                      </button>
+                      <button
+                        @click="openBookmarkInternal(bookmark.url, bookmark.name)"
+                        class="btn-small secondary"
+                        title="在内置浏览器中打开"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+                        </svg>
+                        内置
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -111,7 +133,7 @@
                       </svg>
                     </button>
                   </div>
-                  <div class="bookmark-content" @click="openBookmark(bookmark.url)">
+                  <div class="bookmark-content">
                     <div class="bookmark-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
@@ -119,6 +141,28 @@
                     </div>
                     <div class="bookmark-name">{{ bookmark.name }}</div>
                     <div v-if="bookmark.description" class="bookmark-desc">{{ bookmark.description }}</div>
+                    <div class="bookmark-buttons">
+                      <button
+                        @click="openBookmark(bookmark.url)"
+                        class="btn-small primary"
+                        title="在系统浏览器中打开"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                        </svg>
+                        外部
+                      </button>
+                      <button
+                        @click="openBookmarkInternal(bookmark.url, bookmark.name)"
+                        class="btn-small secondary"
+                        title="在内置浏览器中打开"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+                        </svg>
+                        内置
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -320,6 +364,18 @@ const openBookmark = async (url) => {
     showStatus('正在浏览器中打开...', 'info')
   } catch (error) {
     showStatus(`打开网址失败: ${error}`, 'error')
+  }
+}
+
+const openBookmarkInternal = async (url, title) => {
+  try {
+    const windowLabel = await invoke('open_internal_browser', {
+      url,
+      title: title || '内置浏览器'
+    })
+    showStatus('已在内置浏览器中打开', 'info')
+  } catch (error) {
+    showStatus(`打开内置浏览器失败: ${error}`, 'error')
   }
 }
 
@@ -533,7 +589,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 16px 12px;
-  cursor: pointer;
   text-align: center;
 }
 
@@ -564,6 +619,44 @@ onMounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.bookmark-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-small.primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-small.primary:hover {
+  background: #0056b3;
+}
+
+.btn-small.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-small.secondary:hover {
+  background: #545b62;
 }
 
 .btn-icon {

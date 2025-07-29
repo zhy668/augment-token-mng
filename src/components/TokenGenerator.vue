@@ -31,7 +31,18 @@
               </div>
               <div class="url-buttons">
                 <button @click="copyAuthUrl" class="btn secondary">复制</button>
-                <button @click="openAuthUrl" class="btn secondary">打开</button>
+                <button @click="openAuthUrl" class="btn secondary" title="在系统浏览器中打开">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                  </svg>
+                  外部打开
+                </button>
+                <button @click="openAuthUrlInternal" class="btn primary" title="在内置浏览器中打开">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+                  </svg>
+                  内置打开
+                </button>
               </div>
             </div>
           </div>
@@ -185,6 +196,18 @@ const openAuthUrl = async () => {
     showStatus('正在浏览器中打开授权URL...', 'info')
   } catch (error) {
     showStatus(`打开URL错误: ${error}`, 'error')
+  }
+}
+
+const openAuthUrlInternal = async () => {
+  try {
+    const windowLabel = await invoke('open_internal_browser', {
+      url: authUrl.value,
+      title: 'Augment OAuth 授权'
+    })
+    showStatus('已在内置浏览器中打开授权URL', 'info')
+  } catch (error) {
+    showStatus(`打开内置浏览器失败: ${error}`, 'error')
   }
 }
 

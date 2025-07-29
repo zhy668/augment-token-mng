@@ -15,8 +15,9 @@ use bookmarks::{BookmarkManager, Bookmark};
 use user::{UserManager, UserMode, UserInfo, create_user_info_from_oauth};
 use http_server::HttpServer;
 use std::sync::Mutex;
-use tauri::{State, Manager};
+use tauri::{State, Manager, WindowBuilder, WindowUrl};
 use serde::{Serialize, Deserialize};
+use chrono;
 
 // Global state to store OAuth state and user state
 struct AppState {
@@ -288,6 +289,136 @@ async fn start_forum_oauth_login(state: State<'_, AppState>) -> Result<LoginResu
 }
 
 #[tauri::command]
+async fn start_forum_oauth_login_internal(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>
+) -> Result<String, String> {
+    // Create OAuth state
+    let oauth_state = create_oauth_state();
+    let auth_url = generate_authorize_url(&oauth_state)
+        .map_err(|e| format!("Failed to generate auth URL: {}", e))?;
+
+    // Store the OAuth state
+    *state.oauth_state.lock().unwrap() = Some(oauth_state.clone());
+
+    // Start HTTP server in background
+    let mut http_server = HttpServer::new();
+    let server_handle = tokio::spawn(async move {
+        http_server.start_and_wait_for_callback().await
+    });
+
+    // Create internal browser window
+    let window_label = format!("oauth_browser_{}", chrono::Utc::now().timestamp());
+
+    let window = WindowBuilder::new(
+        &app,
+        &window_label,
+        WindowUrl::External(auth_url.parse().unwrap())
+    )
+    .title("OAuth 授权 - 论坛登录")
+    .inner_size(800.0, 700.0)
+    .center()
+    .resizable(true)
+    .build()
+    .map_err(|e| format!("Failed to create OAuth window: {}", e))?;
+
+    // Store server handle for cleanup
+    {
+        let mut http_server_guard = state.http_server.lock().unwrap();
+        *http_server_guard = Some(HttpServer::new()); // Placeholder for cleanup
+    }
+
+    // Monitor for OAuth completion in background
+    let app_handle = app.clone();
+    let state_clone = state.inner().clone();
+    let window_label_clone = window_label.clone();
+
+    tokio::spawn(async move {
+        // Wait for server to complete
+        if let Ok(callback_result) = server_handle.await {
+            match callback_result {
+                Ok(callback_result) => {
+                    // Get stored OAuth state
+                    let oauth_state = {
+                        let guard = state_clone.oauth_state.lock().unwrap();
+                        guard.clone()
+                    };
+
+                    if let Some(oauth_state) = oauth_state {
+                        // Complete OAuth flow
+                        match complete_oauth_flow(&oauth_state, &callback_result.code, &callback_result.state).await {
+                            Ok(login_result) => {
+                                // Update user state
+                                let user_info = create_user_info_from_oauth(
+                                    login_result.user_info.id.to_string(),
+                                    login_result.user_info.username.clone(),
+                                    login_result.user_info.avatar_template.clone(),
+                                    login_result.user_info.email.clone(),
+                                );
+
+                                {
+                                    let mut user_manager = state_clone.user_manager.lock().unwrap();
+                                    user_manager.set_authenticated_mode(user_info);
+                                }
+
+                                // Emit success event to frontend
+                                let _ = app_handle.emit("oauth_completed", &login_result);
+
+                                // Close OAuth window
+                                if let Some(window) = app_handle.get_webview_window(&window_label_clone) {
+                                    let _ = window.close();
+                                }
+                            }
+                            Err(e) => {
+                                // Emit error event to frontend
+                                let _ = app_handle.emit("oauth_error", format!("OAuth flow failed: {}", e));
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Emit error event to frontend
+                    let _ = app_handle.emit("oauth_error", format!("OAuth callback failed: {}", e));
+                }
+            }
+        }
+    });
+
+    Ok(window_label)
+}
+
+#[tauri::command]
+async fn open_internal_browser(
+    app: tauri::AppHandle,
+    url: String,
+    title: Option<String>
+) -> Result<String, String> {
+    let window_label = format!("browser_{}", chrono::Utc::now().timestamp());
+
+    let window = WindowBuilder::new(
+        &app,
+        &window_label,
+        WindowUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
+    )
+    .title(&title.unwrap_or_else(|| "内置浏览器".to_string()))
+    .inner_size(1000.0, 700.0)
+    .center()
+    .resizable(true)
+    .build()
+    .map_err(|e| format!("Failed to create browser window: {}", e))?;
+
+    Ok(window_label)
+}
+
+#[tauri::command]
+async fn close_window(app: tauri::AppHandle, window_label: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.close().map_err(|e| format!("Failed to close window: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn open_data_folder(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -370,7 +501,10 @@ fn main() {
             set_authenticated_mode,
             logout_user,
             can_access_email_features,
-            start_forum_oauth_login
+            start_forum_oauth_login,
+            start_forum_oauth_login_internal,
+            open_internal_browser,
+            close_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -15,8 +15,7 @@ use bookmarks::{BookmarkManager, Bookmark};
 use user::{UserManager, UserMode, UserInfo, create_user_info_from_oauth};
 use http_server::HttpServer;
 use std::sync::Mutex;
-use tauri::{State, Manager, WindowBuilder, WindowUrl};
-use serde::{Serialize, Deserialize};
+use tauri::{State, Manager, Emitter, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 
 // Global state to store OAuth state and user state
@@ -310,10 +309,10 @@ async fn start_forum_oauth_login_internal(
     // Create internal browser window
     let window_label = format!("oauth_browser_{}", chrono::Utc::now().timestamp());
 
-    let window = WindowBuilder::new(
+    let _window = WebviewWindowBuilder::new(
         &app,
         &window_label,
-        WindowUrl::External(auth_url.parse().unwrap())
+        WebviewUrl::External(auth_url.parse().unwrap())
     )
     .title("OAuth 授权 - 论坛登录")
     .inner_size(800.0, 700.0)
@@ -330,7 +329,6 @@ async fn start_forum_oauth_login_internal(
 
     // Monitor for OAuth completion in background
     let app_handle = app.clone();
-    let state_clone = state.inner().clone();
     let window_label_clone = window_label.clone();
 
     tokio::spawn(async move {
@@ -338,9 +336,10 @@ async fn start_forum_oauth_login_internal(
         if let Ok(callback_result) = server_handle.await {
             match callback_result {
                 Ok(callback_result) => {
-                    // Get stored OAuth state
+                    // Get stored OAuth state from app state
                     let oauth_state = {
-                        let guard = state_clone.oauth_state.lock().unwrap();
+                        let app_state: tauri::State<AppState> = app_handle.state();
+                        let guard = app_state.oauth_state.lock().unwrap();
                         guard.clone()
                     };
 
@@ -357,7 +356,8 @@ async fn start_forum_oauth_login_internal(
                                 );
 
                                 {
-                                    let mut user_manager = state_clone.user_manager.lock().unwrap();
+                                    let app_state: tauri::State<AppState> = app_handle.state();
+                                    let mut user_manager = app_state.user_manager.lock().unwrap();
                                     user_manager.set_authenticated_mode(user_info);
                                 }
 
@@ -395,10 +395,10 @@ async fn open_internal_browser(
 ) -> Result<String, String> {
     let window_label = format!("browser_{}", chrono::Utc::now().timestamp());
 
-    let window = WindowBuilder::new(
+    let _window = WebviewWindowBuilder::new(
         &app,
         &window_label,
-        WindowUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
+        WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
     )
     .title(&title.unwrap_or_else(|| "内置浏览器".to_string()))
     .inner_size(1000.0, 700.0)

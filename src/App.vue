@@ -35,11 +35,11 @@
           </svg>
           邮箱获取
         </button>
-        <button @click="showTokenGenerator = true" class="btn primary">
+        <button @click="showTokenList = true" class="btn primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
-          获取新Token
+          查看已保存Token
         </button>
 
         <!-- User mode controls -->
@@ -83,47 +83,125 @@
 
     <!-- Main Content -->
     <main class="main-content">
-      <!-- Empty State -->
-      <div v-if="tokens.length === 0 && !isLoading" class="empty-state">
-        <div class="empty-icon">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-        </div>
-        <h2>还没有保存的Token</h2>
-        <p>点击右上角的"获取新Token"按钮来添加你的第一个Token</p>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="isLoading" class="loading-state">
-        <div class="spinner"></div>
-        <p>正在加载Token...</p>
-      </div>
-
-      <!-- Token List -->
-      <div v-if="tokens.length > 0" class="token-list">
-        <div class="list-header">
-          <h2>已保存的Token ({{ tokens.length }})</h2>
-          <button @click="cleanupExpired" class="btn secondary small">
-            清理过期Token
-          </button>
+      <div class="token-generator-main">
+        <div class="generator-header">
+          <h2>生成Augment Token</h2>
+          <p>按照以下步骤获取你的Augment访问令牌</p>
         </div>
 
-        <TokenCard
-          v-for="token in tokens"
-          :key="token.id"
-          :token="token"
-          @delete="deleteToken"
-          @copy-success="showStatus"
-        />
+        <div class="generator-body">
+          <!-- Step 1: Generate Authorization URL -->
+          <div class="section">
+            <h3>步骤 1: 生成Augment授权URL</h3>
+            <button
+              @click="generateAuthUrl"
+              :class="['btn', 'primary', { loading: isGenerating }]"
+              :disabled="isGenerating"
+            >
+              生成Augment授权URL
+            </button>
+
+            <div v-if="authUrl" class="url-section">
+              <label>授权URL:</label>
+              <div class="url-container">
+                <input
+                  type="text"
+                  :value="authUrl"
+                  readonly
+                  ref="authUrlInput"
+                >
+                <button @click="copyAuthUrl" class="btn secondary">复制</button>
+              </div>
+              <div class="button-container">
+                <button @click="openAuthUrl" class="btn secondary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                  </svg>
+                  浏览器打开
+                </button>
+                <button @click="openInternalBrowser" class="btn secondary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+                  </svg>
+                  内置打开
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Enter Authorization Code -->
+          <div class="section">
+            <h3>步骤 2: 输入授权码</h3>
+            <textarea
+              v-model="authCode"
+              placeholder="在此粘贴授权码JSON..."
+              rows="4"
+            ></textarea>
+            <div class="button-container">
+              <button
+                @click="getAccessToken"
+                :class="['btn', 'primary', { loading: isGettingToken }]"
+                :disabled="!canGetToken || isGettingToken"
+              >
+                获取访问令牌
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Access Token -->
+          <div class="section" v-if="tokenResult">
+            <h3>步骤 3: Augment访问令牌</h3>
+            <div class="token-section">
+              <div class="result-container">
+                <label>访问令牌:</label>
+                <div class="token-container">
+                  <input
+                    type="text"
+                    :value="tokenResult.access_token"
+                    readonly
+                    ref="accessTokenInput"
+                  >
+                  <button @click="copyAccessToken" class="btn secondary">复制</button>
+                </div>
+              </div>
+              <div class="result-container">
+                <label>租户URL:</label>
+                <div class="token-container">
+                  <input
+                    type="text"
+                    :value="tokenResult.tenant_url"
+                    readonly
+                    ref="tenantUrlInput"
+                  >
+                  <button @click="copyTenantUrl" class="btn secondary">复制</button>
+                </div>
+              </div>
+              <div class="button-container">
+                <button @click="saveToken" class="btn success">保存Token</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div
+          v-if="statusMessage"
+          :class="['status', statusType]"
+        >
+          {{ statusMessage }}
+        </div>
       </div>
     </main>
 
-    <!-- Token Generator Modal -->
-    <TokenGenerator
-      v-if="showTokenGenerator"
-      @close="showTokenGenerator = false"
-      @token-saved="onTokenSaved"
+    <!-- Token List Modal -->
+    <TokenList
+      v-if="showTokenList"
+      :tokens="tokens"
+      :isLoading="isLoading"
+      @close="showTokenList = false"
+      @delete="deleteToken"
+      @cleanup-expired="cleanupExpired"
+      @copy-success="showStatus"
     />
 
     <!-- Email Manager Modal -->
@@ -146,16 +224,28 @@
 import { ref, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import TokenCard from './components/TokenCard.vue'
-import TokenGenerator from './components/TokenGenerator.vue'
+import TokenList from './components/TokenList.vue'
 import EmailManager from './components/EmailManager.vue'
 
 // Reactive data
 const tokens = ref([])
 const isLoading = ref(false)
-const showTokenGenerator = ref(false)
+const showTokenList = ref(false)
 const showEmailManager = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
+
+// Token generator data
+const authUrl = ref('')
+const authCode = ref('')
+const tokenResult = ref(null)
+const isGenerating = ref(false)
+const isGettingToken = ref(false)
+
+// Template refs
+const authUrlInput = ref(null)
+const accessTokenInput = ref(null)
+const tenantUrlInput = ref(null)
 
 // User state management
 const userMode = ref({ type: "Guest" })
@@ -186,6 +276,10 @@ const userAvatarUrl = computed(() => {
 
 const canAccessEmailFeatures = computed(() => {
   return isAuthenticated.value
+})
+
+const canGetToken = computed(() => {
+  return authUrl.value && authCode.value.trim().length > 0
 })
 
 // Methods
@@ -241,6 +335,108 @@ const cleanupExpired = async () => {
 const onTokenSaved = () => {
   loadTokens()
   showStatus('新Token已保存!', 'success')
+}
+
+// Token generator methods
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error)
+    return false
+  }
+}
+
+const generateAuthUrl = async () => {
+  isGenerating.value = true
+  showStatus('正在生成Augment授权URL...', 'info')
+
+  try {
+    const url = await invoke('generate_augment_auth_url')
+    authUrl.value = url
+    showStatus('Augment授权URL生成成功!', 'success')
+  } catch (error) {
+    showStatus(`错误: ${error}`, 'error')
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+const copyAuthUrl = async () => {
+  const success = await copyToClipboard(authUrl.value)
+  showStatus(
+    success ? 'URL已复制到剪贴板!' : '复制URL失败',
+    success ? 'success' : 'error'
+  )
+}
+
+const openAuthUrl = async () => {
+  try {
+    await invoke('open_url', { url: authUrl.value })
+    showStatus('正在浏览器中打开授权URL...', 'info')
+  } catch (error) {
+    showStatus(`打开URL错误: ${error}`, 'error')
+  }
+}
+
+const openInternalBrowser = async () => {
+  try {
+    await invoke('open_internal_browser', { url: authUrl.value })
+    showStatus('正在内置浏览器中打开授权URL...', 'info')
+  } catch (error) {
+    showStatus(`打开内置浏览器错误: ${error}`, 'error')
+  }
+}
+
+const getAccessToken = async () => {
+  isGettingToken.value = true
+  showStatus('正在获取访问令牌...', 'info')
+
+  try {
+    const result = await invoke('get_augment_token', { code: authCode.value })
+    tokenResult.value = result
+    showStatus('访问令牌获取成功!', 'success')
+  } catch (error) {
+    showStatus(`错误: ${error}`, 'error')
+  } finally {
+    isGettingToken.value = false
+  }
+}
+
+const copyAccessToken = async () => {
+  const success = await copyToClipboard(tokenResult.value.access_token)
+  showStatus(
+    success ? '访问令牌已复制到剪贴板!' : '复制访问令牌失败',
+    success ? 'success' : 'error'
+  )
+}
+
+const copyTenantUrl = async () => {
+  const success = await copyToClipboard(tokenResult.value.tenant_url)
+  showStatus(
+    success ? '租户URL已复制到剪贴板!' : '复制租户URL失败',
+    success ? 'success' : 'error'
+  )
+}
+
+const saveToken = async () => {
+  try {
+    const result = await invoke('save_token', {
+      tenantUrl: tokenResult.value.tenant_url,
+      accessToken: tokenResult.value.access_token
+    })
+
+    showStatus('Token保存成功!', 'success')
+    await loadTokens()
+
+    // Reset form
+    authUrl.value = ''
+    authCode.value = ''
+    tokenResult.value = null
+  } catch (error) {
+    showStatus(`保存Token失败: ${error}`, 'error')
+  }
 }
 
 // User state management methods

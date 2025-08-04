@@ -197,3 +197,146 @@ input[readonly] {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Token Generator Main Page Styles */
+.token-generator-main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.generator-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.generator-header h2 {
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.generator-header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+.generator-body {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.generator-body .section {
+    margin-bottom: 30px;
+    padding: 24px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.generator-body .section h3 {
+    color: #374151;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.url-section {
+    margin-top: 20px;
+}
+
+.url-section label {
+    display: block;
+    color: #374151;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.generator-body .url-container, .generator-body .token-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.generator-body .url-container input, .generator-body .token-container input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+.button-container {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.token-section {
+    margin-top: 20px;
+}
+
+.result-container {
+    margin-bottom: 16px;
+}
+
+.result-container label {
+    display: block;
+    color: #374151;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.generator-body textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: monospace;
+    resize: vertical;
+    background: white;
+}
+
+.generator-body textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn.success {
+    background: #10b981;
+    color: white;
+}
+
+.btn.success:hover {
+    background: #059669;
+}
+
+.generator-body .status {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.generator-body .status.success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.generator-body .status.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.generator-body .status.info {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}

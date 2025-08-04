@@ -130,22 +130,24 @@ const deleteToken = () => {
   background: white;
   border: 1px solid #e1e5e9;
   border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
+  height: fit-content;
+  min-height: 120px;
 }
 
 .token-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  border-color: #007bff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-color: #3b82f6;
+  transform: translateY(-2px);
 }
 
 .card-main {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
 }
 
 .token-info {
@@ -200,9 +202,10 @@ const deleteToken = () => {
 
 .actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
+  flex-direction: row;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: auto;
 }
 
 .btn-action {
@@ -218,8 +221,9 @@ const deleteToken = () => {
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  min-width: 70px;
+  flex: 1;
   justify-content: center;
+  min-height: 36px;
 }
 
 .btn-action:hover {
@@ -235,6 +239,55 @@ const deleteToken = () => {
 .btn-action.delete:hover {
   background: #f8d7da;
   border-color: #f5c6cb;
+}
+
+/* 响应式处理 */
+@media (max-width: 768px) {
+  .token-card {
+    padding: 16px;
+    min-height: 100px;
+  }
+
+  .card-main {
+    gap: 12px;
+  }
+
+  .tenant-name {
+    font-size: 14px;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .btn-action {
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .token-card {
+    padding: 12px;
+  }
+
+  .actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .btn-action {
+    padding: 8px;
+    font-size: 10px;
+    min-height: 28px;
+  }
+
+  .token-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 
 

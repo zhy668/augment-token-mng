@@ -1,28 +1,22 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod oauth;
 mod augment_oauth;
 mod storage;
 mod bookmarks;
-mod user;
 mod http_server;
 
-use oauth::{create_oauth_state, generate_authorize_url, complete_oauth_flow, OAuthState, LoginResult};
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, AugmentOAuthState, AugmentTokenResponse};
 use storage::{TokenManager, StoredToken};
 use bookmarks::{BookmarkManager, Bookmark};
-use user::{UserManager, UserMode, UserInfo, create_user_info_from_oauth};
 use http_server::HttpServer;
 use std::sync::Mutex;
-use tauri::{State, Manager, Emitter, WebviewWindowBuilder, WebviewUrl};
+use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 
-// Global state to store OAuth state and user state
+// Global state to store OAuth state
 struct AppState {
-    oauth_state: Mutex<Option<OAuthState>>,
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
-    user_manager: Mutex<UserManager>,
     http_server: Mutex<Option<HttpServer>>,
 }
 
@@ -50,17 +44,7 @@ async fn generate_augment_auth_url(state: State<'_, AppState>) -> Result<String,
     Ok(auth_url)
 }
 
-#[tauri::command]
-async fn generate_forum_auth_url(state: State<'_, AppState>) -> Result<String, String> {
-    let oauth_state = create_oauth_state();
-    let auth_url = generate_authorize_url(&oauth_state)
-        .map_err(|e| format!("Failed to generate forum auth URL: {}", e))?;
-    
-    // Store the OAuth state
-    *state.oauth_state.lock().unwrap() = Some(oauth_state);
-    
-    Ok(auth_url)
-}
+
 
 #[tauri::command]
 async fn get_token(code: String, state: State<'_, AppState>) -> Result<AugmentTokenResponse, String> {
@@ -99,12 +83,13 @@ async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
 async fn save_token(
     tenant_url: String,
     access_token: String,
+    portal_url: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let token_manager = TokenManager::new(&app)
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
-    token_manager.add_token(tenant_url, access_token)
+    token_manager.add_token_with_portal(tenant_url, access_token, portal_url)
         .map_err(|e| format!("Failed to save token: {}", e))
 }
 
@@ -131,16 +116,7 @@ async fn delete_token(
         .map_err(|e| format!("Failed to delete token: {}", e))
 }
 
-#[tauri::command]
-async fn cleanup_expired_tokens(
-    app: tauri::AppHandle,
-) -> Result<usize, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
-    token_manager.cleanup_expired_tokens()
-        .map_err(|e| format!("Failed to cleanup expired tokens: {}", e))
-}
 
 // Bookmark management commands
 #[tauri::command]
@@ -208,184 +184,11 @@ async fn get_all_bookmarks(
         .map_err(|e| format!("Failed to get all bookmarks: {}", e))
 }
 
-#[tauri::command]
-async fn get_user_mode(state: State<'_, AppState>) -> Result<UserMode, String> {
-    let user_manager = state.user_manager.lock().unwrap();
-    Ok(user_manager.get_current_mode().clone())
-}
 
-#[tauri::command]
-async fn set_guest_mode(state: State<'_, AppState>) -> Result<(), String> {
-    let mut user_manager = state.user_manager.lock().unwrap();
-    user_manager.set_guest_mode();
-    Ok(())
-}
 
-#[tauri::command]
-async fn set_authenticated_mode(
-    state: State<'_, AppState>,
-    user_info: UserInfo,
-) -> Result<(), String> {
-    let mut user_manager = state.user_manager.lock().unwrap();
-    user_manager.set_authenticated_mode(user_info);
-    Ok(())
-}
 
-#[tauri::command]
-async fn logout_user(state: State<'_, AppState>) -> Result<(), String> {
-    let mut user_manager = state.user_manager.lock().unwrap();
-    user_manager.logout();
-    Ok(())
-}
 
-#[tauri::command]
-async fn can_access_email_features(state: State<'_, AppState>) -> Result<bool, String> {
-    let user_manager = state.user_manager.lock().unwrap();
-    Ok(user_manager.can_access_email_features())
-}
 
-#[tauri::command]
-async fn start_forum_oauth_login(state: State<'_, AppState>) -> Result<LoginResult, String> {
-    // Create OAuth state
-    let oauth_state = create_oauth_state();
-    let auth_url = generate_authorize_url(&oauth_state)
-        .map_err(|e| format!("Failed to generate auth URL: {}", e))?;
-
-    // Store the OAuth state
-    *state.oauth_state.lock().unwrap() = Some(oauth_state.clone());
-
-    // Start HTTP server
-    let mut http_server = HttpServer::new();
-
-    // Open the authorization URL in browser
-    if let Err(e) = open::that(&auth_url) {
-        return Err(format!("Failed to open browser: {}", e));
-    }
-
-    // Wait for callback
-    let callback_result = http_server.start_and_wait_for_callback().await
-        .map_err(|e| format!("OAuth callback failed: {}", e))?;
-
-    // Complete OAuth flow
-    let login_result = complete_oauth_flow(&oauth_state, &callback_result.code, &callback_result.state)
-        .await
-        .map_err(|e| format!("Failed to complete OAuth flow: {}", e))?;
-
-    // Update user state
-    let user_info = create_user_info_from_oauth(
-        login_result.user_info.id.to_string(),
-        login_result.user_info.username.clone(),
-        login_result.user_info.avatar_template.clone(),
-        login_result.user_info.email.clone(),
-    );
-
-    {
-        let mut user_manager = state.user_manager.lock().unwrap();
-        user_manager.set_authenticated_mode(user_info);
-    }
-
-    Ok(login_result)
-}
-
-#[tauri::command]
-async fn start_forum_oauth_login_internal(
-    app: tauri::AppHandle,
-    state: State<'_, AppState>
-) -> Result<String, String> {
-    // Create OAuth state
-    let oauth_state = create_oauth_state();
-    let auth_url = generate_authorize_url(&oauth_state)
-        .map_err(|e| format!("Failed to generate auth URL: {}", e))?;
-
-    // Store the OAuth state
-    *state.oauth_state.lock().unwrap() = Some(oauth_state.clone());
-
-    // Start HTTP server in background
-    let mut http_server = HttpServer::new();
-    let server_handle = tokio::spawn(async move {
-        http_server.start_and_wait_for_callback().await
-    });
-
-    // Create internal browser window
-    let window_label = format!("oauth_browser_{}", chrono::Utc::now().timestamp());
-
-    let _window = WebviewWindowBuilder::new(
-        &app,
-        &window_label,
-        WebviewUrl::External(auth_url.parse().unwrap())
-    )
-    .title("OAuth 授权 - 论坛登录")
-    .inner_size(800.0, 700.0)
-    .center()
-    .resizable(true)
-    .build()
-    .map_err(|e| format!("Failed to create OAuth window: {}", e))?;
-
-    // Store server handle for cleanup
-    {
-        let mut http_server_guard = state.http_server.lock().unwrap();
-        *http_server_guard = Some(HttpServer::new()); // Placeholder for cleanup
-    }
-
-    // Monitor for OAuth completion in background
-    let app_handle = app.clone();
-    let window_label_clone = window_label.clone();
-
-    tokio::spawn(async move {
-        // Wait for server to complete
-        if let Ok(callback_result) = server_handle.await {
-            match callback_result {
-                Ok(callback_result) => {
-                    // Get stored OAuth state from app state
-                    let oauth_state = {
-                        let app_state: tauri::State<AppState> = app_handle.state();
-                        let guard = app_state.oauth_state.lock().unwrap();
-                        guard.clone()
-                    };
-
-                    if let Some(oauth_state) = oauth_state {
-                        // Complete OAuth flow
-                        match complete_oauth_flow(&oauth_state, &callback_result.code, &callback_result.state).await {
-                            Ok(login_result) => {
-                                // Update user state
-                                let user_info = create_user_info_from_oauth(
-                                    login_result.user_info.id.to_string(),
-                                    login_result.user_info.username.clone(),
-                                    login_result.user_info.avatar_template.clone(),
-                                    login_result.user_info.email.clone(),
-                                );
-
-                                {
-                                    let app_state: tauri::State<AppState> = app_handle.state();
-                                    let mut user_manager = app_state.user_manager.lock().unwrap();
-                                    user_manager.set_authenticated_mode(user_info);
-                                }
-
-                                // Emit success event to frontend
-                                let _ = app_handle.emit("oauth_completed", &login_result);
-
-                                // Close OAuth window
-                                if let Some(window) = app_handle.get_webview_window(&window_label_clone) {
-                                    let _ = window.close();
-                                }
-                            }
-                            Err(e) => {
-                                // Emit error event to frontend
-                                let _ = app_handle.emit("oauth_error", format!("OAuth flow failed: {}", e));
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    // Emit error event to frontend
-                    let _ = app_handle.emit("oauth_error", format!("OAuth callback failed: {}", e));
-                }
-            }
-        }
-    });
-
-    Ok(window_label)
-}
 
 #[tauri::command]
 async fn open_internal_browser(
@@ -416,6 +219,152 @@ async fn close_window(app: tauri::AppHandle, window_label: String) -> Result<(),
         window.close().map_err(|e| format!("Failed to close window: {}", e))?;
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn get_customer_info(token: String) -> Result<String, String> {
+    let url = format!("https://portal.withorb.com/api/v1/customer_from_link?token={}", token);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Accept-Charset", "utf-8")
+        .header("Connection", "keep-alive")
+        .header("Sec-Fetch-Dest", "empty")
+        .header("Sec-Fetch-Mode", "cors")
+        .header("Sec-Fetch-Site", "same-origin")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Failed to read response bytes: {}", e))?;
+
+        let response_text = String::from_utf8_lossy(&bytes).to_string();
+
+        match serde_json::from_str::<serde_json::Value>(&response_text) {
+            Ok(json_value) => {
+                match serde_json::to_string_pretty(&json_value) {
+                    Ok(formatted) => Ok(formatted),
+                    Err(_) => Ok(response_text),
+                }
+            }
+            Err(_) => Ok(response_text),
+        }
+    } else {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+        Err(format!("API request failed with status {}: {}", status, response_text))
+    }
+}
+
+#[tauri::command]
+async fn get_ledger_summary(customer_id: String, pricing_unit_id: String, token: String) -> Result<String, String> {
+    let url = format!("https://portal.withorb.com/api/v1/customers/{}/ledger_summary?pricing_unit_id={}&token={}",
+                     customer_id, pricing_unit_id, token);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Accept-Charset", "utf-8")
+        .header("Connection", "keep-alive")
+        .header("Sec-Fetch-Dest", "empty")
+        .header("Sec-Fetch-Mode", "cors")
+        .header("Sec-Fetch-Site", "same-origin")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Failed to read response bytes: {}", e))?;
+
+        let response_text = String::from_utf8_lossy(&bytes).to_string();
+
+        match serde_json::from_str::<serde_json::Value>(&response_text) {
+            Ok(json_value) => {
+                match serde_json::to_string_pretty(&json_value) {
+                    Ok(formatted) => Ok(formatted),
+                    Err(_) => Ok(response_text),
+                }
+            }
+            Err(_) => Ok(response_text),
+        }
+    } else {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+        Err(format!("API request failed with status {}: {}", status, response_text))
+    }
+}
+
+#[tauri::command]
+async fn test_api_call() -> Result<String, String> {
+    let url = "https://portal.withorb.com/api/v1/customer_from_link?token=ImRhUHFhU3ZtelpKdEJrUVci.1konHDs_4UqVUJWcxaZpKV4nQik";
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Accept-Charset", "utf-8")
+        .header("Connection", "keep-alive")
+        .header("Sec-Fetch-Dest", "empty")
+        .header("Sec-Fetch-Mode", "cors")
+        .header("Sec-Fetch-Site", "same-origin")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        // 尝试获取JSON并格式化
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Failed to read response bytes: {}", e))?;
+
+        // 确保使用UTF-8解码
+        let response_text = String::from_utf8_lossy(&bytes).to_string();
+
+        // 尝试解析并格式化JSON
+        match serde_json::from_str::<serde_json::Value>(&response_text) {
+            Ok(json_value) => {
+                // 格式化JSON输出
+                match serde_json::to_string_pretty(&json_value) {
+                    Ok(formatted) => Ok(formatted),
+                    Err(_) => Ok(response_text), // 如果格式化失败，返回原始文本
+                }
+            }
+            Err(_) => Ok(response_text), // 如果不是有效JSON，返回原始文本
+        }
+    } else {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+        Err(format!("API request failed with status {}: {}", status, response_text))
+    }
 }
 
 #[tauri::command]
@@ -464,16 +413,8 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let user_manager = UserManager::new_with_storage(app.handle())
-                .unwrap_or_else(|e| {
-                    eprintln!("Warning: Failed to initialize user manager with storage: {}", e);
-                    UserManager::new()
-                });
-
             app.manage(AppState {
-                oauth_state: Mutex::new(None),
                 augment_oauth_state: Mutex::new(None),
-                user_manager: Mutex::new(user_manager),
                 http_server: Mutex::new(None),
             });
 
@@ -482,27 +423,22 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             generate_auth_url,
             generate_augment_auth_url,
-            generate_forum_auth_url,
             get_token,
             get_augment_token,
             open_url,
             save_token,
             get_all_tokens,
             delete_token,
-            cleanup_expired_tokens,
             add_bookmark,
             update_bookmark,
             delete_bookmark,
             get_bookmarks,
             get_all_bookmarks,
+            get_customer_info,
+            get_ledger_summary,
+            test_api_call,
             open_data_folder,
-            get_user_mode,
-            set_guest_mode,
-            set_authenticated_mode,
-            logout_user,
-            can_access_email_features,
-            start_forum_oauth_login,
-            start_forum_oauth_login_internal,
+
             open_internal_browser,
             close_window
         ])

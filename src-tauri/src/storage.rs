@@ -11,6 +11,8 @@ pub struct StoredToken {
     pub tenant_url: String,
     pub access_token: String,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub portal_url: Option<String>,
 }
 
 impl StoredToken {
@@ -20,21 +22,21 @@ impl StoredToken {
             tenant_url,
             access_token,
             created_at: Utc::now(),
+            portal_url: None,
         }
     }
 
-    /// Calculate remaining days (14 days from creation)
-    pub fn remaining_days(&self) -> i64 {
-        let expiry_date = self.created_at + chrono::Duration::days(14);
-        let now = Utc::now();
-        let remaining = expiry_date - now;
-        remaining.num_days().max(0)
+    pub fn new_with_portal(tenant_url: String, access_token: String, portal_url: Option<String>) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            tenant_url,
+            access_token,
+            created_at: Utc::now(),
+            portal_url,
+        }
     }
 
-    /// Check if token is expired
-    pub fn is_expired(&self) -> bool {
-        self.remaining_days() <= 0
-    }
+
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,6 +58,14 @@ impl TokenStorage {
         id
     }
 
+    /// Add a new token with portal URL
+    pub fn add_token_with_portal(&mut self, tenant_url: String, access_token: String, portal_url: Option<String>) -> String {
+        let token = StoredToken::new_with_portal(tenant_url, access_token, portal_url);
+        let id = token.id.clone();
+        self.tokens.push(token);
+        id
+    }
+
     pub fn remove_token(&mut self, id: &str) -> bool {
         let initial_len = self.tokens.len();
         self.tokens.retain(|token| token.id != id);
@@ -64,12 +74,7 @@ impl TokenStorage {
 
 
 
-    /// Remove expired tokens
-    pub fn cleanup_expired(&mut self) -> usize {
-        let initial_len = self.tokens.len();
-        self.tokens.retain(|token| !token.is_expired());
-        initial_len - self.tokens.len()
-    }
+
 }
 
 #[derive(Clone)]
@@ -124,6 +129,13 @@ impl TokenManager {
         Ok(id)
     }
 
+    pub fn add_token_with_portal(&self, tenant_url: String, access_token: String, portal_url: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let id = storage.add_token_with_portal(tenant_url, access_token, portal_url);
+        self.save_tokens(&storage)?;
+        Ok(id)
+    }
+
     pub fn remove_token(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
         let mut storage = self.load_tokens()?;
         let removed = storage.remove_token(id);
@@ -138,12 +150,5 @@ impl TokenManager {
         Ok(storage.tokens)
     }
 
-    pub fn cleanup_expired_tokens(&self) -> Result<usize, Box<dyn std::error::Error>> {
-        let mut storage = self.load_tokens()?;
-        let removed_count = storage.cleanup_expired();
-        if removed_count > 0 {
-            self.save_tokens(&storage)?;
-        }
-        Ok(removed_count)
-    }
+
 }

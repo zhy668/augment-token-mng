@@ -1,13 +1,18 @@
 <template>
-  <div class="email-manager">
+  <div class="bookmark-manager-modal">
     <div class="modal-overlay" @click="$emit('close')">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>邮箱获取</h2>
+          <h2>书签管理</h2>
           <div class="header-actions">
             <button @click="openDataFolder" class="btn-icon info" title="打开数据存储文件夹">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+              </svg>
+            </button>
+            <button @click="showAddForm()" class="btn-icon add" title="添加书签">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
             </button>
             <button class="close-btn" @click="$emit('close')">×</button>
@@ -15,163 +20,52 @@
         </div>
         
         <div class="modal-body">
-          <!-- Tab Navigation -->
-          <div class="tab-nav">
-            <button 
-              :class="['tab-btn', { active: activeTab === 'temp' }]"
-              @click="activeTab = 'temp'"
+
+          <div class="bookmarks-grid">
+            <div
+              v-for="bookmark in allBookmarks"
+              :key="bookmark.id"
+              class="bookmark-card"
             >
-              临时邮箱
-            </button>
-            <button 
-              :class="['tab-btn', { active: activeTab === 'service' }]"
-              @click="activeTab = 'service'"
-            >
-              邮箱服务
-            </button>
+              <div class="bookmark-actions">
+                <button @click="editBookmark(bookmark)" class="btn-icon edit" title="编辑">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
+                <button @click="deleteBookmark(bookmark.id)" class="btn-icon delete" title="删除">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="bookmark-content">
+                <div class="bookmark-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                </div>
+                <div class="bookmark-name">{{ bookmark.name }}</div>
+                <div v-if="bookmark.description" class="bookmark-desc">{{ bookmark.description }}</div>
+                <div class="bookmark-buttons">
+                  <button
+                    @click="handleBookmarkAction(bookmark)"
+                    class="bookmark-open-btn"
+                    title="打开书签"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                    </svg>
+                    打开
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Tab Content -->
-          <div class="tab-content">
-            <!-- Temporary Email Tab -->
-            <div v-if="activeTab === 'temp'" class="tab-panel">
-              <div class="panel-header">
-                <h3>临时邮箱</h3>
-                <button @click="showAddForm('temp')" class="btn primary small">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  添加书签
-                </button>
-              </div>
-              
-              <div class="bookmarks-grid">
-                <div
-                  v-for="bookmark in tempBookmarks"
-                  :key="bookmark.id"
-                  class="bookmark-card"
-                >
-                  <div class="bookmark-actions">
-                    <button @click="editBookmark(bookmark)" class="btn-icon edit" title="编辑">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                      </svg>
-                    </button>
-                    <button @click="deleteBookmark(bookmark.id)" class="btn-icon delete" title="删除">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="bookmark-content">
-                    <div class="bookmark-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                    </div>
-                    <div class="bookmark-name">{{ bookmark.name }}</div>
-                    <div v-if="bookmark.description" class="bookmark-desc">{{ bookmark.description }}</div>
-                    <div class="bookmark-buttons">
-                      <button
-                        @click="openBookmark(bookmark.url)"
-                        class="btn-small primary"
-                        title="在系统浏览器中打开"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-                        </svg>
-                        外部
-                      </button>
-                      <button
-                        @click="openBookmarkInternal(bookmark.url, bookmark.name)"
-                        class="btn-small secondary"
-                        title="在内置浏览器中打开"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
-                        </svg>
-                        内置
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="tempBookmarks.length === 0" class="empty-state">
-                <p>还没有添加临时邮箱书签</p>
-                <p>点击"添加书签"来添加你常用的临时邮箱网站</p>
-              </div>
-            </div>
-
-            <!-- Email Service Tab -->
-            <div v-if="activeTab === 'service'" class="tab-panel">
-              <div class="panel-header">
-                <h3>邮箱服务</h3>
-                <button @click="showAddForm('service')" class="btn primary small">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  添加书签
-                </button>
-              </div>
-              
-              <div class="bookmarks-grid">
-                <div
-                  v-for="bookmark in serviceBookmarks"
-                  :key="bookmark.id"
-                  class="bookmark-card"
-                >
-                  <div class="bookmark-actions">
-                    <button @click="editBookmark(bookmark)" class="btn-icon edit" title="编辑">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                      </svg>
-                    </button>
-                    <button @click="deleteBookmark(bookmark.id)" class="btn-icon delete" title="删除">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="bookmark-content">
-                    <div class="bookmark-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                      </svg>
-                    </div>
-                    <div class="bookmark-name">{{ bookmark.name }}</div>
-                    <div v-if="bookmark.description" class="bookmark-desc">{{ bookmark.description }}</div>
-                    <div class="bookmark-buttons">
-                      <button
-                        @click="openBookmark(bookmark.url)"
-                        class="btn-small primary"
-                        title="在系统浏览器中打开"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-                        </svg>
-                        外部
-                      </button>
-                      <button
-                        @click="openBookmarkInternal(bookmark.url, bookmark.name)"
-                        class="btn-small secondary"
-                        title="在内置浏览器中打开"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
-                        </svg>
-                        内置
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="serviceBookmarks.length === 0" class="empty-state">
-                <p>还没有添加邮箱服务书签</p>
-                <p>点击"添加书签"来添加邮箱购买和接码网站</p>
-              </div>
-            </div>
+          <div v-if="allBookmarks.length === 0" class="empty-state">
+            <p>还没有添加书签</p>
+            <p>点击"添加书签"来添加你常用的网站</p>
           </div>
         </div>
 
@@ -224,11 +118,44 @@
         </div>
 
         <!-- Status Messages -->
-        <div 
-          v-if="statusMessage" 
+        <div
+          v-if="statusMessage"
           :class="['status', statusType]"
         >
           {{ statusMessage }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 书签打开方式选择对话框 -->
+    <div v-if="showBookmarkDialog" class="portal-dialog-overlay" @click="showBookmarkDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>选择打开方式</h3>
+        <div class="dialog-buttons">
+          <button @click="copyBookmarkUrl" class="dialog-btn copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            复制到剪贴板
+          </button>
+          <button @click="openBookmarkExternal" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            在浏览器中打开
+          </button>
+          <button @click="openBookmarkInternal" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
+            </svg>
+            内置浏览器打开
+          </button>
+          <button @click="showBookmarkDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
         </div>
       </div>
     </div>
@@ -243,14 +170,15 @@ import { invoke } from '@tauri-apps/api/core'
 const emit = defineEmits(['close'])
 
 // Reactive data
-const activeTab = ref('temp')
-const tempBookmarks = ref([])
-const serviceBookmarks = ref([])
+const allBookmarks = ref([])
 const showForm = ref(false)
 const editingBookmark = ref(null)
-const currentCategory = ref('')
 const statusMessage = ref('')
 const statusType = ref('info')
+
+// Bookmark dialog
+const showBookmarkDialog = ref(false)
+const currentBookmark = ref(null)
 
 const formData = ref({
   name: '',
@@ -275,18 +203,14 @@ const showStatus = (message, type = 'info') => {
 
 const loadBookmarks = async () => {
   try {
-    const tempResult = await invoke('get_bookmarks', { category: 'temp' })
-    const serviceResult = await invoke('get_bookmarks', { category: 'service' })
-    
-    tempBookmarks.value = tempResult || []
-    serviceBookmarks.value = serviceResult || []
+    const result = await invoke('get_all_bookmarks')
+    allBookmarks.value = result || []
   } catch (error) {
     showStatus(`加载书签失败: ${error}`, 'error')
   }
 }
 
-const showAddForm = (category) => {
-  currentCategory.value = category
+const showAddForm = () => {
   editingBookmark.value = null
   formData.value = {
     name: '',
@@ -297,7 +221,6 @@ const showAddForm = (category) => {
 }
 
 const editBookmark = (bookmark) => {
-  currentCategory.value = bookmark.category
   editingBookmark.value = bookmark
   formData.value = {
     name: bookmark.name,
@@ -319,15 +242,15 @@ const hideForm = () => {
 
 const saveBookmark = async () => {
   if (!canSave.value) return
-  
+
   try {
     const bookmarkData = {
       name: formData.value.name.trim(),
       url: formData.value.url.trim(),
       description: formData.value.description.trim(),
-      category: currentCategory.value
+      category: 'bookmark' // 统一使用bookmark类别
     }
-    
+
     if (editingBookmark.value) {
       await invoke('update_bookmark', {
         id: editingBookmark.value.id,
@@ -338,7 +261,7 @@ const saveBookmark = async () => {
       await invoke('add_bookmark', bookmarkData)
       showStatus('书签添加成功!', 'success')
     }
-    
+
     await loadBookmarks()
     hideForm()
   } catch (error) {
@@ -348,7 +271,7 @@ const saveBookmark = async () => {
 
 const deleteBookmark = async (id) => {
   if (!confirm('确定要删除这个书签吗？')) return
-  
+
   try {
     await invoke('delete_bookmark', { id })
     await loadBookmarks()
@@ -358,20 +281,44 @@ const deleteBookmark = async (id) => {
   }
 }
 
-const openBookmark = async (url) => {
+// 书签对话框相关方法
+const handleBookmarkAction = (bookmark) => {
+  currentBookmark.value = bookmark
+  showBookmarkDialog.value = true
+}
+
+const copyBookmarkUrl = async () => {
+  showBookmarkDialog.value = false
+  if (!currentBookmark.value) return
+
   try {
-    await invoke('open_url', { url })
+    await navigator.clipboard.writeText(currentBookmark.value.url)
+    showStatus('URL已复制到剪贴板!', 'success')
+  } catch (error) {
+    showStatus('复制URL失败', 'error')
+  }
+}
+
+const openBookmarkExternal = async () => {
+  showBookmarkDialog.value = false
+  if (!currentBookmark.value) return
+
+  try {
+    await invoke('open_url', { url: currentBookmark.value.url })
     showStatus('正在浏览器中打开...', 'info')
   } catch (error) {
     showStatus(`打开网址失败: ${error}`, 'error')
   }
 }
 
-const openBookmarkInternal = async (url, title) => {
+const openBookmarkInternal = async () => {
+  showBookmarkDialog.value = false
+  if (!currentBookmark.value) return
+
   try {
-    const windowLabel = await invoke('open_internal_browser', {
-      url,
-      title: title || '内置浏览器'
+    await invoke('open_internal_browser', {
+      url: currentBookmark.value.url,
+      title: currentBookmark.value.name || '内置浏览器'
     })
     showStatus('已在内置浏览器中打开', 'info')
   } catch (error) {
@@ -395,6 +342,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 外层容器样式 */
+.bookmark-manager-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
 /* 隐藏表单弹窗的滚动条 */
 .form-overlay * {
   scrollbar-width: none; /* Firefox */
@@ -406,7 +363,7 @@ onMounted(() => {
 }
 
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -415,15 +372,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  padding: 20px;
 }
 
 .modal-content {
   background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 90vh;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  height: 85vh;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: flex;
@@ -478,6 +435,16 @@ onMounted(() => {
   color: #0056b3;
 }
 
+.btn-icon.add {
+  background: #f8f9fa;
+  color: #28a745;
+}
+
+.btn-icon.add:hover {
+  background: #e9ecef;
+  color: #1e7e34;
+}
+
 .modal-body {
   flex: 1;
   overflow: hidden;
@@ -485,65 +452,12 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.tab-nav {
-  display: flex;
-  border-bottom: 1px solid #eee;
-  flex-shrink: 0;
-}
 
-.tab-btn {
-  flex: 1;
-  padding: 16px 20px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  color: #007bff;
-  border-bottom: 2px solid #007bff;
-  background: #f8f9fa;
-}
-
-.tab-btn:hover:not(.active) {
-  background: #f8f9fa;
-  color: #333;
-}
-
-.tab-content {
-  flex: 1;
-  overflow: hidden;
-}
-
-.tab-panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
-}
-
-.panel-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 18px;
-}
 
 .bookmarks-grid {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 20px 20px;
+  padding: 20px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 16px;
@@ -626,6 +540,29 @@ onMounted(() => {
   gap: 6px;
   justify-content: center;
   margin-top: 8px;
+}
+
+.bookmark-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #007bff;
+  color: white;
+  min-width: 60px;
+}
+
+.bookmark-open-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
 .btn-small {
@@ -880,24 +817,19 @@ onMounted(() => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .modal-content {
-    width: 95%;
-    max-height: 95vh;
+    margin: 10px;
+    max-width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
   }
 
   .form-content {
     width: 95%;
   }
 
-  .panel-header {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-
   .bookmarks-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 12px;
-    padding: 16px 16px 16px;
+    padding: 16px;
   }
 
   .bookmark-card {
@@ -923,5 +855,112 @@ onMounted(() => {
   .form-actions .btn {
     flex: 1;
   }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-content {
+    max-height: 95vh;
+  }
+
+  .modal-header h2 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Portal Dialog Styles */
+.portal-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.portal-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.portal-dialog h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.dialog-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.dialog-btn.copy {
+  background: #28a745;
+  color: white;
+}
+
+.dialog-btn.copy:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.dialog-btn.external {
+  background: #007bff;
+  color: white;
+}
+
+.dialog-btn.external:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.dialog-btn.internal {
+  background: #6c757d;
+  color: white;
+}
+
+.dialog-btn.internal:hover {
+  background: #545b62;
+  transform: translateY(-1px);
+}
+
+.dialog-btn.cancel {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+.dialog-btn.cancel:hover {
+  background: #e9ecef;
+  color: #495057;
 }
 </style>

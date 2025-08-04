@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Tauri OAuth App",
+        "title": "Augment Token Manager",
         "width": 800,
         "height": 700,
         "resizable": true,

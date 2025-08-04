@@ -3,81 +3,24 @@
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <h1>Token 管理器</h1>
-        <div class="user-status">
-          <span v-if="isGuest" class="status-badge guest">游客模式</span>
-          <div v-else-if="isAuthenticated" class="status-badge authenticated user-info">
-            <img
-              v-if="userAvatarUrl"
-              :src="userAvatarUrl"
-              :alt="currentUser.username"
-              class="user-avatar"
-              @error="onAvatarError"
-            />
-            <div v-else class="user-avatar-placeholder">
-              {{ currentUser.username.charAt(0).toUpperCase() }}
-            </div>
-            <span class="username">{{ currentUser.username }}</span>
-          </div>
-          <span v-else class="status-badge loading">加载中...</span>
-        </div>
+        <h1>Augment Token Manager</h1>
       </div>
       <div class="header-buttons">
         <!-- Feature buttons -->
-        <button
-          @click="showEmailManager = true"
-          :class="['btn', 'secondary', { disabled: !canAccessEmailFeatures }]"
-          :disabled="!canAccessEmailFeatures"
-          :title="canAccessEmailFeatures ? '邮箱获取' : '需要登录后使用'"
-        >
+        <button @click="showBookmarkManager = true" class="btn secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
           </svg>
-          邮箱获取
+          书签管理
         </button>
         <button @click="showTokenList = true" class="btn primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
-          查看已保存Token
+          已保存Token
         </button>
 
-        <!-- User mode controls -->
-        <div class="user-controls">
-          <button
-            v-if="isAuthenticated"
-            @click="logoutUser"
-            class="btn secondary small"
-            title="退出登录"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-            </svg>
-            退出
-          </button>
-          <div v-if="isGuest" class="login-buttons">
-            <button
-              @click="showOAuthLogin"
-              class="btn primary small login-btn"
-              title="OAuth登录（系统浏览器）"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              登录
-            </button>
-            <button
-              @click="showOAuthLoginInternal"
-              class="btn secondary small login-btn-internal"
-              title="OAuth登录（内置浏览器）"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
-              </svg>
-              内置
-            </button>
-          </div>
-        </div>
+
       </div>
     </header>
 
@@ -103,27 +46,26 @@
 
             <div v-if="authUrl" class="url-section">
               <label>授权URL:</label>
-              <div class="url-container">
+              <div class="input-with-copy">
                 <input
                   type="text"
                   :value="authUrl"
                   readonly
                   ref="authUrlInput"
+                  placeholder="点击上方按钮生成授权URL"
                 >
-                <button @click="copyAuthUrl" class="btn secondary">复制</button>
+                <button @click="copyAuthUrl" class="copy-icon-btn" title="复制URL">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
+                </button>
               </div>
               <div class="button-container">
-                <button @click="openAuthUrl" class="btn secondary">
+                <button @click="showAuthUrlDialog = true" class="btn secondary">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
                   </svg>
-                  浏览器打开
-                </button>
-                <button @click="openInternalBrowser" class="btn secondary">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
-                  </svg>
-                  内置打开
+                  打开授权URL
                 </button>
               </div>
             </div>
@@ -200,14 +142,71 @@
       :isLoading="isLoading"
       @close="showTokenList = false"
       @delete="deleteToken"
-      @cleanup-expired="cleanupExpired"
       @copy-success="showStatus"
+      @add-token="showAddTokenDialog"
+      @refresh="loadTokens"
+      @open-portal="handleOpenPortal"
+      @copy-action="handleCopyAction"
     />
 
-    <!-- Email Manager Modal -->
-    <EmailManager
-      v-if="showEmailManager"
-      @close="showEmailManager = false"
+    <!-- Portal打开方式选择对话框 -->
+    <div v-if="showPortalDialog" class="portal-dialog-overlay" @click="showPortalDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>选择打开方式</h3>
+        <div class="dialog-buttons">
+          <button @click="openPortalExternal" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            外部打开
+          </button>
+          <button @click="openPortalInternal" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            内置打开
+          </button>
+          <button @click="showPortalDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            不打开
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 复制操作选择对话框 -->
+    <div v-if="showCopyDialog" class="portal-dialog-overlay" @click="showCopyDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>选择操作方式</h3>
+        <div class="dialog-buttons">
+          <button @click="copyContentToClipboard" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            复制到剪贴板
+          </button>
+          <button @click="openInBrowser" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            在浏览器中打开
+          </button>
+          <button @click="showCopyDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bookmark Manager Modal -->
+    <BookmarkManager
+      v-if="showBookmarkManager"
+      @close="showBookmarkManager = false"
     />
 
     <!-- Status Messages -->
@@ -217,6 +216,33 @@
     >
       {{ statusMessage }}
     </div>
+
+    <!-- 授权URL打开方式选择对话框 -->
+    <div v-if="showAuthUrlDialog" class="portal-dialog-overlay" @click="showAuthUrlDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>选择打开方式</h3>
+        <div class="dialog-buttons">
+          <button @click="openAuthUrlExternal" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            外部打开
+          </button>
+          <button @click="openAuthUrlInternal" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            内置打开
+          </button>
+          <button @click="showAuthUrlDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -225,13 +251,13 @@ import { ref, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
-import EmailManager from './components/EmailManager.vue'
+import BookmarkManager from './components/BookmarkManager.vue'
 
 // Reactive data
 const tokens = ref([])
 const isLoading = ref(false)
 const showTokenList = ref(false)
-const showEmailManager = ref(false)
+const showBookmarkManager = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
 
@@ -247,36 +273,20 @@ const authUrlInput = ref(null)
 const accessTokenInput = ref(null)
 const tenantUrlInput = ref(null)
 
-// User state management
-const userMode = ref({ type: "Guest" })
-const isLoadingUserState = ref(false)
+
+
+// Portal dialog
+const showPortalDialog = ref(false)
+const currentPortalToken = ref(null)
+
+// Copy dialog
+const showCopyDialog = ref(false)
+const currentCopyAction = ref(null)
+
+// Auth URL dialog
+const showAuthUrlDialog = ref(false)
 
 // Computed properties
-const isAuthenticated = computed(() => {
-  return userMode.value && userMode.value.type === "Authenticated"
-})
-
-const isGuest = computed(() => {
-  return userMode.value && userMode.value.type === "Guest"
-})
-
-const currentUser = computed(() => {
-  if (isAuthenticated.value && userMode.value.data) {
-    return userMode.value.data.user_info
-  }
-  return null
-})
-
-const userAvatarUrl = computed(() => {
-  if (currentUser.value && currentUser.value.avatar_url) {
-    return currentUser.value.avatar_url
-  }
-  return null
-})
-
-const canAccessEmailFeatures = computed(() => {
-  return isAuthenticated.value
-})
 
 const canGetToken = computed(() => {
   return authUrl.value && authCode.value.trim().length > 0
@@ -318,19 +328,7 @@ const deleteToken = async (tokenId) => {
   }
 }
 
-const cleanupExpired = async () => {
-  try {
-    const removedCount = await invoke('cleanup_expired_tokens')
-    if (removedCount > 0) {
-      await loadTokens()
-      showStatus(`已清理 ${removedCount} 个过期Token`, 'success')
-    } else {
-      showStatus('没有过期的Token需要清理', 'info')
-    }
-  } catch (error) {
-    showStatus(`清理过期Token失败: ${error}`, 'error')
-  }
-}
+
 
 const onTokenSaved = () => {
   loadTokens()
@@ -350,12 +348,10 @@ const copyToClipboard = async (text) => {
 
 const generateAuthUrl = async () => {
   isGenerating.value = true
-  showStatus('正在生成Augment授权URL...', 'info')
 
   try {
     const url = await invoke('generate_augment_auth_url')
     authUrl.value = url
-    showStatus('Augment授权URL生成成功!', 'success')
   } catch (error) {
     showStatus(`错误: ${error}`, 'error')
   } finally {
@@ -371,23 +367,7 @@ const copyAuthUrl = async () => {
   )
 }
 
-const openAuthUrl = async () => {
-  try {
-    await invoke('open_url', { url: authUrl.value })
-    showStatus('正在浏览器中打开授权URL...', 'info')
-  } catch (error) {
-    showStatus(`打开URL错误: ${error}`, 'error')
-  }
-}
 
-const openInternalBrowser = async () => {
-  try {
-    await invoke('open_internal_browser', { url: authUrl.value })
-    showStatus('正在内置浏览器中打开授权URL...', 'info')
-  } catch (error) {
-    showStatus(`打开内置浏览器错误: ${error}`, 'error')
-  }
-}
 
 const getAccessToken = async () => {
   isGettingToken.value = true
@@ -424,7 +404,8 @@ const saveToken = async () => {
   try {
     const result = await invoke('save_token', {
       tenantUrl: tokenResult.value.tenant_url,
-      accessToken: tokenResult.value.access_token
+      accessToken: tokenResult.value.access_token,
+      portalUrl: null
     })
 
     showStatus('Token保存成功!', 'success')
@@ -439,89 +420,151 @@ const saveToken = async () => {
   }
 }
 
-// User state management methods
-const loadUserMode = async () => {
-  isLoadingUserState.value = true
-  try {
-    const mode = await invoke('get_user_mode')
-    console.log('Received user mode:', mode)
-    userMode.value = mode
-  } catch (error) {
-    console.error('Failed to load user mode:', error)
-    showStatus(`加载用户状态失败: ${error}`, 'error')
-  } finally {
-    isLoadingUserState.value = false
-  }
+
+
+
+
+
+
+const showAddTokenDialog = () => {
+  const tenantUrl = prompt('请输入租户URL:')
+  if (!tenantUrl) return
+
+  const accessToken = prompt('请输入访问令牌:')
+  if (!accessToken) return
+
+  const portalUrl = prompt('请输入Portal URL (可选，格式如: https://portal.withorb.com/view?token=xxx):')
+
+  // 调用保存Token的方法
+  saveTokenManually(tenantUrl, accessToken, portalUrl)
 }
 
-const setGuestMode = async () => {
+const saveTokenManually = async (tenantUrl, accessToken, portalUrl) => {
   try {
-    await invoke('set_guest_mode')
-    await loadUserMode()
-    showStatus('已切换到游客模式', 'info')
-  } catch (error) {
-    showStatus(`切换到游客模式失败: ${error}`, 'error')
-  }
-}
-
-const logoutUser = async () => {
-  try {
-    await invoke('logout_user')
-    await loadUserMode()
-    showStatus('已退出登录', 'info')
-  } catch (error) {
-    showStatus(`退出登录失败: ${error}`, 'error')
-  }
-}
-
-const showOAuthLogin = async () => {
-  try {
-    showStatus('正在启动OAuth登录...', 'info')
-    const loginResult = await invoke('start_forum_oauth_login')
-
-    // 登录成功，重新加载用户状态
-    await loadUserMode()
-    showStatus(`登录成功！欢迎 ${loginResult.user_info.username}`, 'success')
-  } catch (error) {
-    showStatus(`登录失败: ${error}`, 'error')
-  }
-}
-
-const showOAuthLoginInternal = async () => {
-  try {
-    showStatus('正在启动内置浏览器OAuth登录...', 'info')
-    const windowLabel = await invoke('start_forum_oauth_login_internal')
-
-    // 监听OAuth完成事件
-    const { listen } = await import('@tauri-apps/api/event')
-
-    const unlistenSuccess = await listen('oauth_completed', (event) => {
-      showStatus(`登录成功！欢迎 ${event.payload.user_info.username}`, 'success')
-      loadUserMode()
-      unlistenSuccess()
-      unlistenError()
+    const result = await invoke('save_token', {
+      tenantUrl,
+      accessToken,
+      portalUrl: portalUrl || null
     })
 
-    const unlistenError = await listen('oauth_error', (event) => {
-      showStatus(`登录失败: ${event.payload}`, 'error')
-      unlistenSuccess()
-      unlistenError()
-    })
-
+    showStatus('Token保存成功!', 'success')
+    await loadTokens()
   } catch (error) {
-    showStatus(`启动内置浏览器失败: ${error}`, 'error')
+    showStatus(`保存Token失败: ${error}`, 'error')
   }
 }
 
-const onAvatarError = (event) => {
-  // 头像加载失败时隐藏图片，显示占位符
-  event.target.style.display = 'none'
+// Portal dialog methods
+const handleOpenPortal = (token) => {
+  currentPortalToken.value = token
+  showPortalDialog.value = true
 }
+
+const openPortalExternal = async () => {
+  showPortalDialog.value = false
+  if (!currentPortalToken.value?.portal_url) return
+
+  try {
+    await invoke('open_url', { url: currentPortalToken.value.portal_url })
+  } catch (error) {
+    console.error('Failed to open portal externally:', error)
+    showStatus('打开Portal失败', 'error')
+  }
+}
+
+const openPortalInternal = async () => {
+  showPortalDialog.value = false
+  if (!currentPortalToken.value?.portal_url) return
+
+  try {
+    const displayUrl = currentPortalToken.value.tenant_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    await invoke('open_internal_browser', {
+      url: currentPortalToken.value.portal_url,
+      title: 'Portal - ' + displayUrl
+    })
+  } catch (error) {
+    console.error('Failed to open portal internally:', error)
+    showStatus('打开Portal失败', 'error')
+  }
+}
+
+// Copy dialog methods
+const handleCopyAction = (action) => {
+  currentCopyAction.value = action
+  showCopyDialog.value = true
+}
+
+const copyContentToClipboard = async () => {
+  showCopyDialog.value = false
+  if (!currentCopyAction.value) return
+
+  const { type, token } = currentCopyAction.value
+  const content = type === 'token' ? token.access_token : token.tenant_url
+  const label = type === 'token' ? 'Token' : 'URL'
+
+  try {
+    await navigator.clipboard.writeText(content)
+    showStatus(`${label}已复制到剪贴板!`, 'success')
+  } catch (error) {
+    // 备用方案
+    const textArea = document.createElement('textarea')
+    textArea.value = content
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    showStatus(`${label}已复制到剪贴板!`, 'success')
+  }
+}
+
+const openInBrowser = async () => {
+  showCopyDialog.value = false
+  if (!currentCopyAction.value) return
+
+  const { type, token } = currentCopyAction.value
+  const url = type === 'token' ? token.tenant_url : token.tenant_url
+
+  try {
+    await invoke('open_url', { url })
+  } catch (error) {
+    console.error('Failed to open URL:', error)
+    showStatus('打开浏览器失败', 'error')
+  }
+}
+
+// Auth URL dialog methods
+const openAuthUrlExternal = async () => {
+  showAuthUrlDialog.value = false
+  if (!authUrl.value) return
+
+  try {
+    await invoke('open_url', { url: authUrl.value })
+  } catch (error) {
+    console.error('Failed to open auth URL externally:', error)
+    showStatus('打开授权URL失败', 'error')
+  }
+}
+
+const openAuthUrlInternal = async () => {
+  showAuthUrlDialog.value = false
+  if (!authUrl.value) return
+
+  try {
+    await invoke('open_internal_browser', {
+      url: authUrl.value,
+      title: 'Augment OAuth 授权'
+    })
+  } catch (error) {
+    console.error('Failed to open auth URL internally:', error)
+    showStatus('打开授权URL失败', 'error')
+  }
+}
+
+
 
 // Initialize
 onMounted(() => {
   loadTokens()
-  loadUserMode()
 })
 </script>
 
@@ -583,71 +626,11 @@ html, body {
   white-space: nowrap;
 }
 
-.user-status {
-  display: flex;
-  align-items: center;
-}
 
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
 
-.status-badge.guest {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
-}
 
-.status-badge.authenticated {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px !important;
-}
 
-.user-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #c3e6cb;
-}
-
-.user-avatar-placeholder {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #28a745;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  border: 2px solid #c3e6cb;
-}
-
-.username {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.status-badge.loading {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
 
 .header-buttons {
   display: flex;
@@ -657,14 +640,7 @@ html, body {
   justify-content: flex-end;
 }
 
-.user-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-left: 12px;
-  padding-left: 12px;
-  border-left: 1px solid #e1e5e9;
-}
+
 
 .main-content {
   padding: 20px 16px;
@@ -722,29 +698,66 @@ html, body {
   align-items: center;
 }
 
-.login-btn {
-  background: linear-gradient(135deg, #007bff, #0056b3) !important;
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
-  transition: all 0.2s ease !important;
+/* 输入框样式 */
+input[type="text"] {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.login-btn:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !important;
+input[type="text"]:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
-.login-btn-internal {
-  background: linear-gradient(135deg, #6c757d, #545b62) !important;
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3) !important;
-  transition: all 0.2s ease !important;
+input[type="text"]:read-only {
+  background-color: #f8f9fa;
+  color: #6c757d;
 }
 
-.login-btn-internal:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4) !important;
+/* 带复制图标的输入框 */
+.input-with-copy {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
+
+.input-with-copy input {
+  padding-right: 45px;
+  flex: 1;
+}
+
+.copy-icon-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  color: #6c757d;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-icon-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.copy-icon-btn:active {
+  transform: scale(0.95);
+}
+
+
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -771,28 +784,7 @@ html, body {
     font-size: 12px;
   }
 
-  .user-status {
-    order: 2;
-    width: 100%;
-    justify-content: flex-start;
-    margin-top: 4px;
-  }
 
-  .status-badge {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-
-  .user-avatar,
-  .user-avatar-placeholder {
-    width: 20px;
-    height: 20px;
-    font-size: 10px;
-  }
-
-  .username {
-    font-size: 11px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -923,6 +915,97 @@ html, body {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+/* Portal对话框样式 */
+.portal-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000; /* 确保在所有其他元素之上 */
+}
+
+.portal-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.portal-dialog h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+}
+
+.dialog-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f8f9fa;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  justify-content: center;
+}
+
+.dialog-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-btn.external {
+  background: #e3f2fd;
+  color: #1976d2;
+  border-color: #90caf9;
+}
+
+.dialog-btn.external:hover {
+  background: #bbdefb;
+  border-color: #64b5f6;
+}
+
+.dialog-btn.internal {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.dialog-btn.internal:hover {
+  background: #c8e6c9;
+  border-color: #81c784;
+}
+
+.dialog-btn.cancel {
+  background: #fce4ec;
+  color: #c2185b;
+  border-color: #f8bbd9;
+}
+
+.dialog-btn.cancel:hover {
+  background: #f8bbd9;
+  border-color: #f48fb1;
 }
 
 @media (max-width: 768px) {

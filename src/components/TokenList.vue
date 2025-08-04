@@ -3,8 +3,22 @@
     <div class="modal-overlay" @click="$emit('close')">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>已保存的Token</h2>
-          <button class="close-btn" @click="$emit('close')">×</button>
+          <h2>已保存Token</h2>
+          <div class="header-actions">
+            <button @click="$emit('add-token')" class="btn primary small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              添加
+            </button>
+            <button @click="$emit('refresh')" class="btn secondary small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              刷新
+            </button>
+            <button class="close-btn" @click="$emit('close')">×</button>
+          </div>
         </div>
         
         <div class="modal-body">
@@ -29,9 +43,6 @@
           <div v-if="tokens.length > 0" class="token-list">
             <div class="list-header">
               <h3>Token列表 ({{ tokens.length }})</h3>
-              <button @click="$emit('cleanup-expired')" class="btn secondary small">
-                清理过期Token
-              </button>
             </div>
 
             <div class="token-grid">
@@ -41,6 +52,8 @@
                 :token="token"
                 @delete="$emit('delete', $event)"
                 @copy-success="$emit('copy-success', $event)"
+              @open-portal="$emit('open-portal', $event)"
+              @copy-action="$emit('copy-action', $event)"
               />
             </div>
           </div>
@@ -66,7 +79,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'cleanup-expired', 'copy-success'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'copy-action'])
 </script>
 
 <style scoped>
@@ -96,18 +109,25 @@ const emit = defineEmits(['close', 'delete', 'cleanup-expired', 'copy-success'])
   background: white;
   border-radius: 12px;
   width: 100%;
-  max-width: 800px;
-  max-height: 90vh;
+  max-width: 900px;
+  height: 85vh; /* 固定高度，更大 */
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  margin-top: -60px; /* 向上移动到红框位置 */
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px;
+  padding: 16px 24px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .modal-header h2 {
@@ -135,7 +155,7 @@ const emit = defineEmits(['close', 'delete', 'cleanup-expired', 'copy-success'])
 
 .modal-body {
   padding: 24px;
-  max-height: calc(90vh - 100px);
+  height: calc(85vh - 80px); /* 固定高度 */
   overflow-y: auto;
 }
 

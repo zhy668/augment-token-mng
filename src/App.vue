@@ -125,13 +125,7 @@
           </div>
         </div>
 
-        <!-- Status Messages -->
-        <div
-          v-if="statusMessage"
-          :class="['status', statusType]"
-        >
-          {{ statusMessage }}
-        </div>
+
       </div>
     </main>
 
@@ -146,7 +140,6 @@
       @add-token="showTokenForm"
       @refresh="loadTokens"
       @open-portal="handleOpenPortal"
-      @copy-action="handleCopyAction"
       @edit="handleEditToken"
     />
 
@@ -156,6 +149,7 @@
       :token="editingToken"
       @close="closeTokenForm"
       @success="handleTokenFormSuccess"
+      @show-status="showStatus"
     />
 
     <!-- Portal打开方式选择对话框 -->
@@ -185,32 +179,7 @@
       </div>
     </div>
 
-    <!-- 复制操作选择对话框 -->
-    <div v-if="showCopyDialog" class="portal-dialog-overlay" @click="showCopyDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>选择操作方式</h3>
-        <div class="dialog-buttons">
-          <button @click="copyContentToClipboard" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            复制到剪贴板
-          </button>
-          <button @click="openInBrowser" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            在浏览器中打开
-          </button>
-          <button @click="showCopyDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            取消
-          </button>
-        </div>
-      </div>
-    </div>
+
 
     <!-- Bookmark Manager Modal -->
     <BookmarkManager
@@ -289,9 +258,7 @@ const tenantUrlInput = ref(null)
 const showPortalDialog = ref(false)
 const currentPortalToken = ref(null)
 
-// Copy dialog
-const showCopyDialog = ref(false)
-const currentCopyAction = ref(null)
+
 
 // Auth URL dialog
 const showAuthUrlDialog = ref(false)
@@ -510,49 +477,7 @@ const openPortalInternal = async () => {
   }
 }
 
-// Copy dialog methods
-const handleCopyAction = (action) => {
-  currentCopyAction.value = action
-  showCopyDialog.value = true
-}
 
-const copyContentToClipboard = async () => {
-  showCopyDialog.value = false
-  if (!currentCopyAction.value) return
-
-  const { type, token } = currentCopyAction.value
-  const content = type === 'token' ? token.access_token : token.tenant_url
-  const label = type === 'token' ? 'Token' : 'URL'
-
-  try {
-    await navigator.clipboard.writeText(content)
-    showStatus(`${label}已复制到剪贴板!`, 'success')
-  } catch (error) {
-    // 备用方案
-    const textArea = document.createElement('textarea')
-    textArea.value = content
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-    showStatus(`${label}已复制到剪贴板!`, 'success')
-  }
-}
-
-const openInBrowser = async () => {
-  showCopyDialog.value = false
-  if (!currentCopyAction.value) return
-
-  const { type, token } = currentCopyAction.value
-  const url = type === 'token' ? token.tenant_url : token.tenant_url
-
-  try {
-    await invoke('open_url', { url })
-  } catch (error) {
-    console.error('Failed to open URL:', error)
-    showStatus('打开浏览器失败', 'error')
-  }
-}
 
 // Auth URL dialog methods
 const openAuthUrlExternal = async () => {

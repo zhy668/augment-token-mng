@@ -101,13 +101,7 @@
           </div>
         </div>
 
-        <!-- Status Messages -->
-        <div 
-          v-if="statusMessage" 
-          :class="['status', statusType]"
-        >
-          {{ statusMessage }}
-        </div>
+
       </div>
     </div>
   </div>
@@ -118,7 +112,7 @@ import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Emits
-const emit = defineEmits(['close', 'token-saved'])
+const emit = defineEmits(['close', 'token-saved', 'show-status'])
 
 // Reactive data
 const authUrl = ref('')
@@ -126,8 +120,6 @@ const authCode = ref('')
 const tokenResult = ref(null)
 const isGenerating = ref(false)
 const isGettingToken = ref(false)
-const statusMessage = ref('')
-const statusType = ref('info')
 
 // Template refs
 const authUrlInput = ref(null)
@@ -141,14 +133,7 @@ const canGetToken = computed(() => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  statusMessage.value = message
-  statusType.value = type
-  
-  if (type === 'success' || type === 'info') {
-    setTimeout(() => {
-      statusMessage.value = ''
-    }, 3000)
-  }
+  emit('show-status', message, type)
 }
 
 const copyToClipboard = async (text) => {
@@ -488,28 +473,5 @@ textarea {
   margin-top: 15px;
 }
 
-.status {
-  padding: 10px 20px;
-  margin: 0 20px 20px;
-  border-radius: 4px;
-  font-size: 14px;
-}
 
-.status.info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
-}
-
-.status.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
 </style>

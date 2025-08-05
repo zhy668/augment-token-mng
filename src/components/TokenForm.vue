@@ -60,13 +60,7 @@
           </form>
         </div>
 
-        <!-- Status Messages -->
-        <div 
-          v-if="statusMessage" 
-          :class="['status', statusType]"
-        >
-          {{ statusMessage }}
-        </div>
+
       </div>
     </div>
   </div>
@@ -85,7 +79,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'success'])
+const emit = defineEmits(['close', 'success', 'show-status'])
 
 // Reactive data
 const formData = ref({
@@ -101,8 +95,6 @@ const errors = ref({
 })
 
 const isLoading = ref(false)
-const statusMessage = ref('')
-const statusType = ref('info')
 
 // Computed properties
 const isEditing = computed(() => !!props.token)
@@ -141,12 +133,7 @@ watch(() => props.token, (newToken) => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  statusMessage.value = message
-  statusType.value = type
-
-  setTimeout(() => {
-    statusMessage.value = ''
-  }, 3000)
+  emit('show-status', message, type)
 }
 
 const validateForm = () => {
@@ -430,28 +417,5 @@ const handleCancel = () => {
   }
 }
 
-.status {
-  padding: 12px 24px;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-}
 
-.status.info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border-top: 1px solid #bee5eb;
-}
-
-.status.success {
-  background: #d4edda;
-  color: #155724;
-  border-top: 1px solid #c3e6cb;
-}
-
-.status.error {
-  background: #f8d7da;
-  color: #721c24;
-  border-top: 1px solid #f5c6cb;
-}
 </style>

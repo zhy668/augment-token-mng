@@ -25,12 +25,12 @@
       </div>
 
       <div class="actions">
-        <button @click="$emit('copy-action', { type: 'token', token })" class="btn-action" title="复制Token">
+        <button @click="copyToken" class="btn-action" title="复制Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
           </svg>
         </button>
-        <button @click="$emit('copy-action', { type: 'url', token })" class="btn-action" title="复制租户URL">
+        <button @click="copyTenantUrl" class="btn-action" title="复制租户URL">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
@@ -68,7 +68,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'copy-action', 'edit'])
+const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit'])
 
 // Reactive data
 const isLoadingPortalInfo = ref(false)
@@ -111,6 +111,43 @@ const formatDate = (dateString) => {
 const deleteToken = () => {
   if (confirm('确定要删除这个Token吗？')) {
     emit('delete', props.token.id)
+  }
+}
+
+// 复制到剪贴板的通用方法
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (error) {
+    // 备用方案
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    return true
+  }
+}
+
+// 复制Token
+const copyToken = async () => {
+  const success = await copyToClipboard(props.token.access_token)
+  if (success) {
+    emit('copy-success', 'Token已复制到剪贴板!', 'success')
+  } else {
+    emit('copy-success', '复制Token失败', 'error')
+  }
+}
+
+// 复制租户URL
+const copyTenantUrl = async () => {
+  const success = await copyToClipboard(props.token.tenant_url)
+  if (success) {
+    emit('copy-success', '租户URL已复制到剪贴板!', 'success')
+  } else {
+    emit('copy-success', '复制租户URL失败', 'error')
   }
 }
 

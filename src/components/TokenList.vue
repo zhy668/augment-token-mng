@@ -54,7 +54,6 @@
                 @delete="$emit('delete', $event)"
                 @copy-success="$emit('copy-success', $event)"
               @open-portal="$emit('open-portal', $event)"
-              @copy-action="$emit('copy-action', $event)"
               @edit="$emit('edit', $event)"
               />
             </div>
@@ -82,7 +81,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'copy-action', 'edit'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit'])
 
 // Token card refs for accessing child methods
 const tokenCardRefs = ref({})

@@ -72,6 +72,18 @@ impl TokenStorage {
         self.tokens.len() < initial_len
     }
 
+    /// Update an existing token
+    pub fn update_token(&mut self, id: &str, tenant_url: String, access_token: String, portal_url: Option<String>) -> bool {
+        if let Some(token) = self.tokens.iter_mut().find(|token| token.id == id) {
+            token.tenant_url = tenant_url;
+            token.access_token = access_token;
+            token.portal_url = portal_url;
+            true
+        } else {
+            false
+        }
+    }
+
 
 
 
@@ -148,6 +160,15 @@ impl TokenManager {
     pub fn get_all_tokens(&self) -> Result<Vec<StoredToken>, Box<dyn std::error::Error>> {
         let storage = self.load_tokens()?;
         Ok(storage.tokens)
+    }
+
+    pub fn update_token(&self, id: &str, tenant_url: String, access_token: String, portal_url: Option<String>) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let updated = storage.update_token(id, tenant_url, access_token, portal_url);
+        if updated {
+            self.save_tokens(&storage)?;
+        }
+        Ok(updated)
     }
 
 

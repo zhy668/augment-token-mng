@@ -143,10 +143,19 @@
       @close="showTokenList = false"
       @delete="deleteToken"
       @copy-success="showStatus"
-      @add-token="showAddTokenDialog"
+      @add-token="showTokenForm"
       @refresh="loadTokens"
       @open-portal="handleOpenPortal"
       @copy-action="handleCopyAction"
+      @edit="handleEditToken"
+    />
+
+    <!-- Token Form Modal -->
+    <TokenForm
+      v-if="showTokenFormModal"
+      :token="editingToken"
+      @close="closeTokenForm"
+      @success="handleTokenFormSuccess"
     />
 
     <!-- Portal打开方式选择对话框 -->
@@ -251,6 +260,7 @@ import { ref, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
+import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 
 // Reactive data
@@ -285,6 +295,10 @@ const currentCopyAction = ref(null)
 
 // Auth URL dialog
 const showAuthUrlDialog = ref(false)
+
+// Token form dialog
+const showTokenFormModal = ref(false)
+const editingToken = ref(null)
 
 // Computed properties
 
@@ -426,17 +440,25 @@ const saveToken = async () => {
 
 
 
-const showAddTokenDialog = () => {
-  const tenantUrl = prompt('请输入租户URL:')
-  if (!tenantUrl) return
+// Token form methods
+const showTokenForm = () => {
+  editingToken.value = null
+  showTokenFormModal.value = true
+}
 
-  const accessToken = prompt('请输入访问令牌:')
-  if (!accessToken) return
+const handleEditToken = (token) => {
+  editingToken.value = token
+  showTokenFormModal.value = true
+}
 
-  const portalUrl = prompt('请输入Portal URL (可选，格式如: https://portal.withorb.com/view?token=xxx):')
+const closeTokenForm = () => {
+  showTokenFormModal.value = false
+  editingToken.value = null
+}
 
-  // 调用保存Token的方法
-  saveTokenManually(tenantUrl, accessToken, portalUrl)
+const handleTokenFormSuccess = async () => {
+  await loadTokens()
+  showStatus(editingToken.value ? 'Token更新成功!' : 'Token保存成功!', 'success')
 }
 
 const saveTokenManually = async (tenantUrl, accessToken, portalUrl) => {

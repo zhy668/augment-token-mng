@@ -116,6 +116,21 @@ async fn delete_token(
         .map_err(|e| format!("Failed to delete token: {}", e))
 }
 
+#[tauri::command]
+async fn update_token(
+    id: String,
+    tenant_url: String,
+    access_token: String,
+    portal_url: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<bool, String> {
+    let token_manager = TokenManager::new(&app)
+        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
+
+    token_manager.update_token(&id, tenant_url, access_token, portal_url)
+        .map_err(|e| format!("Failed to update token: {}", e))
+}
+
 
 
 // Bookmark management commands
@@ -429,6 +444,7 @@ fn main() {
             save_token,
             get_all_tokens,
             delete_token,
+            update_token,
             add_bookmark,
             update_bookmark,
             delete_bookmark,

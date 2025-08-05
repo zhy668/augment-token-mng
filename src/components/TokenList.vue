@@ -11,7 +11,7 @@
               </svg>
               添加
             </button>
-            <button @click="$emit('refresh')" class="btn secondary small">
+            <button @click="handleRefresh" class="btn secondary small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
               </svg>
@@ -49,11 +49,13 @@
               <TokenCard
                 v-for="token in tokens"
                 :key="token.id"
+                :ref="el => setTokenCardRef(el, token.id)"
                 :token="token"
                 @delete="$emit('delete', $event)"
                 @copy-success="$emit('copy-success', $event)"
               @open-portal="$emit('open-portal', $event)"
               @copy-action="$emit('copy-action', $event)"
+              @edit="$emit('edit', $event)"
               />
             </div>
           </div>
@@ -64,6 +66,7 @@
 </template>
 
 <script setup>
+import { ref, nextTick } from 'vue'
 import TokenCard from './TokenCard.vue'
 
 // Props
@@ -79,7 +82,40 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'copy-action'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'copy-action', 'edit'])
+
+// Token card refs for accessing child methods
+const tokenCardRefs = ref({})
+
+// 设置ref的函数
+const setTokenCardRef = (el, tokenId) => {
+  if (el) {
+    tokenCardRefs.value[tokenId] = el
+  }
+}
+
+// 刷新所有Portal信息
+const refreshAllPortalInfo = async () => {
+  await nextTick() // 确保DOM已更新
+
+  Object.entries(tokenCardRefs.value).forEach(([tokenId, cardRef]) => {
+    if (cardRef && typeof cardRef.refreshPortalInfo === 'function') {
+      cardRef.refreshPortalInfo()
+    }
+  })
+}
+
+// 处理刷新事件
+const handleRefresh = async () => {
+  emit('refresh') // 先刷新token列表
+  await nextTick() // 等待DOM更新
+  refreshAllPortalInfo() // 立即刷新Portal信息
+}
+
+// 暴露方法给父组件
+defineExpose({
+  refreshAllPortalInfo
+})
 </script>
 
 <style scoped>

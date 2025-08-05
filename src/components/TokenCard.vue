@@ -29,19 +29,21 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
           </svg>
-          Token
         </button>
-        <button @click="$emit('copy-action', { type: 'url', token })" class="btn-action" title="复制URL">
+        <button @click="$emit('copy-action', { type: 'url', token })" class="btn-action" title="复制租户URL">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
-          URL
         </button>
         <button v-if="token.portal_url" @click="$emit('open-portal', token)" class="btn-action portal" title="打开Portal">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
           </svg>
-          Portal
+        </button>
+        <button @click="$emit('edit', token)" class="btn-action edit" title="编辑Token">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+          </svg>
         </button>
         <button @click="deleteToken" class="btn-action delete" title="删除Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -66,7 +68,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'copy-action'])
+const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'copy-action', 'edit'])
 
 // Reactive data
 const isLoadingPortalInfo = ref(false)
@@ -186,11 +188,23 @@ const formatExpiryDate = (dateString) => {
   }
 }
 
+// 暴露刷新Portal信息的方法
+const refreshPortalInfo = () => {
+  if (props.token.portal_url) {
+    loadPortalInfo()
+  }
+}
+
 // 组件挂载时加载Portal信息
 onMounted(() => {
   if (props.token.portal_url) {
     loadPortalInfo()
   }
+})
+
+// 暴露方法给父组件
+defineExpose({
+  refreshPortalInfo
 })
 </script>
 
@@ -310,27 +324,26 @@ onMounted(() => {
 .actions {
   display: flex;
   flex-direction: row;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
   margin-top: auto;
+  flex-wrap: wrap;
 }
 
 .btn-action {
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 8px;
   cursor: pointer;
   color: #495057;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  flex: 1;
   justify-content: center;
+  min-width: 36px;
   min-height: 36px;
+  flex-shrink: 0;
 }
 
 .btn-action:hover {
@@ -357,6 +370,15 @@ onMounted(() => {
   border-color: #90caf9;
 }
 
+.btn-action.edit {
+  color: #28a745;
+}
+
+.btn-action.edit:hover {
+  background: #d4edda;
+  border-color: #c3e6cb;
+}
+
 
 
 /* 响应式处理 */
@@ -375,13 +397,18 @@ onMounted(() => {
   }
 
   .actions {
-    gap: 6px;
+    gap: 4px;
   }
 
   .btn-action {
-    padding: 6px 8px;
-    font-size: 11px;
+    padding: 6px;
+    min-width: 32px;
     min-height: 32px;
+  }
+
+  .btn-action svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -391,14 +418,19 @@ onMounted(() => {
   }
 
   .actions {
-    flex-direction: column;
-    gap: 4px;
+    gap: 3px;
+    justify-content: center;
   }
 
   .btn-action {
-    padding: 8px;
-    font-size: 10px;
-    min-height: 28px;
+    padding: 6px;
+    min-width: 30px;
+    min-height: 30px;
+  }
+
+  .btn-action svg {
+    width: 14px;
+    height: 14px;
   }
 
   .token-meta {

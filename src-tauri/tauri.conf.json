@@ -1,7 +1,7 @@
 {
-  "productName": "Tauri OAuth App",
+  "productName": "Augment Token Manager",
   "version": "0.1.0",
-  "identifier": "com.capslockCube.tauri-oauth-app",
+  "identifier": "com.capslockCube.augment-token-manager",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",

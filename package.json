@@ -1,5 +1,5 @@
 {
-  "name": "tauri-oauth-app",
+  "name": "augment-token-manager",
   "private": true,
   "version": "0.1.0",
   "type": "module",

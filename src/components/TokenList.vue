@@ -97,18 +97,84 @@ const setTokenCardRef = (el, tokenId) => {
 const refreshAllPortalInfo = async () => {
   await nextTick() // 确保DOM已更新
 
-  Object.entries(tokenCardRefs.value).forEach(([tokenId, cardRef]) => {
-    if (cardRef && typeof cardRef.refreshPortalInfo === 'function') {
-      cardRef.refreshPortalInfo()
-    }
+  const portalTokens = Object.entries(tokenCardRefs.value).filter(([tokenId, cardRef]) => {
+    const token = props.tokens.find(t => t.id === tokenId)
+    return token && token.portal_url && cardRef && typeof cardRef.refreshPortalInfo === 'function'
   })
+
+  if (portalTokens.length === 0) {
+    return { success: true, message: '没有需要刷新的 Portal 信息' }
+  }
+
+  try {
+    // 并行刷新所有Portal信息
+    const refreshPromises = portalTokens.map(async ([tokenId, cardRef]) => {
+      try {
+        await cardRef.refreshPortalInfo()
+        return { tokenId, success: true }
+      } catch (error) {
+        console.error(`Failed to refresh portal info for token ${tokenId}:`, error)
+        return { tokenId, success: false, error: error.message }
+      }
+    })
+
+    const results = await Promise.allSettled(refreshPromises)
+
+    // 统计成功和失败的数量
+    let successCount = 0
+    let failureCount = 0
+
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value.success) {
+        successCount++
+      } else {
+        failureCount++
+      }
+    })
+
+    if (failureCount === 0) {
+      return {
+        success: true,
+        message: `Portal 信息刷新完成 (${successCount}/${portalTokens.length})`
+      }
+    } else if (successCount === 0) {
+      return {
+        success: false,
+        message: `Portal 信息刷新失败 (${failureCount}/${portalTokens.length})`
+      }
+    } else {
+      return {
+        success: true,
+        message: `Portal 信息部分刷新成功 (${successCount}/${portalTokens.length})`
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `刷新 Portal 信息时发生错误: ${error.message}`
+    }
+  }
 }
 
 // 处理刷新事件
 const handleRefresh = async () => {
-  emit('refresh') // 先刷新token列表
-  await nextTick() // 等待DOM更新
-  refreshAllPortalInfo() // 立即刷新Portal信息
+  // 显示开始刷新的通知
+  emit('copy-success', '正在刷新 Portal 信息...', 'info')
+
+  try {
+    // 先刷新token列表
+    emit('refresh')
+    await nextTick() // 等待DOM更新
+
+    // 刷新Portal信息
+    const result = await refreshAllPortalInfo()
+
+    // 显示刷新结果通知
+    emit('copy-success', result.message, result.success ? 'success' : 'error')
+  } catch (error) {
+    // 显示错误通知
+    emit('copy-success', `刷新失败: ${error.message}`, 'error')
+  }
 }
 
 // 暴露方法给父组件

@@ -290,6 +290,10 @@ const loadPortalInfo = async (forceRefresh = false) => {
     if (!props.token.portal_info) {
       portalInfo.value = { data: null, error: null }
     }
+    // 如果是强制刷新，则抛出错误以便上层处理
+    if (forceRefresh) {
+      throw error
+    }
   } finally {
     isLoadingPortalInfo.value = false
   }
@@ -390,10 +394,11 @@ const checkAccountStatus = async () => {
 }
 
 // 暴露刷新Portal信息的方法
-const refreshPortalInfo = () => {
+const refreshPortalInfo = async () => {
   if (props.token.portal_url) {
-    loadPortalInfo(true) // 强制刷新
+    return await loadPortalInfo(true) // 强制刷新
   }
+  return Promise.resolve()
 }
 
 // 组件挂载时加载Portal信息

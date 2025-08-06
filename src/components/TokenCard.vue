@@ -1,8 +1,13 @@
 <template>
   <div class="token-card">
     <!-- 状态指示器 -->
-    <div v-if="token.portal_url && portalInfo.data" class="status-indicator">
-      <span :class="['status-badge', portalInfo.data.is_active ? 'active' : 'inactive']">
+    <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
+      <!-- 账号状态优先显示 -->
+      <span v-if="token.ban_status" :class="['status-badge', token.ban_status === 'SUSPENDED' ? 'banned' : 'active']">
+        {{ token.ban_status === 'SUSPENDED' ? '已封禁' : '正常' }}
+      </span>
+      <!-- Portal状态作为备选 -->
+      <span v-else-if="token.portal_url && portalInfo.data" :class="['status-badge', portalInfo.data.is_active ? 'active' : 'inactive']">
         {{ portalInfo.data.is_active ? '正常' : '失效' }}
       </span>
     </div>
@@ -14,12 +19,14 @@
           <span class="created-date">{{ formatDate(token.created_at) }}</span>
           <!-- Portal信息直接显示在meta中 -->
           <template v-if="token.portal_url">
-            <span v-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
-            <span v-else-if="portalInfo.error" class="portal-meta error">{{ portalInfo.error }}</span>
-            <template v-else-if="portalInfo.data">
+            <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
+            <template v-if="portalInfo.data">
               <span class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
               <span class="portal-meta balance">剩余: {{ portalInfo.data.credits_balance }}</span>
             </template>
+            <!-- 如果没有数据且正在加载，显示加载状态 -->
+            <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
+            <!-- 不显示错误信息，静默处理所有错误 -->
           </template>
         </div>
       </div>
@@ -34,6 +41,12 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
+        </button>
+        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" title="检测账号状态">
+          <svg v-if="!isCheckingStatus" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          <div v-else class="loading-spinner"></div>
         </button>
         <button v-if="token.portal_url" @click="$emit('open-portal', token)" class="btn-action portal" title="打开Portal">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -73,6 +86,7 @@ const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit'])
 // Reactive data
 const isLoadingPortalInfo = ref(false)
 const portalInfo = ref({ data: null, error: null })
+const isCheckingStatus = ref(false)
 
 // Computed properties
 const displayUrl = computed(() => {
@@ -162,50 +176,120 @@ const extractTokenFromPortalUrl = (portalUrl) => {
   }
 }
 
-const loadPortalInfo = async () => {
-  if (!props.token.portal_url) return
+const loadPortalInfo = async (forceRefresh = false) => {
+  console.log('loadPortalInfo called with forceRefresh:', forceRefresh)
+  console.log('token.portal_url:', props.token.portal_url)
+  console.log('token.portal_info:', props.token.portal_info)
+
+  if (!props.token.portal_url) {
+    console.log('No portal_url, returning')
+    return
+  }
 
   const token = extractTokenFromPortalUrl(props.token.portal_url)
+  console.log('Extracted token:', token ? 'found' : 'not found')
   if (!token) return
 
+  // 优先显示本地存储的Portal信息
+  if (!forceRefresh && props.token.portal_info) {
+    console.log('Using cached portal info')
+    portalInfo.value = {
+      data: {
+        credits_balance: props.token.portal_info.credits_balance,
+        expiry_date: props.token.portal_info.expiry_date,
+        is_active: props.token.portal_info.is_active
+      },
+      error: null
+    }
+  } else if (!props.token.portal_info) {
+    // 如果没有本地数据，先清空错误状态
+    console.log('No cached data, clearing error state')
+    portalInfo.value = { data: null, error: null }
+  }
+
+  // 在后台获取最新信息
+  console.log('Starting background fetch')
   isLoadingPortalInfo.value = true
-  portalInfo.value = { data: null, error: null }
 
   try {
     // 首先获取customer信息
+    console.log('Calling get_customer_info...')
     const customerResponse = await invoke('get_customer_info', { token })
+    console.log('Customer response received:', customerResponse)
     const customerData = JSON.parse(customerResponse)
+    console.log('Customer data parsed:', customerData)
 
     if (customerData.customer && customerData.customer.ledger_pricing_units && customerData.customer.ledger_pricing_units.length > 0) {
       const customerId = customerData.customer.id
       const pricingUnitId = customerData.customer.ledger_pricing_units[0].id
+      console.log('Customer ID:', customerId, 'Pricing Unit ID:', pricingUnitId)
 
       // 获取ledger summary
+      console.log('Calling get_ledger_summary...')
       const ledgerResponse = await invoke('get_ledger_summary', {
         customerId,
         pricingUnitId,
         token
       })
+      console.log('Ledger response received:', ledgerResponse)
       const ledgerData = JSON.parse(ledgerResponse)
+      console.log('Ledger data parsed:', ledgerData)
 
       if (ledgerData.credit_blocks && ledgerData.credit_blocks.length > 0) {
+        console.log('Credit blocks found:', ledgerData.credit_blocks.length)
+        const newPortalData = {
+          credits_balance: parseInt(ledgerData.credits_balance) || 0,
+          expiry_date: ledgerData.credit_blocks[0].expiry_date,
+          is_active: ledgerData.credit_blocks[0].is_active
+        }
+        console.log('New portal data:', newPortalData)
+
+        // 更新UI显示
         portalInfo.value = {
-          data: {
-            credits_balance: ledgerData.credits_balance,
-            expiry_date: ledgerData.credit_blocks[0].expiry_date,
-            is_active: ledgerData.credit_blocks[0].is_active
-          },
+          data: newPortalData,
           error: null
         }
+        console.log('UI updated with portal data')
+
+        // 保存到本地存储
+        try {
+          const saveResult = await invoke('update_token_portal_info', {
+            id: props.token.id,
+            creditsBalance: parseInt(ledgerData.credits_balance) || 0,
+            expiryDate: ledgerData.credit_blocks[0].expiry_date,
+            isActive: ledgerData.credit_blocks[0].is_active
+          })
+          console.log('Portal info saved successfully:', saveResult)
+        } catch (saveError) {
+          console.error('Failed to save portal info:', saveError)
+        }
+
+        // 更新本地token对象
+        props.token.portal_info = {
+          credits_balance: parseInt(ledgerData.credits_balance) || 0,
+          expiry_date: ledgerData.credit_blocks[0].expiry_date,
+          is_active: ledgerData.credit_blocks[0].is_active,
+          last_updated: new Date().toISOString()
+        }
+        console.log('Updated token portal_info:', props.token.portal_info)
       } else {
-        portalInfo.value = { data: null, error: '无可用信用额度' }
+        // 如果没有本地数据，静默处理，不显示错误信息
+        if (!props.token.portal_info) {
+          portalInfo.value = { data: null, error: null }
+        }
       }
     } else {
-      portalInfo.value = { data: null, error: '无定价单元信息' }
+      // 如果没有本地数据，静默处理，不显示错误信息
+      if (!props.token.portal_info) {
+        portalInfo.value = { data: null, error: null }
+      }
     }
   } catch (error) {
-    portalInfo.value = { data: null, error: '加载失败' }
     console.error('Failed to load portal info:', error)
+    // 无论是否有本地数据，都不显示错误信息，静默处理
+    if (!props.token.portal_info) {
+      portalInfo.value = { data: null, error: null }
+    }
   } finally {
     isLoadingPortalInfo.value = false
   }
@@ -225,17 +309,109 @@ const formatExpiryDate = (dateString) => {
   }
 }
 
+// 检测账号状态
+const checkAccountStatus = async () => {
+  console.log('checkAccountStatus called')
+  if (isCheckingStatus.value) return
+
+  isCheckingStatus.value = true
+
+  try {
+    // 并行执行两个操作：账号状态检测和Portal信息获取
+    const promises = []
+
+    // 1. 账号状态检测
+    console.log('Adding account status check promise')
+    const statusCheckPromise = invoke('check_account_status', {
+      token: props.token.access_token,
+      tenantUrl: props.token.tenant_url
+    })
+    promises.push(statusCheckPromise)
+
+    // 2. Portal信息获取（如果有portal_url）
+    let portalInfoPromise = null
+    if (props.token.portal_url) {
+      console.log('Adding portal info promise')
+      portalInfoPromise = loadPortalInfo(true) // 强制刷新
+      promises.push(portalInfoPromise)
+    } else {
+      console.log('No portal_url, skipping portal info fetch')
+    }
+
+    // 等待所有操作完成
+    const results = await Promise.allSettled(promises)
+
+    // 处理账号状态检测结果
+    const statusResult = results[0]
+    let statusMessage = ''
+    let statusType = 'info'
+
+    if (statusResult.status === 'fulfilled') {
+      const result = statusResult.value
+      // 更新token的ban_status
+      const banStatus = result.is_banned ? 'SUSPENDED' : 'ACTIVE'
+      await invoke('update_token_ban_status', {
+        id: props.token.id,
+        banStatus: banStatus
+      })
+
+      // 更新本地token对象
+      props.token.ban_status = banStatus
+
+      statusMessage = result.is_banned ? '账号已封禁' : '账号状态正常'
+      statusType = result.is_banned ? 'error' : 'success'
+    } else {
+      console.error('Account status check failed:', statusResult.reason)
+      statusMessage = `状态检测失败: ${statusResult.reason}`
+      statusType = 'error'
+    }
+
+    // 处理Portal信息获取结果（静默更新，不在通知中显示）
+    if (portalInfoPromise && results.length > 1) {
+      const portalResult = results[1]
+      if (portalResult.status === 'rejected') {
+        console.error('Portal info fetch failed:', portalResult.reason)
+        // 如果有本地数据，继续显示本地数据，不显示错误
+      }
+      // loadPortalInfo方法已经处理了成功和失败的情况
+    }
+
+    // 发送账号状态消息（不包含次数信息）
+    const finalMessage = `检测完成：${statusMessage}`
+    emit('copy-success', finalMessage, statusType)
+
+  } catch (error) {
+    console.error('Account status check failed:', error)
+    emit('copy-success', `检测失败: ${error}`, 'error')
+  } finally {
+    isCheckingStatus.value = false
+    isLoadingPortalInfo.value = false
+  }
+}
+
 // 暴露刷新Portal信息的方法
 const refreshPortalInfo = () => {
   if (props.token.portal_url) {
-    loadPortalInfo()
+    loadPortalInfo(true) // 强制刷新
   }
 }
 
 // 组件挂载时加载Portal信息
 onMounted(() => {
   if (props.token.portal_url) {
-    loadPortalInfo()
+    // 如果有本地数据，立即显示
+    if (props.token.portal_info) {
+      portalInfo.value = {
+        data: {
+          credits_balance: props.token.portal_info.credits_balance,
+          expiry_date: props.token.portal_info.expiry_date,
+          is_active: props.token.portal_info.is_active
+        },
+        error: null
+      }
+    }
+    // 然后在后台刷新数据
+    loadPortalInfo(false)
   }
 })
 
@@ -281,6 +457,12 @@ defineExpose({
 }
 
 .status-badge.inactive {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-badge.banned {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
@@ -414,6 +596,35 @@ defineExpose({
 .btn-action.edit:hover {
   background: #d4edda;
   border-color: #c3e6cb;
+}
+
+.btn-action.status-check {
+  color: #ffc107;
+}
+
+.btn-action.status-check:hover {
+  background: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+.btn-action.status-check.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 

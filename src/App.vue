@@ -19,8 +19,6 @@
           </svg>
           已保存Token
         </button>
-
-
       </div>
     </header>
 
@@ -157,6 +155,12 @@
       <div class="portal-dialog" @click.stop>
         <h3>选择打开方式</h3>
         <div class="dialog-buttons">
+          <button @click="copyPortalUrl" class="dialog-btn copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            复制链接
+          </button>
           <button @click="openPortalExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
@@ -178,6 +182,8 @@
         </div>
       </div>
     </div>
+
+
 
 
 
@@ -449,6 +455,17 @@ const handleOpenPortal = (token) => {
   showPortalDialog.value = true
 }
 
+const copyPortalUrl = async () => {
+  showPortalDialog.value = false
+  if (!currentPortalToken.value?.portal_url) return
+
+  const success = await copyToClipboard(currentPortalToken.value.portal_url)
+  showStatus(
+    success ? 'Portal链接已复制到剪贴板!' : '复制Portal链接失败',
+    success ? 'success' : 'error'
+  )
+}
+
 const openPortalExternal = async () => {
   showPortalDialog.value = false
   if (!currentPortalToken.value?.portal_url) return
@@ -627,6 +644,15 @@ html, body {
   background: #545b62;
 }
 
+.btn.warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn.warning:hover {
+  background: #e0a800;
+}
+
 .btn.small {
   padding: 6px 12px;
   font-size: 12px;
@@ -730,8 +756,67 @@ input[type="text"]:read-only {
     padding: 6px 10px;
     font-size: 12px;
   }
+}
 
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
 
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
 }
 
 @media (max-width: 480px) {

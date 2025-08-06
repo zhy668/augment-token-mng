@@ -31,6 +31,39 @@ pub struct AugmentTokenResponse {
     pub tenant_url: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccountStatus {
+    pub is_banned: bool,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub response_code: Option<u16>,
+    // 调试信息
+    pub debug_info: DebugInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DebugInfo {
+    pub request_url: String,
+    pub request_headers: std::collections::HashMap<String, String>,
+    pub request_body: String,
+    pub response_headers: std::collections::HashMap<String, String>,
+    pub response_body: String,
+    pub response_status_text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub response_text: String,
+    pub request_message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChatRequest {
+    pub chat_history: Vec<ChatMessage>,
+    pub message: String,
+    pub mode: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct TokenApiResponse {
     access_token: String,
@@ -130,15 +163,138 @@ pub async fn complete_augment_oauth_flow(
     code_input: &str,
 ) -> Result<AugmentTokenResponse, Box<dyn std::error::Error>> {
     let parsed_code = parse_code(code_input)?;
-    
+
     let token = get_augment_access_token(
         &parsed_code.tenant_url,
         &oauth_state.code_verifier,
         &parsed_code.code,
     ).await?;
-    
+
     Ok(AugmentTokenResponse {
         access_token: token,
         tenant_url: parsed_code.tenant_url,
     })
-} 
+}
+
+/// Check account ban status by testing chat-stream API
+pub async fn check_account_ban_status(
+    token: &str,
+    tenant_url: &str,
+) -> Result<AccountStatus, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+
+    // Prepare test chat request
+    let chat_request = ChatRequest {
+        chat_history: vec![ChatMessage {
+            response_text: "你好 Cube! 我是 Augment，很高兴为你提供帮助。".to_string(),
+            request_message: "你好，我是Cube".to_string(),
+        }],
+        message: "我叫什么名字".to_string(),
+        mode: "CHAT".to_string(),
+    };
+
+    // Ensure tenant_url ends with a slash
+    let base_url = if tenant_url.ends_with('/') {
+        tenant_url.to_string()
+    } else {
+        format!("{}/", tenant_url)
+    };
+
+    let chat_url = format!("{}chat-stream", base_url);
+
+    // Serialize request body for debugging
+    let request_body = serde_json::to_string_pretty(&chat_request)?;
+
+    // Prepare request headers for debugging
+    let mut request_headers = HashMap::new();
+    request_headers.insert("Content-Type".to_string(), "application/json".to_string());
+    request_headers.insert("Authorization".to_string(), format!("Bearer {}", token));
+
+    // Print debug info to console
+    println!("=== API Request Debug Info ===");
+    println!("URL: {}", chat_url);
+    println!("Method: POST");
+    println!("Headers: {:#?}", request_headers);
+    println!("Request Body: {}", request_body);
+    println!("==============================");
+
+    // Send request to chat-stream API
+    let response = client
+        .post(&chat_url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", &format!("Bearer {}", token))
+        .json(&chat_request)
+        .send()
+        .await?;
+
+    let status_code = response.status().as_u16();
+    let status_text = response.status().to_string();
+
+    // Collect response headers
+    let mut response_headers = HashMap::new();
+    for (name, value) in response.headers() {
+        response_headers.insert(
+            name.to_string(),
+            value.to_str().unwrap_or("<invalid utf8>").to_string(),
+        );
+    }
+
+    // Print response debug info
+    println!("=== API Response Debug Info ===");
+    println!("Status Code: {} ({})", status_code, status_text);
+    println!("Response Headers: {:#?}", response_headers);
+
+    // Read response body
+    let response_body = response.text().await?;
+    println!("Response Body: {}", response_body);
+    println!("===============================");
+
+    // Create debug info
+    let debug_info = DebugInfo {
+        request_url: chat_url,
+        request_headers,
+        request_body,
+        response_headers,
+        response_body: response_body.clone(),
+        response_status_text: status_text,
+    };
+
+    // Analyze response to determine ban status
+    if (200..300).contains(&status_code) {
+        // Check for "suspended" string in response body
+        if response_body.contains("suspended") {
+            Ok(AccountStatus {
+                is_banned: true,
+                status: "SUSPENDED".to_string(),
+                error_message: Some("Account is suspended based on response content".to_string()),
+                response_code: Some(status_code),
+                debug_info,
+            })
+        } else {
+            Ok(AccountStatus {
+                is_banned: false,
+                status: "ACTIVE".to_string(),
+                error_message: None,
+                response_code: Some(status_code),
+                debug_info,
+            })
+        }
+    } else {
+        // Handle different error status codes
+        let (is_banned, status, error_message) = match status_code {
+            401 => (true, "UNAUTHORIZED", "Token is invalid or account is banned"),
+            403 => (true, "FORBIDDEN", "Access forbidden - account may be banned"),
+            429 => (false, "RATE_LIMITED", "Rate limited - account is active but throttled"),
+            500..=599 => (false, "SERVER_ERROR", "Server error - cannot determine ban status"),
+            _ => (true, "UNKNOWN_ERROR", "Unknown error - possible ban"),
+        };
+
+        Ok(AccountStatus {
+            is_banned,
+            status: status.to_string(),
+            error_message: Some(format!("{}: {}", error_message, response_body)),
+            response_code: Some(status_code),
+            debug_info,
+        })
+    }
+}

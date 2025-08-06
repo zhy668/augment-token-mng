@@ -6,8 +6,8 @@ mod storage;
 mod bookmarks;
 mod http_server;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, AugmentOAuthState, AugmentTokenResponse};
-use storage::{TokenManager, StoredToken};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
+use storage::{TokenManager, StoredToken, PortalInfo};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use std::sync::Mutex;
@@ -73,6 +73,13 @@ async fn get_augment_token(code: String, state: State<'_, AppState>) -> Result<A
 }
 
 #[tauri::command]
+async fn check_account_status(token: String, tenant_url: String) -> Result<AccountStatus, String> {
+    check_account_ban_status(&token, &tenant_url)
+        .await
+        .map_err(|e| format!("Failed to check account status: {}", e))
+}
+
+#[tauri::command]
 async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     app.opener().open_url(url, None::<&str>)
@@ -129,6 +136,50 @@ async fn update_token(
 
     token_manager.update_token(&id, tenant_url, access_token, portal_url)
         .map_err(|e| format!("Failed to update token: {}", e))
+}
+
+#[tauri::command]
+async fn update_token_ban_status(
+    id: String,
+    ban_status: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<bool, String> {
+    let token_manager = TokenManager::new(&app)
+        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
+
+    token_manager.update_token_ban_status(&id, ban_status)
+        .map_err(|e| format!("Failed to update token ban status: {}", e))
+}
+
+#[tauri::command]
+async fn update_token_portal_info(
+    id: String,
+    credits_balance: i64,
+    expiry_date: String,
+    is_active: bool,
+    app: tauri::AppHandle,
+) -> Result<bool, String> {
+    println!("update_token_portal_info called with:");
+    println!("  id: {}", id);
+    println!("  credits_balance: {}", credits_balance);
+    println!("  expiry_date: {}", expiry_date);
+    println!("  is_active: {}", is_active);
+
+    let token_manager = TokenManager::new(&app)
+        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
+
+    let portal_info = PortalInfo {
+        credits_balance,
+        expiry_date,
+        is_active,
+        last_updated: chrono::Utc::now(),
+    };
+
+    let result = token_manager.update_token_portal_info(&id, Some(portal_info))
+        .map_err(|e| format!("Failed to update token portal info: {}", e))?;
+
+    println!("Portal info update result: {}", result);
+    Ok(result)
 }
 
 
@@ -440,11 +491,14 @@ fn main() {
             generate_augment_auth_url,
             get_token,
             get_augment_token,
+            check_account_status,
             open_url,
             save_token,
             get_all_tokens,
             delete_token,
             update_token,
+            update_token_ban_status,
+            update_token_portal_info,
             add_bookmark,
             update_bookmark,
             delete_bookmark,

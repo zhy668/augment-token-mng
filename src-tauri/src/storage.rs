@@ -6,6 +6,14 @@ use uuid::Uuid;
 use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortalInfo {
+    pub credits_balance: i64,
+    pub expiry_date: String,
+    pub is_active: bool,
+    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredToken {
     pub id: String,
     pub tenant_url: String,
@@ -13,6 +21,10 @@ pub struct StoredToken {
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub portal_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ban_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub portal_info: Option<PortalInfo>,
 }
 
 impl StoredToken {
@@ -23,6 +35,8 @@ impl StoredToken {
             access_token,
             created_at: Utc::now(),
             portal_url: None,
+            ban_status: None,
+            portal_info: None,
         }
     }
 
@@ -33,10 +47,10 @@ impl StoredToken {
             access_token,
             created_at: Utc::now(),
             portal_url,
+            ban_status: None,
+            portal_info: None,
         }
     }
-
-
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,9 +98,25 @@ impl TokenStorage {
         }
     }
 
+    /// Update token ban status
+    pub fn update_token_ban_status(&mut self, id: &str, ban_status: Option<String>) -> bool {
+        if let Some(token) = self.tokens.iter_mut().find(|token| token.id == id) {
+            token.ban_status = ban_status;
+            true
+        } else {
+            false
+        }
+    }
 
-
-
+    /// Update token portal info
+    pub fn update_token_portal_info(&mut self, id: &str, portal_info: Option<PortalInfo>) -> bool {
+        if let Some(token) = self.tokens.iter_mut().find(|token| token.id == id) {
+            token.portal_info = portal_info;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -171,5 +201,21 @@ impl TokenManager {
         Ok(updated)
     }
 
+    pub fn update_token_ban_status(&self, id: &str, ban_status: Option<String>) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let updated = storage.update_token_ban_status(id, ban_status);
+        if updated {
+            self.save_tokens(&storage)?;
+        }
+        Ok(updated)
+    }
 
+    pub fn update_token_portal_info(&self, id: &str, portal_info: Option<PortalInfo>) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let updated = storage.update_token_portal_info(id, portal_info);
+        if updated {
+            self.save_tokens(&storage)?;
+        }
+        Ok(updated)
+    }
 }

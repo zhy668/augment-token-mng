@@ -94,6 +94,29 @@
                   <button @click="copyTenantUrl" class="btn secondary">复制</button>
                 </div>
               </div>
+
+              <!-- Additional Fields -->
+              <div class="additional-fields">
+                <div class="field-container">
+                  <label>Portal URL:</label>
+                  <input
+                    type="text"
+                    v-model="portalUrl"
+                    placeholder="请输入 Portal 地址（可选）"
+                    class="field-input"
+                  >
+                </div>
+                <div class="field-container">
+                  <label>邮箱备注:</label>
+                  <input
+                    type="text"
+                    v-model="emailNote"
+                    placeholder="请输入邮箱相关备注（可选）"
+                    class="field-input"
+                  >
+                </div>
+              </div>
+
               <div class="button-container">
                 <button @click="saveAndClose" class="btn success">保存并关闭</button>
               </div>
@@ -120,6 +143,8 @@ const authCode = ref('')
 const tokenResult = ref(null)
 const isGenerating = ref(false)
 const isGettingToken = ref(false)
+const portalUrl = ref('')
+const emailNote = ref('')
 
 // Template refs
 const authUrlInput = ref(null)
@@ -236,7 +261,9 @@ const saveAndClose = async () => {
   try {
     await invoke('save_token', {
       tenantUrl: tokenResult.value.tenant_url,
-      accessToken: tokenResult.value.access_token
+      accessToken: tokenResult.value.access_token,
+      portalUrl: portalUrl.value.trim() || null,
+      emailNote: emailNote.value.trim() || null
     })
     showStatus('Token保存成功!', 'success')
     emit('token-saved')
@@ -467,6 +494,43 @@ textarea {
   font-family: monospace;
   font-size: 12px;
   resize: vertical;
+}
+
+.additional-fields {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e5e9;
+}
+
+.field-container {
+  margin-bottom: 15px;
+}
+
+.field-container label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.field-input::placeholder {
+  color: #9ca3af;
 }
 
 .button-container {

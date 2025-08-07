@@ -25,6 +25,8 @@ pub struct StoredToken {
     pub ban_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub portal_info: Option<PortalInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_note: Option<String>,
 }
 
 impl StoredToken {
@@ -37,6 +39,7 @@ impl StoredToken {
             portal_url: None,
             ban_status: None,
             portal_info: None,
+            email_note: None,
         }
     }
 
@@ -49,6 +52,20 @@ impl StoredToken {
             portal_url,
             ban_status: None,
             portal_info: None,
+            email_note: None,
+        }
+    }
+
+    pub fn new_with_details(tenant_url: String, access_token: String, portal_url: Option<String>, email_note: Option<String>) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            tenant_url,
+            access_token,
+            created_at: Utc::now(),
+            portal_url,
+            ban_status: None,
+            portal_info: None,
+            email_note,
         }
     }
 }
@@ -80,6 +97,14 @@ impl TokenStorage {
         id
     }
 
+    /// Add a new token with all details
+    pub fn add_token_with_details(&mut self, tenant_url: String, access_token: String, portal_url: Option<String>, email_note: Option<String>) -> String {
+        let token = StoredToken::new_with_details(tenant_url, access_token, portal_url, email_note);
+        let id = token.id.clone();
+        self.tokens.push(token);
+        id
+    }
+
     pub fn remove_token(&mut self, id: &str) -> bool {
         let initial_len = self.tokens.len();
         self.tokens.retain(|token| token.id != id);
@@ -92,6 +117,19 @@ impl TokenStorage {
             token.tenant_url = tenant_url;
             token.access_token = access_token;
             token.portal_url = portal_url;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Update an existing token with all details
+    pub fn update_token_with_details(&mut self, id: &str, tenant_url: String, access_token: String, portal_url: Option<String>, email_note: Option<String>) -> bool {
+        if let Some(token) = self.tokens.iter_mut().find(|token| token.id == id) {
+            token.tenant_url = tenant_url;
+            token.access_token = access_token;
+            token.portal_url = portal_url;
+            token.email_note = email_note;
             true
         } else {
             false
@@ -178,6 +216,13 @@ impl TokenManager {
         Ok(id)
     }
 
+    pub fn add_token_with_details(&self, tenant_url: String, access_token: String, portal_url: Option<String>, email_note: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let id = storage.add_token_with_details(tenant_url, access_token, portal_url, email_note);
+        self.save_tokens(&storage)?;
+        Ok(id)
+    }
+
     pub fn remove_token(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
         let mut storage = self.load_tokens()?;
         let removed = storage.remove_token(id);
@@ -195,6 +240,15 @@ impl TokenManager {
     pub fn update_token(&self, id: &str, tenant_url: String, access_token: String, portal_url: Option<String>) -> Result<bool, Box<dyn std::error::Error>> {
         let mut storage = self.load_tokens()?;
         let updated = storage.update_token(id, tenant_url, access_token, portal_url);
+        if updated {
+            self.save_tokens(&storage)?;
+        }
+        Ok(updated)
+    }
+
+    pub fn update_token_with_details(&self, id: &str, tenant_url: String, access_token: String, portal_url: Option<String>, email_note: Option<String>) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut storage = self.load_tokens()?;
+        let updated = storage.update_token_with_details(id, tenant_url, access_token, portal_url, email_note);
         if updated {
             self.save_tokens(&storage)?;
         }

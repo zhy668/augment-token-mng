@@ -307,8 +307,7 @@ defineExpose({
 }
 
 .token-list {
-  max-height: 600px;
-  overflow-y: auto;
+  /* 移除内部滚动，使用外层 modal-body 的滚动 */
 }
 
 .token-grid {

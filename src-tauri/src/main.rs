@@ -91,12 +91,13 @@ async fn save_token(
     tenant_url: String,
     access_token: String,
     portal_url: Option<String>,
+    email_note: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let token_manager = TokenManager::new(&app)
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
-    token_manager.add_token_with_portal(tenant_url, access_token, portal_url)
+    token_manager.add_token_with_details(tenant_url, access_token, portal_url, email_note)
         .map_err(|e| format!("Failed to save token: {}", e))
 }
 
@@ -129,12 +130,13 @@ async fn update_token(
     tenant_url: String,
     access_token: String,
     portal_url: Option<String>,
+    email_note: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<bool, String> {
     let token_manager = TokenManager::new(&app)
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
-    token_manager.update_token(&id, tenant_url, access_token, portal_url)
+    token_manager.update_token_with_details(&id, tenant_url, access_token, portal_url, email_note)
         .map_err(|e| format!("Failed to update token: {}", e))
 }
 

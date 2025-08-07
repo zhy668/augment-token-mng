@@ -48,6 +48,19 @@
               <div v-if="errors.portalUrl" class="error-message">{{ errors.portalUrl }}</div>
             </div>
 
+            <div class="form-group">
+              <label for="emailNote">邮箱备注 (可选)</label>
+              <input
+                id="emailNote"
+                v-model="formData.emailNote"
+                type="text"
+                placeholder="请输入邮箱相关备注"
+                :disabled="isLoading"
+              >
+              <div class="help-text">用于记录与此Token相关的邮箱信息</div>
+              <div v-if="errors.emailNote" class="error-message">{{ errors.emailNote }}</div>
+            </div>
+
             <div class="form-actions">
               <button type="button" @click="handleCancel" class="btn secondary" :disabled="isLoading">
                 取消
@@ -85,13 +98,15 @@ const emit = defineEmits(['close', 'success', 'show-status'])
 const formData = ref({
   tenantUrl: '',
   accessToken: '',
-  portalUrl: ''
+  portalUrl: '',
+  emailNote: ''
 })
 
 const errors = ref({
   tenantUrl: '',
   accessToken: '',
-  portalUrl: ''
+  portalUrl: '',
+  emailNote: ''
 })
 
 const isLoading = ref(false)
@@ -100,11 +115,12 @@ const isLoading = ref(false)
 const isEditing = computed(() => !!props.token)
 
 const isFormValid = computed(() => {
-  return formData.value.tenantUrl.trim() && 
-         formData.value.accessToken.trim() && 
-         !errors.value.tenantUrl && 
-         !errors.value.accessToken && 
-         !errors.value.portalUrl
+  return formData.value.tenantUrl.trim() &&
+         formData.value.accessToken.trim() &&
+         !errors.value.tenantUrl &&
+         !errors.value.accessToken &&
+         !errors.value.portalUrl &&
+         !errors.value.emailNote
 })
 
 // Watch for token prop changes (for editing)
@@ -113,7 +129,8 @@ watch(() => props.token, (newToken) => {
     formData.value = {
       tenantUrl: newToken.tenant_url || '',
       accessToken: newToken.access_token || '',
-      portalUrl: newToken.portal_url || ''
+      portalUrl: newToken.portal_url || '',
+      emailNote: newToken.email_note || ''
     }
   } else {
     // Reset form for adding new token
@@ -186,7 +203,8 @@ const handleSubmit = async () => {
         id: props.token.id,
         tenantUrl: formData.value.tenantUrl.trim(),
         accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl.trim() || null
+        portalUrl: formData.value.portalUrl.trim() || null,
+        emailNote: formData.value.emailNote.trim() || null
       })
 
       if (result) {
@@ -203,7 +221,8 @@ const handleSubmit = async () => {
       const result = await invoke('save_token', {
         tenantUrl: formData.value.tenantUrl.trim(),
         accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl.trim() || null
+        portalUrl: formData.value.portalUrl.trim() || null,
+        emailNote: formData.value.emailNote.trim() || null
       })
 
       showStatus('Token保存成功!', 'success')

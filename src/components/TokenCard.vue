@@ -16,17 +16,35 @@
       <div class="token-info">
         <h3 class="tenant-name">{{ displayUrl }}</h3>
         <div class="token-meta">
-          <span class="created-date">{{ formatDate(token.created_at) }}</span>
-          <!-- Portal信息直接显示在meta中 -->
+          <!-- 第一行：创建日期和邮箱备注 -->
+          <div class="meta-row">
+            <span class="created-date">{{ formatDate(token.created_at) }}</span>
+            <div v-if="token.email_note" class="email-note-container">
+              <span class="email-note">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="email-icon">
+                  <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                </svg>
+                {{ token.email_note }}
+              </span>
+              <button @click="copyEmailNote" class="copy-email-btn" title="复制邮箱备注">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <!-- 第二行：Portal信息 -->
           <template v-if="token.portal_url">
-            <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
-            <template v-if="portalInfo.data">
-              <span class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
-              <span class="portal-meta balance">剩余: {{ portalInfo.data.credits_balance }}</span>
-            </template>
-            <!-- 如果没有数据且正在加载，显示加载状态 -->
-            <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
-            <!-- 不显示错误信息，静默处理所有错误 -->
+            <div class="meta-row portal-row">
+              <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
+              <template v-if="portalInfo.data">
+                <span class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
+                <span class="portal-meta balance">剩余: {{ portalInfo.data.credits_balance }}</span>
+              </template>
+              <!-- 如果没有数据且正在加载，显示加载状态 -->
+              <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
+              <!-- 不显示错误信息，静默处理所有错误 -->
+            </div>
           </template>
         </div>
       </div>
@@ -162,6 +180,16 @@ const copyTenantUrl = async () => {
     emit('copy-success', '租户URL已复制到剪贴板!', 'success')
   } else {
     emit('copy-success', '复制租户URL失败', 'error')
+  }
+}
+
+// 复制邮箱备注
+const copyEmailNote = async () => {
+  const success = await copyToClipboard(props.token.email_note)
+  if (success) {
+    emit('copy-success', '邮箱备注已复制到剪贴板!', 'success')
+  } else {
+    emit('copy-success', '复制邮箱备注失败', 'error')
   }
 }
 
@@ -502,15 +530,70 @@ defineExpose({
 
 .token-meta {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta-row {
+  display: flex;
   justify-content: flex-start;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap; /* 允许换行 */
+  flex-wrap: wrap;
+}
+
+.portal-row {
+  margin-top: 2px;
 }
 
 .created-date {
   font-size: 12px;
   color: #666;
+}
+
+.email-note-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.email-note {
+  font-size: 12px;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0f9ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e0f2fe;
+}
+
+.email-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.copy-email-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: #6b7280;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-email-btn:hover {
+  background: #f3f4f6;
+  color: #4f46e5;
+}
+
+.copy-email-btn:active {
+  transform: scale(0.95);
 }
 
 .portal-meta {

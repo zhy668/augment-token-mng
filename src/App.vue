@@ -205,6 +205,27 @@
         </div>
       </div>
     </div>
+    <!-- 删除确认对话框 -->
+    <div v-if="showDeleteConfirm" class="portal-dialog-overlay" @click="cancelDelete">
+      <div class="portal-dialog delete-confirm" @click.stop>
+        <h3>确认删除</h3>
+        <p>确定要删除这个Token吗？此操作无法撤销。</p>
+        <div class="dialog-buttons">
+          <button @click="cancelDelete" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
+          <button @click="confirmDelete" class="dialog-btn delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
 
 
 
@@ -289,7 +310,9 @@ const tenantUrlInput = ref(null)
 const showPortalDialog = ref(false)
 const currentPortalToken = ref(null)
 
-
+// Delete confirmation dialog
+const showDeleteConfirm = ref(false)
+const tokenToDelete = ref(null)
 
 // Auth URL dialog
 const showAuthUrlDialog = ref(false)
@@ -326,18 +349,35 @@ const loadTokens = async () => {
   }
 }
 
-const deleteToken = async (tokenId) => {
+const deleteToken = (tokenId) => {
+  // 显示删除确认对话框
+  tokenToDelete.value = tokenId
+  showDeleteConfirm.value = true
+}
+
+const confirmDelete = async () => {
+  if (!tokenToDelete.value) return
+
   try {
-    const success = await invoke('delete_token', { id: tokenId })
+    const success = await invoke('delete_token', { id: tokenToDelete.value })
     if (success) {
-      tokens.value = tokens.value.filter(token => token.id !== tokenId)
+      tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
       showStatus('Token删除成功!', 'success')
     } else {
       showStatus('Token删除失败', 'error')
     }
   } catch (error) {
     showStatus(`删除Token失败: ${error}`, 'error')
+  } finally {
+    // 关闭对话框并清理状态
+    showDeleteConfirm.value = false
+    tokenToDelete.value = null
   }
+}
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false
+  tokenToDelete.value = null
 }
 
 
@@ -1067,6 +1107,34 @@ input[type="text"]:read-only {
 .dialog-btn.cancel:hover {
   background: #f8bbd9;
   border-color: #f48fb1;
+}
+
+.dialog-btn.delete {
+  background: #ffebee;
+  color: #d32f2f;
+  border-color: #ffcdd2;
+}
+
+.dialog-btn.delete:hover {
+  background: #ffcdd2;
+  border-color: #ef9a9a;
+}
+
+/* 删除确认对话框特定样式 */
+.portal-dialog.delete-confirm p {
+  margin: 0 0 20px 0;
+  color: #666;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.delete-confirm .dialog-buttons {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.delete-confirm .dialog-btn {
+  flex: 1;
 }
 
 .additional-fields {

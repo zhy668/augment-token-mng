@@ -141,9 +141,8 @@ const formatDate = (dateString) => {
 
 
 const deleteToken = () => {
-  if (confirm('确定要删除这个Token吗？')) {
-    emit('delete', props.token.id)
-  }
+  // 直接发出删除事件，让父组件处理确认逻辑
+  emit('delete', props.token.id)
 }
 
 // 复制到剪贴板的通用方法

@@ -137,14 +137,16 @@ watch(() => props.token, (newToken) => {
     formData.value = {
       tenantUrl: '',
       accessToken: '',
-      portalUrl: ''
+      portalUrl: '',
+      emailNote: ''
     }
   }
   // Clear errors when token changes
   errors.value = {
     tenantUrl: '',
     accessToken: '',
-    portalUrl: ''
+    portalUrl: '',
+    emailNote: ''
   }
 }, { immediate: true })
 
@@ -177,7 +179,7 @@ const validateForm = () => {
   }
 
   // Validate portal URL (optional)
-  if (formData.value.portalUrl.trim()) {
+  if (formData.value.portalUrl && formData.value.portalUrl.trim()) {
     try {
       new URL(formData.value.portalUrl)
     } catch {
@@ -203,8 +205,8 @@ const handleSubmit = async () => {
         id: props.token.id,
         tenantUrl: formData.value.tenantUrl.trim(),
         accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl.trim() || null,
-        emailNote: formData.value.emailNote.trim() || null
+        portalUrl: formData.value.portalUrl ? formData.value.portalUrl.trim() || null : null,
+        emailNote: formData.value.emailNote ? formData.value.emailNote.trim() || null : null
       })
 
       if (result) {
@@ -221,8 +223,8 @@ const handleSubmit = async () => {
       const result = await invoke('save_token', {
         tenantUrl: formData.value.tenantUrl.trim(),
         accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl.trim() || null,
-        emailNote: formData.value.emailNote.trim() || null
+        portalUrl: formData.value.portalUrl ? formData.value.portalUrl.trim() || null : null,
+        emailNote: formData.value.emailNote ? formData.value.emailNote.trim() || null : null
       })
 
       showStatus('Token保存成功!', 'success')

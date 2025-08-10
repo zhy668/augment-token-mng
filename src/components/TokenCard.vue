@@ -60,7 +60,7 @@
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
         </button>
-        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" title="检测账号状态">
+        <button @click="debouncedCheckAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" title="检测账号状态">
           <svg v-if="!isCheckingStatus" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
@@ -89,6 +89,19 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+
+// 防抖函数
+function debounce(func, wait) {
+  let timeout
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout)
+      func(...args)
+    }
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
 
 // Props
 const props = defineProps({
@@ -278,18 +291,8 @@ const loadPortalInfo = async (forceRefresh = false) => {
         }
         console.log('UI updated with portal data')
 
-        // 保存到本地存储
-        try {
-          const saveResult = await invoke('update_token_portal_info', {
-            id: props.token.id,
-            creditsBalance: parseInt(ledgerData.credits_balance) || 0,
-            expiryDate: ledgerData.credit_blocks[0].expiry_date,
-            isActive: ledgerData.credit_blocks[0].is_active
-          })
-          console.log('Portal info saved successfully:', saveResult)
-        } catch (saveError) {
-          console.error('Failed to save portal info:', saveError)
-        }
+        // 使用防抖保存到本地存储
+        debouncedSavePortalInfo(newPortalData)
 
         // 更新本地token对象
         props.token.portal_info = {
@@ -379,12 +382,9 @@ const checkAccountStatus = async () => {
 
     if (statusResult.status === 'fulfilled') {
       const result = statusResult.value
-      // 更新token的ban_status
+      // 使用防抖更新token的ban_status
       const banStatus = result.is_banned ? 'SUSPENDED' : 'ACTIVE'
-      await invoke('update_token_ban_status', {
-        id: props.token.id,
-        banStatus: banStatus
-      })
+      debouncedSaveBanStatus(banStatus)
 
       // 更新本地token对象
       props.token.ban_status = banStatus
@@ -419,6 +419,36 @@ const checkAccountStatus = async () => {
     isLoadingPortalInfo.value = false
   }
 }
+
+// 创建防抖版本的保存方法
+const debouncedSavePortalInfo = debounce(async (portalData) => {
+  try {
+    const saveResult = await invoke('update_token_portal_info', {
+      id: props.token.id,
+      creditsBalance: portalData.credits_balance,
+      expiryDate: portalData.expiry_date,
+      isActive: portalData.is_active
+    })
+    console.log('Portal info saved successfully:', saveResult)
+  } catch (saveError) {
+    console.error('Failed to save portal info:', saveError)
+  }
+}, 300)
+
+const debouncedSaveBanStatus = debounce(async (banStatus) => {
+  try {
+    await invoke('update_token_ban_status', {
+      id: props.token.id,
+      banStatus: banStatus
+    })
+    console.log('Ban status saved successfully:', banStatus)
+  } catch (saveError) {
+    console.error('Failed to save ban status:', saveError)
+  }
+}, 300)
+
+// 创建防抖版本的状态检测方法
+const debouncedCheckAccountStatus = debounce(checkAccountStatus, 500)
 
 // 暴露刷新Portal信息的方法
 const refreshPortalInfo = async () => {

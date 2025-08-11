@@ -11,8 +11,8 @@ on:
         options:
         - all
         - windows
-        - macos
-        - linux
+        - macos-intel
+        - macos-apple-silicon
 
 jobs:
   build-windows:
@@ -54,8 +54,8 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/*.exe
 
-  build-macos:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos' }}
+  build-macos-intel:
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos-intel' }}
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -63,6 +63,11 @@ jobs:
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Install Rust target
+        run: rustup target add x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -83,30 +88,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --verbose
+          args: --verbose --target x86_64-apple-darwin
 
-      - name: Upload macOS artifacts
+      - name: Upload macOS Intel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build
+          name: macos-intel-build
           path: |
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app
+            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app
 
-  build-linux:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    runs-on: ubuntu-20.04
+  build-macos-apple-silicon:
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos-apple-silicon' }}
+    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
-
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Install Rust target
+        run: rustup target add aarch64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -127,13 +132,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --verbose
+          args: --verbose --target aarch64-apple-darwin
 
-      - name: Upload Linux artifacts
+      - name: Upload macOS Apple Silicon artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
+          name: macos-apple-silicon-build
           path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/tauri-oauth-app
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
+
+

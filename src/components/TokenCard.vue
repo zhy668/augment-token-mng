@@ -38,7 +38,7 @@
             <div class="meta-row portal-row">
               <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
-                <span class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
+                <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
                 <span class="portal-meta balance">剩余: {{ portalInfo.data.credits_balance }}</span>
               </template>
               <!-- 如果没有数据且正在加载，显示加载状态 -->
@@ -262,13 +262,27 @@ const loadPortalInfo = async (forceRefresh = false) => {
       const ledgerData = JSON.parse(ledgerResponse)
       console.log('Ledger data parsed:', ledgerData)
 
-      if (ledgerData.credit_blocks && ledgerData.credit_blocks.length > 0) {
-        console.log('Credit blocks found:', ledgerData.credit_blocks.length)
+      // 处理credits_balance数据，无论credit_blocks是否为空
+      if (ledgerData.credits_balance !== undefined) {
+        console.log('Credits balance found:', ledgerData.credits_balance)
+
+        // 构建Portal数据对象
         const newPortalData = {
-          credits_balance: parseInt(ledgerData.credits_balance) || 0,
-          expiry_date: ledgerData.credit_blocks[0].expiry_date,
-          is_active: ledgerData.credit_blocks[0].is_active
+          credits_balance: parseInt(ledgerData.credits_balance) || 0
         }
+
+        // 如果有credit_blocks数据，添加过期时间和状态信息
+        if (ledgerData.credit_blocks && ledgerData.credit_blocks.length > 0) {
+          console.log('Credit blocks found:', ledgerData.credit_blocks.length)
+          newPortalData.expiry_date = ledgerData.credit_blocks[0].expiry_date
+          newPortalData.is_active = ledgerData.credit_blocks[0].is_active
+        } else {
+          console.log('No credit blocks, but credits_balance available')
+          // 当没有credit_blocks时，设置默认值
+          newPortalData.expiry_date = null
+          newPortalData.is_active = false
+        }
+
         console.log('New portal data:', newPortalData)
 
         // 更新UI显示
@@ -282,9 +296,9 @@ const loadPortalInfo = async (forceRefresh = false) => {
         try {
           const saveResult = await invoke('update_token_portal_info', {
             id: props.token.id,
-            creditsBalance: parseInt(ledgerData.credits_balance) || 0,
-            expiryDate: ledgerData.credit_blocks[0].expiry_date,
-            isActive: ledgerData.credit_blocks[0].is_active
+            creditsBalance: newPortalData.credits_balance,
+            expiryDate: newPortalData.expiry_date,
+            isActive: newPortalData.is_active
           })
           console.log('Portal info saved successfully:', saveResult)
         } catch (saveError) {
@@ -293,14 +307,14 @@ const loadPortalInfo = async (forceRefresh = false) => {
 
         // 更新本地token对象
         props.token.portal_info = {
-          credits_balance: parseInt(ledgerData.credits_balance) || 0,
-          expiry_date: ledgerData.credit_blocks[0].expiry_date,
-          is_active: ledgerData.credit_blocks[0].is_active,
+          credits_balance: newPortalData.credits_balance,
+          expiry_date: newPortalData.expiry_date,
+          is_active: newPortalData.is_active,
           last_updated: new Date().toISOString()
         }
         console.log('Updated token portal_info:', props.token.portal_info)
       } else {
-        // 如果没有本地数据，静默处理，不显示错误信息
+        // 如果没有credits_balance数据且没有本地数据，静默处理
         if (!props.token.portal_info) {
           portalInfo.value = { data: null, error: null }
         }

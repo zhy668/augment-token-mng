@@ -174,7 +174,7 @@ impl TokenManager {
             .map_err(|e| format!("Failed to create app data directory: {}", e))?;
         
         let storage_path = app_data_dir.join("tokens.json");
-        
+
         Ok(Self { storage_path })
     }
 
@@ -195,10 +195,10 @@ impl TokenManager {
     pub fn save_tokens(&self, storage: &TokenStorage) -> Result<(), Box<dyn std::error::Error>> {
         let content = serde_json::to_string_pretty(storage)
             .map_err(|e| format!("Failed to serialize tokens: {}", e))?;
-        
+
         fs::write(&self.storage_path, content)
             .map_err(|e| format!("Failed to write tokens file: {}", e))?;
-        
+
         Ok(())
     }
 

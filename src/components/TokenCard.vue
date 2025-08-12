@@ -20,11 +20,16 @@
           <div class="meta-row">
             <span class="created-date">{{ formatDate(token.created_at) }}</span>
             <div v-if="token.email_note" class="email-note-container">
-              <span class="email-note">
+              <span
+                class="email-note"
+                @mouseenter="handleEmailMouseEnter"
+                @mouseleave="handleEmailMouseLeave"
+                :title="isEmailHovered ? '' : token.email_note"
+              >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="email-icon">
                   <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
                 </svg>
-                {{ token.email_note }}
+                {{ isEmailHovered ? token.email_note : maskedEmail }}
               </span>
               <button @click="copyEmailNote" class="copy-email-btn" title="复制邮箱备注">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
@@ -118,6 +123,7 @@ const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit'])
 const isLoadingPortalInfo = ref(false)
 const portalInfo = ref({ data: null, error: null })
 const isCheckingStatus = ref(false)
+const isEmailHovered = ref(false)
 
 // Computed properties
 const displayUrl = computed(() => {
@@ -133,6 +139,33 @@ const maskedToken = computed(() => {
   const token = props.token.access_token
   if (token.length <= 20) return token
   return token.substring(0, 10) + '...' + token.substring(token.length - 10)
+})
+
+const maskedEmail = computed(() => {
+  const email = props.token.email_note
+  if (!email || !email.includes('@')) return email
+
+  const [username, domain] = email.split('@')
+
+  // 如果用户名太短，直接返回原邮箱
+  if (username.length <= 3) {
+    return email
+  }
+
+  let maskedUsername
+  if (username.length <= 6) {
+    // 短邮箱：保留前1-2个字符，其余用星号替换
+    const keepChars = username.length <= 4 ? 1 : 2
+    const hiddenCount = username.length - keepChars
+    maskedUsername = username.substring(0, keepChars) + '*'.repeat(hiddenCount)
+  } else {
+    // 长邮箱：保留前后各2-3个字符，中间用4个星号替换
+    const frontKeep = username.length >= 8 ? 3 : 2
+    const backKeep = 2
+    maskedUsername = username.substring(0, frontKeep) + '****' + username.substring(username.length - backKeep)
+  }
+
+  return maskedUsername + '@' + domain
 })
 
 
@@ -203,6 +236,15 @@ const copyEmailNote = async () => {
   } else {
     emit('copy-success', '复制邮箱备注失败', 'error')
   }
+}
+
+// 邮箱悬浮事件处理
+const handleEmailMouseEnter = () => {
+  isEmailHovered.value = true
+}
+
+const handleEmailMouseLeave = () => {
+  isEmailHovered.value = false
 }
 
 
@@ -610,6 +652,15 @@ defineExpose({
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid #e0f2fe;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.email-note:hover {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+  transform: translateY(-1px);
 }
 
 .email-icon {

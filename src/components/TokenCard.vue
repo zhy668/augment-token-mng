@@ -55,6 +55,11 @@
       </div>
 
       <div class="actions">
+        <button @click="openEditorModal" class="btn-action vscode" title="选择编辑器">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
+          </svg>
+        </button>
         <button @click="copyToken" class="btn-action" title="复制Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
@@ -89,10 +94,55 @@
       </div>
     </div>
   </div>
+
+  <!-- 编辑器选择模态框 - 移到组件外部，使用 Teleport -->
+  <Teleport to="body">
+    <Transition name="modal" appear>
+      <div v-if="showEditorModal" class="editor-modal-overlay" @click.self="closeModal">
+        <div class="editor-modal" @click.stop>
+          <div class="modal-header">
+            <h3>选择编辑器</h3>
+            <button @click.stop="showEditorModal = false" class="modal-close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-content">
+            <p class="modal-description">选择要打开的编辑器：</p>
+            <div class="editor-options">
+              <button @click="openEditor('cursor')" class="editor-option cursor-option">
+                <div class="editor-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <div class="editor-info">
+                  <span class="editor-name">Cursor</span>
+                  <span class="editor-desc">AI-powered code editor</span>
+                </div>
+              </button>
+              <button @click="openEditor('vscode')" class="editor-option vscode-option">
+                <div class="editor-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
+                  </svg>
+                </div>
+                <div class="editor-info">
+                  <span class="editor-name">VS Code</span>
+                  <span class="editor-desc">Visual Studio Code</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // 防抖函数
@@ -124,6 +174,8 @@ const isLoadingPortalInfo = ref(false)
 const portalInfo = ref({ data: null, error: null })
 const isCheckingStatus = ref(false)
 const isEmailHovered = ref(false)
+const showEditorModal = ref(false)
+const isModalClosing = ref(false)
 
 // Computed properties
 const displayUrl = computed(() => {
@@ -235,6 +287,69 @@ const copyEmailNote = async () => {
     emit('copy-success', '邮箱备注已复制到剪贴板!', 'success')
   } else {
     emit('copy-success', '复制邮箱备注失败', 'error')
+  }
+}
+
+// 键盘事件处理
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && showEditorModal.value) {
+    showEditorModal.value = false
+  }
+}
+
+// 打开编辑器模态框
+const openEditorModal = () => {
+  if (showEditorModal.value || isModalClosing.value) return
+  showEditorModal.value = true
+}
+
+// 关闭模态框
+const closeModal = (event) => {
+  if (isModalClosing.value) return
+
+  // 如果事件来自模态框内部，不关闭
+  if (event && event.target.closest('.editor-modal')) {
+    return
+  }
+
+  showEditorModal.value = false
+  isModalClosing.value = false
+}
+
+// 打开指定编辑器
+const openEditor = (editorType) => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+
+    let protocolUrl = ''
+    let editorName = ''
+
+    if (editorType === 'cursor') {
+      protocolUrl = `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+      editorName = 'Cursor'
+    } else if (editorType === 'vscode') {
+      protocolUrl = `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+      editorName = 'VS Code'
+    }
+
+    // 创建一个隐藏的链接元素来触发协议链接
+    const link = document.createElement('a')
+    link.href = protocolUrl
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // 立即关闭模态框，不等待动画
+    showEditorModal.value = false
+    isModalClosing.value = false
+
+  } catch (error) {
+    console.error('Failed to open editor:', error)
+    emit('copy-success', '打开编辑器失败', 'error')
+    showEditorModal.value = false
+    isModalClosing.value = false
   }
 }
 
@@ -531,6 +646,14 @@ onMounted(() => {
     // 然后在后台刷新数据
     loadPortalInfo(false)
   }
+
+  // 添加键盘事件监听器
+  document.addEventListener('keydown', handleKeydown)
+})
+
+// 组件卸载时清理事件监听器
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
 })
 
 // 暴露方法给父组件
@@ -780,6 +903,15 @@ defineExpose({
   border-color: #c3e6cb;
 }
 
+.btn-action.vscode {
+  color: #007acc;
+}
+
+.btn-action.vscode:hover {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+
 .btn-action.status-check {
   color: #ffc107;
 }
@@ -807,6 +939,173 @@ defineExpose({
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Vue 过渡动画 */
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .editor-modal,
+.modal-leave-to .editor-modal {
+  transform: translateY(-20px) scale(0.95);
+}
+
+.modal-enter-to .editor-modal,
+.modal-leave-from .editor-modal {
+  transform: translateY(0) scale(1);
+}
+
+/* 编辑器选择模态框样式 */
+.editor-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.editor-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  position: relative;
+  pointer-events: auto;
+  margin: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #666;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #333;
+}
+
+.modal-content {
+  padding: 20px 24px 24px;
+}
+
+.modal-description {
+  margin: 0 0 16px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.editor-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editor-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.editor-option:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+}
+
+.editor-option:active {
+  background: #f1f5f9;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.08);
+}
+
+.editor-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+
+.cursor-option .editor-icon {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.vscode-option .editor-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.editor-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.editor-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.editor-desc {
+  font-size: 13px;
+  color: #666;
 }
 
 
@@ -867,6 +1166,42 @@ defineExpose({
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+  }
+
+  /* 模态框响应式样式 */
+  .editor-modal {
+    width: 95%;
+    margin: 16px;
+  }
+
+  .modal-header {
+    padding: 16px 20px 12px;
+  }
+
+  .modal-header h3 {
+    font-size: 16px;
+  }
+
+  .modal-content {
+    padding: 16px 20px 20px;
+  }
+
+  .editor-option {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .editor-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .editor-name {
+    font-size: 15px;
+  }
+
+  .editor-desc {
+    font-size: 12px;
   }
 }
 

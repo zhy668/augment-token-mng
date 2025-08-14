@@ -98,6 +98,7 @@ async fn save_token(
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
     token_manager.add_token_with_details(tenant_url, access_token, portal_url, email_note)
+        .await
         .map_err(|e| format!("Failed to save token: {}", e))
 }
 
@@ -121,6 +122,7 @@ async fn delete_token(
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
     token_manager.remove_token(&id)
+        .await
         .map_err(|e| format!("Failed to delete token: {}", e))
 }
 
@@ -137,6 +139,7 @@ async fn update_token(
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
     token_manager.update_token_with_details(&id, tenant_url, access_token, portal_url, email_note)
+        .await
         .map_err(|e| format!("Failed to update token: {}", e))
 }
 
@@ -150,6 +153,7 @@ async fn update_token_ban_status(
         .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
     token_manager.update_token_ban_status(&id, ban_status)
+        .await
         .map_err(|e| format!("Failed to update token ban status: {}", e))
 }
 
@@ -178,6 +182,7 @@ async fn update_token_portal_info(
     };
 
     let result = token_manager.update_token_portal_info(&id, Some(portal_info))
+        .await
         .map_err(|e| format!("Failed to update token portal info: {}", e))?;
 
     println!("Portal info update result: {}", result);

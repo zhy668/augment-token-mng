@@ -481,6 +481,42 @@ async fn open_data_folder(
     Ok(())
 }
 
+#[tauri::command]
+async fn open_editor_with_protocol(
+    protocol_url: String,
+) -> Result<(), String> {
+    println!("Opening editor with protocol URL: {}", protocol_url);
+    
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg(&protocol_url)
+            .spawn()
+            .map_err(|e| format!("Failed to open editor with protocol: {}", e))?;
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        Command::new("cmd")
+            .args(&["/c", "start", &protocol_url])
+            .spawn()
+            .map_err(|e| format!("Failed to open editor with protocol: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        Command::new("xdg-open")
+            .arg(&protocol_url)
+            .spawn()
+            .map_err(|e| format!("Failed to open editor with protocol: {}", e))?;
+    }
+    
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -515,6 +551,7 @@ fn main() {
             get_ledger_summary,
             test_api_call,
             open_data_folder,
+            open_editor_with_protocol,
 
             open_internal_browser,
             close_window

@@ -111,7 +111,7 @@
           <div class="modal-content">
             <p class="modal-description">选择要打开的编辑器：</p>
             <div class="editor-options">
-              <button @click="openEditor('cursor')" class="editor-option cursor-option">
+              <a :href="getCursorProtocolUrl()" @click="handleEditorClick('cursor')" class="editor-option cursor-option">
                 <div class="editor-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
@@ -121,8 +121,8 @@
                   <span class="editor-name">Cursor</span>
                   <span class="editor-desc">AI-powered code editor</span>
                 </div>
-              </button>
-              <button @click="openEditor('vscode')" class="editor-option vscode-option">
+              </a>
+              <a :href="getVSCodeProtocolUrl()" @click="handleEditorClick('vscode')" class="editor-option vscode-option">
                 <div class="editor-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
@@ -132,7 +132,7 @@
                   <span class="editor-name">VS Code</span>
                   <span class="editor-desc">Visual Studio Code</span>
                 </div>
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -316,37 +316,42 @@ const closeModal = (event) => {
   isModalClosing.value = false
 }
 
-// 打开指定编辑器
-const openEditor = (editorType) => {
+// 生成 Cursor 协议 URL
+const getCursorProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
+    return `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate Cursor protocol URL:', error)
+    return '#'
+  }
+}
 
-    let protocolUrl = ''
-    let editorName = ''
+// 生成 VS Code 协议 URL
+const getVSCodeProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate VS Code protocol URL:', error)
+    return '#'
+  }
+}
 
-    if (editorType === 'cursor') {
-      protocolUrl = `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
-      editorName = 'Cursor'
-    } else if (editorType === 'vscode') {
-      protocolUrl = `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
-      editorName = 'VS Code'
-    }
-
-    // 创建一个隐藏的链接元素来触发协议链接
-    const link = document.createElement('a')
-    link.href = protocolUrl
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    // 立即关闭模态框，不等待动画
+// 处理编辑器链接点击事件
+const handleEditorClick = (editorType) => {
+  try {
+    // 关闭模态框
     showEditorModal.value = false
     isModalClosing.value = false
 
+    // 显示成功消息
+    const editorName = editorType === 'cursor' ? 'Cursor' : 'VS Code'
+    emit('copy-success', `正在打开 ${editorName}...`, 'success')
   } catch (error) {
-    console.error('Failed to open editor:', error)
+    console.error('Failed to handle editor click:', error)
     emit('copy-success', '打开编辑器失败', 'error')
     showEditorModal.value = false
     isModalClosing.value = false
@@ -1056,6 +1061,10 @@ defineExpose({
   text-align: left;
   width: 100%;
   position: relative;
+  /* 移除链接默认样式 */
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
 }
 
 .editor-option:hover {
@@ -1067,6 +1076,17 @@ defineExpose({
 .editor-option:active {
   background: #f1f5f9;
   box-shadow: 0 1px 4px rgba(59, 130, 246, 0.08);
+}
+
+/* 确保链接在所有状态下都保持正确的样式 */
+.editor-option:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.editor-option:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 .editor-icon {

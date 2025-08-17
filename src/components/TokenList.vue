@@ -241,6 +241,12 @@ const checkAllAccountStatus = async () => {
 
 // 处理刷新事件
 const handleRefresh = async () => {
+  // 如果有未保存的更改，警告用户
+  if (props.hasUnsavedChanges) {
+    emit('copy-success', '检测到未保存的更改，请先保存后再刷新', 'error')
+    return
+  }
+
   // 显示开始刷新的通知
   emit('copy-success', '正在刷新 Token 状态和 Portal 信息...', 'info')
 
@@ -284,9 +290,12 @@ const handleRefresh = async () => {
   }
 }
 
-// 组件挂载时触发刷新，显示加载成功消息
+// 组件挂载时只在没有未保存更改时才刷新
 onMounted(() => {
-  emit('refresh', true) // 传递 true 表示显示成功消息
+  // 如果有未保存的更改，不要重新加载文件数据，避免覆盖内存中的新token
+  if (!props.hasUnsavedChanges) {
+    emit('refresh', true) // 传递 true 表示显示成功消息
+  }
 })
 
 // 暴露方法给父组件
@@ -613,4 +622,6 @@ defineExpose({
   font-size: 11px;
   font-weight: 500;
 }
+
+
 </style>

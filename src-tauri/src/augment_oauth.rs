@@ -84,7 +84,7 @@ fn sha256_hash(data: &[u8]) -> Vec<u8> {
 /// Generate random bytes
 fn generate_random_bytes(length: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
-    (0..length).map(|_| rng.gen()).collect()
+    (0..length).map(|_| rng.r#gen()).collect()
 }
 
 /// Create OAuth state with code verifier, challenge and state

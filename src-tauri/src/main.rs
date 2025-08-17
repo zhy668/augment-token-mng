@@ -130,7 +130,6 @@ async fn save_tokens_json(json_string: String, app: tauri::AppHandle) -> Result<
 #[tauri::command]
 async fn load_tokens_json(app: tauri::AppHandle) -> Result<String, String> {
     use std::fs;
-    use std::path::PathBuf;
 
     // 获取新的应用数据目录
     let new_app_data_dir = app

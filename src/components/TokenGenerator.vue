@@ -135,7 +135,7 @@ import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Emits
-const emit = defineEmits(['close', 'token-saved', 'show-status'])
+const emit = defineEmits(['close', 'token-saved', 'show-status', 'save-token'])
 
 // Reactive data
 const authUrl = ref('')
@@ -259,13 +259,14 @@ const copyTenantUrl = async () => {
 
 const saveAndClose = async () => {
   try {
-    await invoke('save_token', {
+    // 通知父组件保存 token 到内存
+    emit('save-token', {
       tenantUrl: tokenResult.value.tenant_url,
       accessToken: tokenResult.value.access_token,
       portalUrl: portalUrl.value.trim() || null,
       emailNote: emailNote.value.trim() || null
     })
-    showStatus('Token保存成功!', 'success')
+    showStatus('Token已添加到内存，请手动保存', 'success')
     emit('token-saved')
     setTimeout(() => {
       emit('close')

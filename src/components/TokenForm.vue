@@ -92,7 +92,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'success', 'show-status'])
+const emit = defineEmits(['close', 'success', 'show-status', 'update-token', 'add-token'])
 
 // Reactive data
 const formData = ref({
@@ -199,40 +199,28 @@ const handleSubmit = async () => {
   showStatus(isEditing.value ? '正在更新Token...' : '正在保存Token...', 'info')
 
   try {
-    if (isEditing.value) {
-      // Update existing token
-      const result = await invoke('update_token', {
-        id: props.token.id,
-        tenantUrl: formData.value.tenantUrl.trim(),
-        accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl ? formData.value.portalUrl.trim() || null : null,
-        emailNote: formData.value.emailNote ? formData.value.emailNote.trim() || null : null
-      })
-
-      if (result) {
-        showStatus('Token更新成功!', 'success')
-        emit('success')
-        setTimeout(() => {
-          emit('close')
-        }, 1000)
-      } else {
-        showStatus('Token更新失败: 未找到指定的Token', 'error')
-      }
-    } else {
-      // Add new token
-      const result = await invoke('save_token', {
-        tenantUrl: formData.value.tenantUrl.trim(),
-        accessToken: formData.value.accessToken.trim(),
-        portalUrl: formData.value.portalUrl ? formData.value.portalUrl.trim() || null : null,
-        emailNote: formData.value.emailNote ? formData.value.emailNote.trim() || null : null
-      })
-
-      showStatus('Token保存成功!', 'success')
-      emit('success')
-      setTimeout(() => {
-        emit('close')
-      }, 1000)
+    const tokenData = {
+      tenantUrl: formData.value.tenantUrl.trim(),
+      accessToken: formData.value.accessToken.trim(),
+      portalUrl: formData.value.portalUrl ? formData.value.portalUrl.trim() || null : null,
+      emailNote: formData.value.emailNote ? formData.value.emailNote.trim() || null : null
     }
+
+    if (isEditing.value) {
+      // Update existing token - 通知父组件更新内存中的数据
+      emit('update-token', {
+        id: props.token.id,
+        ...tokenData
+      })
+      showStatus('Token已更新到内存，请手动保存', 'success')
+    } else {
+      // Add new token - 通知父组件添加到内存中的数据
+      emit('add-token', tokenData)
+      showStatus('Token已添加到内存，请手动保存', 'success')
+    }
+
+    emit('success')
+    emit('close')
   } catch (error) {
     showStatus(`${isEditing.value ? '更新' : '保存'}Token失败: ${error}`, 'error')
   } finally {

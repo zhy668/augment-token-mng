@@ -2,15 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod augment_oauth;
-mod storage;
 mod bookmarks;
 mod http_server;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
-use storage::{TokenManager, StoredToken, PortalInfo};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use std::sync::Mutex;
+use std::path::PathBuf;
 use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 
@@ -87,106 +86,188 @@ async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn save_token(
-    tenant_url: String,
-    access_token: String,
-    portal_url: Option<String>,
-    email_note: Option<String>,
-    app: tauri::AppHandle,
-) -> Result<String, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
+async fn save_tokens_json(json_string: String, app: tauri::AppHandle) -> Result<(), String> {
+    use std::fs;
+    use std::io::Write;
 
-    token_manager.add_token_with_details(tenant_url, access_token, portal_url, email_note)
-        .await
-        .map_err(|e| format!("Failed to save token: {}", e))
+    // 获取应用数据目录
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    // 确保目录存在
+    fs::create_dir_all(&app_data_dir)
+        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+
+    let storage_path = app_data_dir.join("tokens.json");
+    let temp_path = storage_path.with_extension("tmp");
+
+    // 基本的 JSON 格式验证
+    serde_json::from_str::<serde_json::Value>(&json_string)
+        .map_err(|e| format!("Invalid JSON format: {}", e))?;
+
+    // 原子性写入：先写临时文件，再重命名
+    {
+        let mut temp_file = fs::File::create(&temp_path)
+            .map_err(|e| format!("Failed to create temp file: {}", e))?;
+
+        temp_file.write_all(json_string.as_bytes())
+            .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+        temp_file.sync_all()
+            .map_err(|e| format!("Failed to sync temp file: {}", e))?;
+    }
+
+    // 原子性重命名
+    fs::rename(&temp_path, &storage_path)
+        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+
+    Ok(())
 }
 
-#[tauri::command]
-async fn get_all_tokens(
-    app: tauri::AppHandle,
-) -> Result<Vec<StoredToken>, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
 
-    token_manager.get_all_tokens()
-        .map_err(|e| format!("Failed to load tokens: {}", e))
+#[tauri::command]
+async fn load_tokens_json(app: tauri::AppHandle) -> Result<String, String> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    // 获取新的应用数据目录
+    let new_app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    let new_storage_path = new_app_data_dir.join("tokens.json");
+
+    println!("尝试读取新文件路径: {:?}", new_storage_path);
+
+    // 首先尝试从新目录读取
+    if new_storage_path.exists() {
+        let content = fs::read_to_string(&new_storage_path)
+            .map_err(|e| format!("Failed to read tokens file: {}", e))?;
+
+        println!("从新目录读取到的文件内容: {}", content);
+
+        // 如果文件为空，返回空数组的 JSON
+        if content.trim().is_empty() {
+            return Ok("[]".to_string());
+        }
+
+        return process_token_content(content);
+    }
+
+    // 如果新目录没有文件，尝试从旧目录读取
+    println!("新目录中没有文件，尝试从旧目录读取...");
+
+    // 构造旧的应用数据目录路径
+    let old_app_data_dir = get_old_app_data_dir()?;
+    let old_storage_path = old_app_data_dir.join("tokens.json");
+
+    println!("尝试读取旧文件路径: {:?}", old_storage_path);
+
+    if old_storage_path.exists() {
+        let content = fs::read_to_string(&old_storage_path)
+            .map_err(|e| format!("Failed to read old tokens file: {}", e))?;
+
+        println!("从旧目录读取到的文件内容: {}", content);
+
+        // 如果文件为空，返回空数组的 JSON
+        if content.trim().is_empty() {
+            return Ok("[]".to_string());
+        }
+
+        // 创建新目录（如果不存在）
+        if let Some(parent) = new_storage_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create new app data directory: {}", e))?;
+        }
+
+        // 将文件迁移到新目录
+        fs::copy(&old_storage_path, &new_storage_path)
+            .map_err(|e| format!("Failed to migrate tokens file: {}", e))?;
+
+        println!("文件已迁移到新目录: {:?}", new_storage_path);
+
+        return process_token_content(content);
+    }
+
+    // 两个目录都没有文件
+    println!("新旧目录都没有找到 tokens.json 文件");
+    Ok("[]".to_string())
 }
 
-#[tauri::command]
-async fn delete_token(
-    id: String,
-    app: tauri::AppHandle,
-) -> Result<bool, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
+// 获取旧的应用数据目录
+fn get_old_app_data_dir() -> Result<PathBuf, String> {
+    use std::env;
+    use std::path::PathBuf;
 
-    token_manager.remove_token(&id)
-        .await
-        .map_err(|e| format!("Failed to delete token: {}", e))
-}
+    let home_dir = env::var("USERPROFILE")
+        .or_else(|_| env::var("HOME"))
+        .map_err(|_| "Failed to get home directory".to_string())?;
 
-#[tauri::command]
-async fn update_token(
-    id: String,
-    tenant_url: String,
-    access_token: String,
-    portal_url: Option<String>,
-    email_note: Option<String>,
-    app: tauri::AppHandle,
-) -> Result<bool, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
-
-    token_manager.update_token_with_details(&id, tenant_url, access_token, portal_url, email_note)
-        .await
-        .map_err(|e| format!("Failed to update token: {}", e))
-}
-
-#[tauri::command]
-async fn update_token_ban_status(
-    id: String,
-    ban_status: Option<String>,
-    app: tauri::AppHandle,
-) -> Result<bool, String> {
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
-
-    token_manager.update_token_ban_status(&id, ban_status)
-        .await
-        .map_err(|e| format!("Failed to update token ban status: {}", e))
-}
-
-#[tauri::command]
-async fn update_token_portal_info(
-    id: String,
-    credits_balance: i64,
-    expiry_date: String,
-    is_active: bool,
-    app: tauri::AppHandle,
-) -> Result<bool, String> {
-    println!("update_token_portal_info called with:");
-    println!("  id: {}", id);
-    println!("  credits_balance: {}", credits_balance);
-    println!("  expiry_date: {}", expiry_date);
-    println!("  is_active: {}", is_active);
-
-    let token_manager = TokenManager::new(&app)
-        .map_err(|e| format!("Failed to initialize token manager: {}", e))?;
-
-    let portal_info = PortalInfo {
-        credits_balance,
-        expiry_date,
-        is_active,
-        last_updated: chrono::Utc::now(),
+    // 旧的 identifier: com.capslockCube.augment-token-manager
+    let old_path = if cfg!(target_os = "windows") {
+        // Windows: %APPDATA%\com.capslockCube.augment-token-manager
+        PathBuf::from(home_dir)
+            .join("AppData")
+            .join("Roaming")
+            .join("com.capslockCube.augment-token-manager")
+    } else if cfg!(target_os = "macos") {
+        // macOS: ~/Library/Application Support/com.capslockCube.augment-token-manager
+        PathBuf::from(home_dir)
+            .join("Library")
+            .join("Application Support")
+            .join("com.capslockCube.augment-token-manager")
+    } else {
+        // Linux: ~/.config/com.capslockCube.augment-token-manager
+        PathBuf::from(home_dir)
+            .join(".config")
+            .join("com.capslockCube.augment-token-manager")
     };
 
-    let result = token_manager.update_token_portal_info(&id, Some(portal_info))
-        .await
-        .map_err(|e| format!("Failed to update token portal info: {}", e))?;
+    Ok(old_path)
+}
 
-    println!("Portal info update result: {}", result);
-    Ok(result)
+// 处理 token 内容的通用函数
+fn process_token_content(content: String) -> Result<String, String> {
+    // 尝试解析 JSON 内容
+    match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(value) => {
+            // 如果解析成功，检查是否需要转换格式
+            match value {
+                serde_json::Value::Array(_) => {
+                    // 如果已经是数组格式，直接返回原内容
+                    Ok(content)
+                }
+                serde_json::Value::Object(ref obj) => {
+                    // 检查是否是旧格式 {tokens: [...]}
+                    if let Some(tokens_array) = obj.get("tokens") {
+                        if tokens_array.is_array() {
+                            // 旧格式，提取 tokens 数组
+                            Ok(serde_json::to_string_pretty(tokens_array)
+                                .map_err(|e| format!("Failed to serialize tokens: {}", e))?)
+                        } else {
+                            Ok("[]".to_string())
+                        }
+                    } else {
+                        // 如果是单个对象格式，包装成数组
+                        let array = serde_json::Value::Array(vec![value]);
+                        Ok(serde_json::to_string_pretty(&array)
+                            .map_err(|e| format!("Failed to serialize tokens: {}", e))?)
+                    }
+                }
+                _ => {
+                    // 其他格式，返回空数组
+                    Ok("[]".to_string())
+                }
+            }
+        }
+        Err(_) => {
+            // 如果 JSON 解析失败，可能是其他格式的旧数据，返回空数组
+            Ok("[]".to_string())
+        }
+    }
 }
 
 
@@ -512,17 +593,16 @@ fn main() {
             get_augment_token,
             check_account_status,
             open_url,
-            save_token,
-            get_all_tokens,
-            delete_token,
-            update_token,
-            update_token_ban_status,
-            update_token_portal_info,
+            // 新的简化命令
+            save_tokens_json,
+            load_tokens_json,
+            // 书签管理命令
             add_bookmark,
             update_bookmark,
             delete_bookmark,
             get_bookmarks,
             get_all_bookmarks,
+            // API 调用命令
             get_customer_info,
             get_ledger_summary,
             test_api_call,

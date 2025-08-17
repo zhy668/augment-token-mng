@@ -155,13 +155,15 @@
       v-if="showTokenList"
       :tokens="tokens"
       :isLoading="isLoading"
+      :hasUnsavedChanges="hasUnsavedChanges"
       @close="showTokenList = false"
       @delete="deleteToken"
       @copy-success="showStatus"
       @add-token="showTokenForm"
-      @refresh="loadTokens"
+      @refresh="(showMessage) => loadTokens(showMessage)"
       @open-portal="handleOpenPortal"
       @edit="handleEditToken"
+      @save="saveTokensToFile"
     />
 
     <!-- Token Form Modal -->
@@ -171,6 +173,8 @@
       @close="closeTokenForm"
       @success="handleTokenFormSuccess"
       @show-status="showStatus"
+      @update-token="handleUpdateToken"
+      @add-token="handleAddTokenFromForm"
     />
 
     <!-- Portal打开方式选择对话框 -->
@@ -282,13 +286,30 @@ import TokenList from './components/TokenList.vue'
 import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 
-// Reactive data
+// 简化的状态管理
 const tokens = ref([])
 const isLoading = ref(false)
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
+const hasUnsavedChanges = ref(false)
+
+// 简化的工具函数
+const createNewToken = (tenantUrl, accessToken, portalUrl = null, emailNote = null) => {
+  return {
+    id: 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    tenant_url: tenantUrl,
+    access_token: accessToken,
+    created_at: new Date().toISOString(),
+    portal_url: portalUrl,
+    ban_status: null,
+    portal_info: null,
+    email_note: emailNote
+  }
+}
+
+// 移除了复杂的自动保存、错误处理和回滚机制，保持简单
 
 // Token generator data
 const authUrl = ref('')
@@ -334,20 +355,40 @@ const showStatus = (message, type = 'info') => {
 
   setTimeout(() => {
     statusMessage.value = ''
-  }, 3000)
+  }, 2000)
 }
 
-const loadTokens = async () => {
+const loadTokens = async (showSuccessMessage = false) => {
   isLoading.value = true
   try {
-    const result = await invoke('get_all_tokens')
-    tokens.value = result
+    const jsonString = await invoke('load_tokens_json')
+    tokens.value = JSON.parse(jsonString)
+    hasUnsavedChanges.value = false
+    if (showSuccessMessage) {
+      showStatus('Token加载成功', 'success')
+    }
   } catch (error) {
     showStatus(`加载Token失败: ${error}`, 'error')
+    tokens.value = []
+    hasUnsavedChanges.value = false
   } finally {
     isLoading.value = false
   }
 }
+
+
+const saveTokensToFile = async () => {
+  try {
+    const jsonString = JSON.stringify(tokens.value, null, 2)
+    await invoke('save_tokens_json', { jsonString })
+    hasUnsavedChanges.value = false
+    showStatus('Token保存成功', 'success')
+  } catch (error) {
+    showStatus(`保存Token失败: ${error}`, 'error')
+    throw error
+  }
+}
+
 
 const deleteToken = (tokenId) => {
   // 显示删除确认对话框
@@ -359,21 +400,19 @@ const confirmDelete = async () => {
   if (!tokenToDelete.value) return
 
   try {
-    const success = await invoke('delete_token', { id: tokenToDelete.value })
-    if (success) {
-      tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
-      showStatus('Token删除成功!', 'success')
-    } else {
-      showStatus('Token删除失败', 'error')
-    }
+    // 在内存中删除 token
+    tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
+    hasUnsavedChanges.value = true
+
+    showStatus('Token已从内存删除，请手动保存', 'success')
   } catch (error) {
     showStatus(`删除Token失败: ${error}`, 'error')
-  } finally {
-    // 关闭对话框并清理状态
-    showDeleteConfirm.value = false
-    tokenToDelete.value = null
   }
+
+  showDeleteConfirm.value = false
+  tokenToDelete.value = null
 }
+
 
 const cancelDelete = () => {
   showDeleteConfirm.value = false
@@ -452,17 +491,22 @@ const copyTenantUrl = async () => {
   )
 }
 
+
 const saveToken = async () => {
   try {
-    const result = await invoke('save_token', {
-      tenantUrl: tokenResult.value.tenant_url,
-      accessToken: tokenResult.value.access_token,
-      portalUrl: portalUrl.value.trim() || null,
-      emailNote: emailNote.value.trim() || null
-    })
+    // 创建新的 token 对象
+    const newToken = createNewToken(
+      tokenResult.value.tenant_url,
+      tokenResult.value.access_token,
+      portalUrl.value.trim() || null,
+      emailNote.value.trim() || null
+    )
 
-    showStatus('Token保存成功!', 'success')
-    await loadTokens()
+    // 添加到内存中的 tokens 数组
+    tokens.value.push(newToken)
+    hasUnsavedChanges.value = true
+
+    showStatus('Token已添加到内存，请手动保存', 'success')
 
     // Reset form
     authUrl.value = ''
@@ -471,15 +515,9 @@ const saveToken = async () => {
     portalUrl.value = ''
     emailNote.value = ''
   } catch (error) {
-    showStatus(`保存Token失败: ${error}`, 'error')
+    showStatus(`添加Token失败: ${error}`, 'error')
   }
 }
-
-
-
-
-
-
 
 // Token form methods
 const showTokenForm = () => {
@@ -497,24 +535,57 @@ const closeTokenForm = () => {
   editingToken.value = null
 }
 
-const handleTokenFormSuccess = async () => {
-  await loadTokens()
-  showStatus(editingToken.value ? 'Token更新成功!' : 'Token保存成功!', 'success')
+const handleTokenFormSuccess = () => {
+  // TokenForm 现在只更新内存，不需要重新加载
+  hasUnsavedChanges.value = true
+}
+
+const handleUpdateToken = (updatedTokenData) => {
+  // 在内存中更新 token
+  const index = tokens.value.findIndex(t => t.id === updatedTokenData.id)
+  if (index !== -1) {
+    tokens.value[index] = {
+      ...tokens.value[index],
+      tenant_url: updatedTokenData.tenantUrl,
+      access_token: updatedTokenData.accessToken,
+      portal_url: updatedTokenData.portalUrl,
+      email_note: updatedTokenData.emailNote
+    }
+    hasUnsavedChanges.value = true
+  }
+}
+
+const handleAddTokenFromForm = (tokenData) => {
+  // 从表单添加新 token 到内存
+  const newToken = createNewToken(
+    tokenData.tenantUrl,
+    tokenData.accessToken,
+    tokenData.portalUrl,
+    tokenData.emailNote
+  )
+  tokens.value.push(newToken)
+  hasUnsavedChanges.value = true
 }
 
 const saveTokenManually = async (tenantUrl, accessToken, portalUrl, emailNote) => {
   try {
-    const result = await invoke('save_token', {
+    // 创建新的 token 对象
+    const newToken = createNewToken(
       tenantUrl,
       accessToken,
-      portalUrl: portalUrl || null,
-      emailNote: emailNote || null
-    })
+      portalUrl || null,
+      emailNote || null
+    )
 
-    showStatus('Token保存成功!', 'success')
-    await loadTokens()
+    // 添加到内存中的 tokens 数组
+    tokens.value.push(newToken)
+    hasUnsavedChanges.value = true
+
+    showStatus('Token已添加到内存，请手动保存', 'success')
+    return { success: true }
   } catch (error) {
-    showStatus(`保存Token失败: ${error}`, 'error')
+    showStatus(`添加Token失败: ${error}`, 'error')
+    return { success: false, error }
   }
 }
 
@@ -596,9 +667,11 @@ const openAuthUrlInternal = async () => {
 
 
 // Initialize
-onMounted(() => {
-  loadTokens()
+onMounted(async () => {
+  await loadTokens()
 })
+
+
 </script>
 
 <style scoped>
@@ -1173,6 +1246,8 @@ input[type="text"]:read-only {
 .field-input::placeholder {
   color: #9ca3af;
 }
+
+/* 移除了重复的状态指示器样式，现在在 TokenList.vue 中 */
 
 @media (max-width: 768px) {
   .app-header {

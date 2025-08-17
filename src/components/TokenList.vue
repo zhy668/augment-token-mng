@@ -3,8 +3,20 @@
     <div class="modal-overlay" @click="$emit('close')">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>已保存Token</h2>
+          <div class="header-title">
+            <h2>已保存Token</h2>
+            <div :class="['status-badge', hasUnsavedChanges ? 'unsaved' : 'saved']">
+              <span :class="['status-dot', hasUnsavedChanges ? 'unsaved' : 'saved']"></span>
+              <span class="status-text">{{ hasUnsavedChanges ? '未保存' : '正常' }}</span>
+            </div>
+          </div>
           <div class="header-actions">
+            <button @click="$emit('save')" class="btn success small" :disabled="!hasUnsavedChanges">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+              </svg>
+              保存
+            </button>
             <button @click="$emit('add-token')" class="btn primary small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -15,7 +27,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
               </svg>
-              刷新次数
+              刷新
             </button>
             <button class="close-btn" @click="$emit('close')">×</button>
           </div>
@@ -65,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import TokenCard from './TokenCard.vue'
 
 // Props
@@ -77,11 +89,15 @@ const props = defineProps({
   isLoading: {
     type: Boolean,
     default: false
+  },
+  hasUnsavedChanges: {
+    type: Boolean,
+    default: false
   }
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save'])
 
 // Token card refs for accessing child methods
 const tokenCardRefs = ref({})
@@ -90,6 +106,9 @@ const tokenCardRefs = ref({})
 const setTokenCardRef = (el, tokenId) => {
   if (el) {
     tokenCardRefs.value[tokenId] = el
+  } else {
+    // 当组件被移除时，清理引用
+    delete tokenCardRefs.value[tokenId]
   }
 }
 
@@ -156,26 +175,119 @@ const refreshAllPortalInfo = async () => {
   }
 }
 
+// 检查所有Token的账号状态
+const checkAllAccountStatus = async () => {
+  await nextTick() // 确保DOM已更新
+
+  const allTokens = Object.entries(tokenCardRefs.value).filter(([tokenId, cardRef]) => {
+    // 确保 token 还存在于当前列表中
+    const tokenExists = props.tokens.find(t => t.id === tokenId)
+    return tokenExists && cardRef && typeof cardRef.refreshAccountStatus === 'function'
+  })
+
+  if (allTokens.length === 0) {
+    return { success: true, message: '没有可检查的 Token' }
+  }
+
+  try {
+    // 并行检查所有Token的账号状态
+    const checkPromises = allTokens.map(async ([tokenId, cardRef]) => {
+      try {
+        await cardRef.refreshAccountStatus()
+        return { tokenId, success: true }
+      } catch (error) {
+        console.error(`Failed to check account status for token ${tokenId}:`, error)
+        return { tokenId, success: false, error: error.message }
+      }
+    })
+
+    const results = await Promise.allSettled(checkPromises)
+
+    // 统计成功和失败的数量
+    let successCount = 0
+    let failureCount = 0
+
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value.success) {
+        successCount++
+      } else {
+        failureCount++
+      }
+    })
+
+    if (failureCount === 0) {
+      return {
+        success: true,
+        message: `账号状态检查完成 (${successCount}/${allTokens.length})`
+      }
+    } else if (successCount === 0) {
+      return {
+        success: false,
+        message: `账号状态检查失败 (${failureCount}/${allTokens.length})`
+      }
+    } else {
+      return {
+        success: true,
+        message: `账号状态部分检查成功 (${successCount}/${allTokens.length})`
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `检查账号状态时发生错误: ${error.message}`
+    }
+  }
+}
+
 // 处理刷新事件
 const handleRefresh = async () => {
   // 显示开始刷新的通知
-  emit('copy-success', '正在刷新 Portal 信息...', 'info')
+  emit('copy-success', '正在刷新 Token 状态和 Portal 信息...', 'info')
 
   try {
     // 先刷新token列表
     emit('refresh')
     await nextTick() // 等待DOM更新
 
-    // 刷新Portal信息
-    const result = await refreshAllPortalInfo()
+    // 并行执行账号状态检查和Portal信息刷新
+    const [statusResult, portalResult] = await Promise.allSettled([
+      checkAllAccountStatus(),
+      refreshAllPortalInfo()
+    ])
+
+    // 处理结果
+    const messages = []
+    let hasError = false
+
+    if (statusResult.status === 'fulfilled') {
+      messages.push(statusResult.value.message)
+      if (!statusResult.value.success) hasError = true
+    } else {
+      messages.push(`账号状态检查失败: ${statusResult.reason}`)
+      hasError = true
+    }
+
+    if (portalResult.status === 'fulfilled') {
+      messages.push(portalResult.value.message)
+      if (!portalResult.value.success) hasError = true
+    } else {
+      messages.push(`Portal 信息刷新失败: ${portalResult.reason}`)
+      hasError = true
+    }
 
     // 显示刷新结果通知
-    emit('copy-success', result.message, result.success ? 'success' : 'error')
+    const finalMessage = messages.join('; ')
+    emit('copy-success', finalMessage, hasError ? 'error' : 'success')
   } catch (error) {
     // 显示错误通知
     emit('copy-success', `刷新失败: ${error.message}`, 'error')
   }
 }
+
+// 组件挂载时触发刷新，显示加载成功消息
+onMounted(() => {
+  emit('refresh', true) // 传递 true 表示显示成功消息
+})
 
 // 暴露方法给父组件
 defineExpose({
@@ -217,26 +329,7 @@ defineExpose({
   margin-top: -60px; /* 向上移动到红框位置 */
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #1f2937;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
+/* 移除旧的 modal-header 样式，使用新的样式 */
 
 .close-btn {
   background: none;
@@ -247,6 +340,12 @@ defineExpose({
   padding: 4px;
   border-radius: 4px;
   transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
@@ -401,7 +500,10 @@ defineExpose({
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .btn.secondary {
@@ -413,8 +515,102 @@ defineExpose({
   background: #e5e7eb;
 }
 
+.btn.success {
+  background: #10b981;
+  color: white;
+  border: 1px solid #10b981;
+}
+
+.btn.success:hover:not(:disabled) {
+  background: #059669;
+  border-color: #059669;
+}
+
+.btn.success:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
 .btn.small {
   padding: 6px 12px;
   font-size: 12px;
+  height: 32px;
+}
+
+/* Header layout */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  min-height: 60px;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.header-title h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Status badge styles */
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  height: fit-content;
+}
+
+.status-badge.saved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.unsaved {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.saved {
+  background-color: #10b981;
+}
+
+.status-dot.unsaved {
+  background-color: #f59e0b;
+}
+
+.status-text {
+  font-size: 11px;
+  font-weight: 500;
 }
 </style>

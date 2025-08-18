@@ -261,7 +261,7 @@ const handleCancel = () => {
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  max-height: 98vh;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
@@ -305,7 +305,7 @@ const handleCancel = () => {
 
 .modal-body {
   padding: 24px;
-  max-height: calc(90vh - 120px);
+  max-height: calc(98vh - 120px);
   overflow-y: auto;
 }
 

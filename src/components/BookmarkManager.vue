@@ -380,7 +380,7 @@ onMounted(() => {
   border-radius: 12px;
   width: 100%;
   max-width: 900px;
-  height: 85vh;
+  height: 90vh;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: flex;

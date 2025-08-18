@@ -332,7 +332,7 @@ defineExpose({
   border-radius: 12px;
   width: 100%;
   max-width: 900px;
-  height: 85vh; /* 固定高度，更大 */
+  height: 90vh; /* 固定高度，更大 */
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   margin-top: -60px; /* 向上移动到红框位置 */
@@ -364,7 +364,7 @@ defineExpose({
 
 .modal-body {
   padding: 24px;
-  height: calc(85vh - 80px); /* 固定高度 */
+  height: calc(90vh - 80px); /* 固定高度 */
   overflow-y: auto;
 }
 

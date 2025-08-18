@@ -918,7 +918,7 @@ input[type="text"]:read-only {
   background: white;
   border-radius: 12px;
   max-width: 90vw;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow-y: auto;
   position: relative;
 }

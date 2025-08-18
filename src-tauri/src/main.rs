@@ -562,6 +562,37 @@ async fn open_data_folder(
 }
 
 #[tauri::command]
+async fn create_jetbrains_token_file(
+    editor_type: String,
+    token_data: String,
+) -> Result<String, String> {
+    use std::fs;
+    use std::env;
+    use std::path::PathBuf;
+
+    // 获取用户主目录
+    let home_dir = env::var("USERPROFILE")
+        .or_else(|_| env::var("HOME"))
+        .map_err(|_| "Failed to get home directory".to_string())?;
+
+    let augment_dir = PathBuf::from(&home_dir).join(".augment");
+
+    // 确保 .augment 目录存在
+    fs::create_dir_all(&augment_dir)
+        .map_err(|e| format!("Failed to create .augment directory: {}", e))?;
+
+    // 创建文件路径
+    let file_name = format!("{}_token.json", editor_type);
+    let file_path = augment_dir.join(&file_name);
+
+    // 写入文件
+    fs::write(&file_path, token_data)
+        .map_err(|e| format!("Failed to write token file: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 async fn open_editor_with_protocol(
     app: tauri::AppHandle,
     protocol_url: String,
@@ -607,6 +638,7 @@ fn main() {
             test_api_call,
             open_data_folder,
             open_editor_with_protocol,
+            create_jetbrains_token_file,
 
             open_internal_browser,
             close_window

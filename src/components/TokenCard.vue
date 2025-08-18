@@ -56,9 +56,7 @@
 
       <div class="actions">
         <button @click="openEditorModal" class="btn-action vscode" title="选择编辑器">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
-          </svg>
+          <img src="/src/assets/icons/vscode.svg" alt="选择编辑器" width="18" height="18" />
         </button>
         <button @click="copyToken" class="btn-action" title="复制Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -109,30 +107,120 @@
             </button>
           </div>
           <div class="modal-content">
-            <p class="modal-description">选择要打开的编辑器：</p>
-            <div class="editor-options">
-              <button @click="handleEditorClick('cursor')" class="editor-option cursor-option">
-                <div class="editor-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                </div>
-                <div class="editor-info">
-                  <span class="editor-name">Cursor</span>
-                  <span class="editor-desc">AI-powered code editor</span>
-                </div>
-              </button>
-              <button @click="handleEditorClick('vscode')" class="editor-option vscode-option">
-                <div class="editor-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
-                  </svg>
-                </div>
-                <div class="editor-info">
-                  <span class="editor-name">VS Code</span>
-                  <span class="editor-desc">Visual Studio Code</span>
-                </div>
-              </button>
+            <!-- VSCode 系编辑器区域 -->
+            <div class="editor-section">
+              <div class="editor-options jetbrains-grid">
+                <button @click="handleEditorClick('vscode')" class="editor-option vscode-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/vscode.svg" alt="VS Code" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">VS Code</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('cursor')" class="editor-option cursor-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/cursor.svg" alt="Cursor" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Cursor</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- JetBrains 系编辑器区域 -->
+            <div class="editor-section">
+              <div class="editor-options jetbrains-grid">
+                <button @click="handleEditorClick('idea')" class="editor-option idea-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/idea.svg" alt="IntelliJ IDEA" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">IntelliJ IDEA</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('pycharm')" class="editor-option pycharm-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/pycharm.svg" alt="PyCharm" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">PyCharm</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('goland')" class="editor-option goland-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/goland.svg" alt="GoLand" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">GoLand</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('rustrover')" class="editor-option rustrover-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/rustrover.svg" alt="RustRover" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">RustRover</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('webstorm')" class="editor-option webstorm-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/webstorm.svg" alt="WebStorm" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">WebStorm</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('phpstorm')" class="editor-option phpstorm-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/phpstorm.svg" alt="PhpStorm" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">PhpStorm</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('clion')" class="editor-option clion-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/clion.svg" alt="CLion" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">CLion</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('datagrip')" class="editor-option datagrip-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/datagrip.svg" alt="DataGrip" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">DataGrip</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('rider')" class="editor-option rider-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/rider.svg" alt="Rider" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Rider</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('rubymine')" class="editor-option rubymine-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/rubymine.svg" alt="RubyMine" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">RubyMine</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('aqua')" class="editor-option aqua-option">
+                  <div class="editor-icon">
+                    <img src="/src/assets/icons/aqua.svg" alt="Aqua" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Aqua</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -340,6 +428,42 @@ const getVSCodeProtocolUrl = () => {
   }
 }
 
+// 生成 JetBrains 编辑器协议 URL
+const getJetBrainsProtocolUrl = (editorType) => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `jetbrains://${editorType}/plugin/Augment.jetbrains-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error(`Failed to generate ${editorType} protocol URL:`, error)
+    return '#'
+  }
+}
+
+// 为 JetBrains 编辑器创建 JSON 文件
+const createJetBrainsTokenFile = async (editorType) => {
+  try {
+    // 创建 JSON 数据
+    const tokenData = {
+      url: props.token.tenant_url,
+      token: props.token.access_token,
+      timestamp: Date.now(),
+      ide: editorType
+    }
+
+    // 调用 Tauri 后端命令创建文件
+    const result = await invoke('create_jetbrains_token_file', {
+      editorType,
+      tokenData: JSON.stringify(tokenData, null, 2)
+    })
+
+    return { success: true, filePath: result }
+  } catch (error) {
+    console.error(`Failed to create ${editorType} token file:`, error)
+    return { success: false, error: error.toString() }
+  }
+}
+
 // 处理编辑器链接点击事件
 const handleEditorClick = async (editorType) => {
   try {
@@ -347,18 +471,66 @@ const handleEditorClick = async (editorType) => {
     showEditorModal.value = false
     isModalClosing.value = false
 
-    // 生成协议 URL
-    const protocolUrl = editorType === 'cursor' ? getCursorProtocolUrl() : getVSCodeProtocolUrl()
-    
-    // 使用 Tauri 命令打开编辑器
-    await invoke('open_editor_with_protocol', { protocolUrl })
+    // 定义 JetBrains 系编辑器列表
+    const jetbrainsEditors = [
+      'idea', 'pycharm', 'goland', 'rustrover', 'webstorm',
+      'phpstorm', 'clion', 'datagrip', 'rider', 'rubymine', 'aqua'
+    ]
 
-    // 显示成功消息
-    const editorName = editorType === 'cursor' ? 'Cursor' : 'VS Code'
-    emit('copy-success', `正在打开 ${editorName}...`, 'success')
+    // 获取编辑器名称
+    const getEditorName = (type) => {
+      const editorNames = {
+        'cursor': 'Cursor',
+        'vscode': 'VS Code',
+        'idea': 'IntelliJ IDEA',
+        'pycharm': 'PyCharm',
+        'goland': 'GoLand',
+        'rustrover': 'RustRover',
+        'webstorm': 'WebStorm',
+        'phpstorm': 'PhpStorm',
+        'clion': 'CLion',
+        'datagrip': 'DataGrip',
+        'rider': 'Rider',
+        'rubymine': 'RubyMine',
+        'aqua': 'Aqua'
+      }
+      return editorNames[type] || type
+    }
+
+    const editorName = getEditorName(editorType)
+
+    // 检查是否为 JetBrains 系编辑器
+    if (jetbrainsEditors.includes(editorType)) {
+      // 为 JetBrains 编辑器创建 JSON 文件
+      const result = await createJetBrainsTokenFile(editorType)
+
+      if (result.success) {
+        emit('copy-success', `${editorName} Token 文件已创建`, 'success')
+      } else {
+        emit('copy-success', `创建 ${editorName} Token 文件失败: ${result.error}`, 'error')
+      }
+    } else {
+      // VSCode 系编辑器使用原有的协议 URL 方式
+      let protocolUrl
+
+      switch (editorType) {
+        case 'cursor':
+          protocolUrl = getCursorProtocolUrl()
+          break
+        case 'vscode':
+          protocolUrl = getVSCodeProtocolUrl()
+          break
+        default:
+          throw new Error(`Unknown VSCode editor type: ${editorType}`)
+      }
+
+      // 使用 Tauri 命令打开编辑器
+      await invoke('open_editor_with_protocol', { protocolUrl })
+      emit('copy-success', `正在打开 ${editorName}...`, 'success')
+    }
   } catch (error) {
     console.error('Failed to handle editor click:', error)
-    emit('copy-success', '打开编辑器失败', 'error')
+    emit('copy-success', '操作失败', 'error')
     showEditorModal.value = false
     isModalClosing.value = false
   }
@@ -971,9 +1143,9 @@ defineExpose({
   background: white;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 400px;
+  max-width: 700px;
   width: 90%;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
   transition: transform 0.3s ease;
   position: relative;
@@ -1016,17 +1188,33 @@ defineExpose({
 
 .modal-content {
   padding: 20px 24px 24px;
+  max-height: calc(95vh - 80px);
+  overflow-y: auto;
 }
 
-.modal-description {
-  margin: 0 0 16px 0;
-  color: #666;
-  font-size: 14px;
+
+
+.editor-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.editor-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .editor-options {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.jetbrains-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
 
@@ -1075,41 +1263,58 @@ defineExpose({
 
 .editor-icon {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #f3f4f6;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.editor-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .cursor-option .editor-icon {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f0f9ff;
+  border-color: #e0f2fe;
 }
 
 .vscode-option .editor-icon {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #f0f9ff;
+  border-color: #e0f2fe;
+}
+
+.idea-option .editor-icon,
+.pycharm-option .editor-icon,
+.goland-option .editor-icon,
+.rustrover-option .editor-icon,
+.webstorm-option .editor-icon,
+.phpstorm-option .editor-icon,
+.clion-option .editor-icon,
+.datagrip-option .editor-icon,
+.rider-option .editor-icon,
+.rubymine-option .editor-icon,
+.aqua-option .editor-icon {
+  background: #f0f9ff;
+  border-color: #e0f2fe;
 }
 
 .editor-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
 }
 
 .editor-name {
   font-size: 16px;
   font-weight: 600;
   color: #333;
-}
-
-.editor-desc {
-  font-size: 13px;
-  color: #666;
 }
 
 
@@ -1139,7 +1344,8 @@ defineExpose({
     min-height: 32px;
   }
 
-  .btn-action svg {
+  .btn-action svg,
+  .btn-action img {
     width: 16px;
     height: 16px;
   }
@@ -1161,7 +1367,8 @@ defineExpose({
     min-height: 30px;
   }
 
-  .btn-action svg {
+  .btn-action svg,
+  .btn-action img {
     width: 14px;
     height: 14px;
   }
@@ -1176,6 +1383,7 @@ defineExpose({
   .editor-modal {
     width: 95%;
     margin: 16px;
+    max-height: 90vh;
   }
 
   .modal-header {
@@ -1190,22 +1398,32 @@ defineExpose({
     padding: 16px 20px 20px;
   }
 
+  .editor-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+  }
+
+  .jetbrains-grid {
+    grid-template-columns: 1fr;
+  }
+
   .editor-option {
     padding: 12px;
     gap: 12px;
   }
 
   .editor-icon {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .editor-icon img {
+    width: 28px;
+    height: 28px;
   }
 
   .editor-name {
     font-size: 15px;
-  }
-
-  .editor-desc {
-    font-size: 12px;
   }
 }
 

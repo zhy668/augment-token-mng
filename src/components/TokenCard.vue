@@ -56,7 +56,7 @@
 
       <div class="actions">
         <button @click="openEditorModal" class="btn-action vscode" title="选择编辑器">
-          <img src="/src/assets/icons/vscode.svg" alt="选择编辑器" width="18" height="18" />
+          <img src="@/assets/icons/vscode.svg" alt="选择编辑器" width="18" height="18" />
         </button>
         <button @click="copyToken" class="btn-action" title="复制Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -112,7 +112,7 @@
               <div class="editor-options jetbrains-grid">
                 <button @click="handleEditorClick('vscode')" class="editor-option vscode-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/vscode.svg" alt="VS Code" width="32" height="32" />
+                    <img src="@/assets/icons/vscode.svg" alt="VS Code" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">VS Code</span>
@@ -120,7 +120,7 @@
                 </button>
                 <button @click="handleEditorClick('cursor')" class="editor-option cursor-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/cursor.svg" alt="Cursor" width="32" height="32" />
+                    <img src="@/assets/icons/cursor.svg" alt="Cursor" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Cursor</span>
@@ -134,7 +134,7 @@
               <div class="editor-options jetbrains-grid">
                 <button @click="handleEditorClick('idea')" class="editor-option idea-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/idea.svg" alt="IntelliJ IDEA" width="32" height="32" />
+                    <img src="@/assets/icons/idea.svg" alt="IntelliJ IDEA" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">IntelliJ IDEA</span>
@@ -142,7 +142,7 @@
                 </button>
                 <button @click="handleEditorClick('pycharm')" class="editor-option pycharm-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/pycharm.svg" alt="PyCharm" width="32" height="32" />
+                    <img src="@/assets/icons/pycharm.svg" alt="PyCharm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">PyCharm</span>
@@ -150,7 +150,7 @@
                 </button>
                 <button @click="handleEditorClick('goland')" class="editor-option goland-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/goland.svg" alt="GoLand" width="32" height="32" />
+                    <img src="@/assets/icons/goland.svg" alt="GoLand" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">GoLand</span>
@@ -158,7 +158,7 @@
                 </button>
                 <button @click="handleEditorClick('rustrover')" class="editor-option rustrover-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/rustrover.svg" alt="RustRover" width="32" height="32" />
+                    <img src="@/assets/icons/rustrover.svg" alt="RustRover" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">RustRover</span>
@@ -166,7 +166,7 @@
                 </button>
                 <button @click="handleEditorClick('webstorm')" class="editor-option webstorm-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/webstorm.svg" alt="WebStorm" width="32" height="32" />
+                    <img src="@/assets/icons/webstorm.svg" alt="WebStorm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">WebStorm</span>
@@ -174,15 +174,23 @@
                 </button>
                 <button @click="handleEditorClick('phpstorm')" class="editor-option phpstorm-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/phpstorm.svg" alt="PhpStorm" width="32" height="32" />
+                    <img src="@/assets/icons/phpstorm.svg" alt="PhpStorm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">PhpStorm</span>
                   </div>
                 </button>
+                <button @click="handleEditorClick('androidstudio')" class="editor-option androidstudio-option">
+                  <div class="editor-icon">
+                    <img src="@/assets/icons/androidstudio.svg" alt="Android Studio" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Android Studio</span>
+                  </div>
+                </button>
                 <button @click="handleEditorClick('clion')" class="editor-option clion-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/clion.svg" alt="CLion" width="32" height="32" />
+                    <img src="@/assets/icons/clion.svg" alt="CLion" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">CLion</span>
@@ -190,7 +198,7 @@
                 </button>
                 <button @click="handleEditorClick('datagrip')" class="editor-option datagrip-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/datagrip.svg" alt="DataGrip" width="32" height="32" />
+                    <img src="@/assets/icons/datagrip.svg" alt="DataGrip" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">DataGrip</span>
@@ -198,7 +206,7 @@
                 </button>
                 <button @click="handleEditorClick('rider')" class="editor-option rider-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/rider.svg" alt="Rider" width="32" height="32" />
+                    <img src="@/assets/icons/rider.svg" alt="Rider" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Rider</span>
@@ -206,7 +214,7 @@
                 </button>
                 <button @click="handleEditorClick('rubymine')" class="editor-option rubymine-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/rubymine.svg" alt="RubyMine" width="32" height="32" />
+                    <img src="@/assets/icons/rubymine.svg" alt="RubyMine" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">RubyMine</span>
@@ -214,7 +222,7 @@
                 </button>
                 <button @click="handleEditorClick('aqua')" class="editor-option aqua-option">
                   <div class="editor-icon">
-                    <img src="/src/assets/icons/aqua.svg" alt="Aqua" width="32" height="32" />
+                    <img src="@/assets/icons/aqua.svg" alt="Aqua" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Aqua</span>
@@ -474,7 +482,7 @@ const handleEditorClick = async (editorType) => {
     // 定义 JetBrains 系编辑器列表
     const jetbrainsEditors = [
       'idea', 'pycharm', 'goland', 'rustrover', 'webstorm',
-      'phpstorm', 'clion', 'datagrip', 'rider', 'rubymine', 'aqua'
+      'phpstorm', 'androidstudio', 'clion', 'datagrip', 'rider', 'rubymine', 'aqua'
     ]
 
     // 获取编辑器名称
@@ -488,6 +496,7 @@ const handleEditorClick = async (editorType) => {
         'rustrover': 'RustRover',
         'webstorm': 'WebStorm',
         'phpstorm': 'PhpStorm',
+        'androidstudio': 'Android Studio',
         'clion': 'CLion',
         'datagrip': 'DataGrip',
         'rider': 'Rider',
@@ -1294,6 +1303,7 @@ defineExpose({
 .rustrover-option .editor-icon,
 .webstorm-option .editor-icon,
 .phpstorm-option .editor-icon,
+.androidstudio-option .editor-icon,
 .clion-option .editor-icon,
 .datagrip-option .editor-icon,
 .rider-option .editor-icon,

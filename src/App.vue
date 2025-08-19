@@ -4,6 +4,21 @@
     <header class="app-header">
       <div class="header-left">
         <h1>Augment Token Manager</h1>
+        <!-- External Link buttons -->
+        <div class="external-links-group">
+          <button @click="showAppHomeDialog = true" class="btn app-home-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+            App主页
+          </button>
+          <button @click="showPluginHomeDialog = true" class="btn plugin-home-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-2 .9-2 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/>
+            </svg>
+            插件主页
+          </button>
+        </div>
       </div>
       <div class="header-buttons">
         <!-- Feature buttons -->
@@ -164,6 +179,7 @@
       @open-portal="handleOpenPortal"
       @edit="handleEditToken"
       @save="saveTokensToFile"
+      @token-updated="hasUnsavedChanges = true"
     />
 
     <!-- Token Form Modal -->
@@ -275,6 +291,60 @@
         </div>
       </div>
     </div>
+
+    <!-- App主页打开方式选择对话框 -->
+    <div v-if="showAppHomeDialog" class="portal-dialog-overlay" @click="showAppHomeDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>App主页 - 选择打开方式</h3>
+        <div class="dialog-buttons">
+          <button @click="openAppHomeExternal" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            外部打开
+          </button>
+          <button @click="openAppHomeInternal" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            内置打开
+          </button>
+          <button @click="showAppHomeDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 插件主页打开方式选择对话框 -->
+    <div v-if="showPluginHomeDialog" class="portal-dialog-overlay" @click="showPluginHomeDialog = false">
+      <div class="portal-dialog" @click.stop>
+        <h3>插件主页 - 选择打开方式</h3>
+        <div class="dialog-buttons">
+          <button @click="openPluginHomeExternal" class="dialog-btn external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            外部打开
+          </button>
+          <button @click="openPluginHomeInternal" class="dialog-btn internal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            内置打开
+          </button>
+          <button @click="showPluginHomeDialog = false" class="dialog-btn cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -337,6 +407,10 @@ const tokenToDelete = ref(null)
 
 // Auth URL dialog
 const showAuthUrlDialog = ref(false)
+
+// External links dialogs
+const showAppHomeDialog = ref(false)
+const showPluginHomeDialog = ref(false)
 
 // Token form dialog
 const showTokenFormModal = ref(false)
@@ -664,6 +738,61 @@ const openAuthUrlInternal = async () => {
   }
 }
 
+// External links dialog methods
+const openAppHomeExternal = async () => {
+  showAppHomeDialog.value = false
+  const url = 'https://github.com/zhaochengcube/augment-token-mng'
+
+  try {
+    await invoke('open_url', { url })
+  } catch (error) {
+    console.error('Failed to open App主页 externally:', error)
+    showStatus('打开App主页失败', 'error')
+  }
+}
+
+const openAppHomeInternal = async () => {
+  showAppHomeDialog.value = false
+  const url = 'https://github.com/zhaochengcube/augment-token-mng'
+
+  try {
+    await invoke('open_internal_browser', {
+      url,
+      title: 'App主页 - Augment Token Manager'
+    })
+  } catch (error) {
+    console.error('Failed to open App主页 internally:', error)
+    showStatus('打开App主页失败', 'error')
+  }
+}
+
+const openPluginHomeExternal = async () => {
+  showPluginHomeDialog.value = false
+  const url = 'https://github.com/zhaochengcube/augment-code-auto'
+
+  try {
+    await invoke('open_url', { url })
+  } catch (error) {
+    console.error('Failed to open 插件主页 externally:', error)
+    showStatus('打开插件主页失败', 'error')
+  }
+}
+
+const openPluginHomeInternal = async () => {
+  showPluginHomeDialog.value = false
+  const url = 'https://github.com/zhaochengcube/augment-code-auto'
+
+  try {
+    await invoke('open_internal_browser', {
+      url,
+      title: '插件主页 - Augment Code Auto'
+    })
+  } catch (error) {
+    console.error('Failed to open 插件主页 internally:', error)
+    showStatus('打开插件主页失败', 'error')
+  }
+}
+
 
 
 // Initialize
@@ -718,10 +847,11 @@ html, body {
 
 .header-left {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   flex: 1;
   min-width: 0;
+  align-items: flex-start;
 }
 
 .app-header h1 {
@@ -744,6 +874,45 @@ html, body {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.external-links-group {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  align-self: flex-start;
+}
+
+.external-links-group .btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 80px;
+  justify-content: center;
+  border: none;
+}
+
+.btn.app-home-btn {
+  background: #007bff;
+  color: white;
+}
+
+.btn.app-home-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.btn.plugin-home-btn {
+  background: #28a745;
+  color: white;
+}
+
+.btn.plugin-home-btn:hover {
+  background: #1e7e34;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
 }
 
 
@@ -1052,7 +1221,7 @@ input[type="text"]:read-only {
 .status-toast {
   position: fixed;
   top: 20px;
-  right: 20px;
+  left: 20px;
   padding: 12px 20px;
   border-radius: 6px;
   font-size: 14px;
@@ -1257,9 +1426,25 @@ input[type="text"]:read-only {
     text-align: center;
   }
 
+  .header-left {
+    gap: 12px;
+    align-items: center;
+  }
+
   .header-buttons {
     flex-direction: column;
     width: 100%;
+  }
+
+  .external-links-group {
+    gap: 6px;
+  }
+
+  .external-links-group .btn {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    padding: 5px 10px;
   }
 
   .header-buttons .btn {

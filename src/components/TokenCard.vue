@@ -96,7 +96,7 @@
   <!-- 编辑器选择模态框 - 移到组件外部，使用 Teleport -->
   <Teleport to="body">
     <Transition name="modal" appear>
-      <div v-if="showEditorModal" class="editor-modal-overlay" @click.self="closeModal">
+      <div v-if="showEditorModal" class="editor-modal-overlay">
         <div class="editor-modal" @click.stop>
           <div class="modal-header">
             <h3>选择编辑器</h3>
@@ -255,7 +255,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit'])
+const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit', 'token-updated'])
 
 // Reactive data
 const isLoadingPortalInfo = ref(false)
@@ -650,8 +650,7 @@ const loadPortalInfo = async (forceRefresh = false) => {
         props.token.portal_info = {
           credits_balance: newPortalData.credits_balance,
           expiry_date: newPortalData.expiry_date,
-          is_active: newPortalData.is_active,
-          last_updated: new Date().toISOString()
+          is_active: newPortalData.is_active
         }
         console.log('Updated token portal_info:', props.token.portal_info)
       } else {

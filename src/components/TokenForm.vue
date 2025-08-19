@@ -1,6 +1,6 @@
 <template>
   <div class="token-form-modal">
-    <div class="modal-overlay" @click="handleCancel">
+    <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h2>{{ isEditing ? '编辑Token' : '添加Token' }}</h2>

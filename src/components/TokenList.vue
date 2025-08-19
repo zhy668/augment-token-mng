@@ -1,6 +1,6 @@
 <template>
   <div class="token-list-modal">
-    <div class="modal-overlay" @click="$emit('close')">
+    <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <div class="header-title">
@@ -29,7 +29,7 @@
               </svg>
               刷新
             </button>
-            <button class="close-btn" @click="$emit('close')">×</button>
+            <button class="close-btn" @click="handleClose">×</button>
           </div>
         </div>
         
@@ -67,6 +67,7 @@
                 @copy-success="$emit('copy-success', $event)"
               @open-portal="$emit('open-portal', $event)"
               @edit="$emit('edit', $event)"
+              @token-updated="$emit('token-updated')"
               />
             </div>
           </div>
@@ -97,7 +98,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save', 'token-updated'])
 
 // Token card refs for accessing child methods
 const tokenCardRefs = ref({})
@@ -239,6 +240,18 @@ const checkAllAccountStatus = async () => {
   }
 }
 
+// 处理关闭事件
+const handleClose = () => {
+  // 如果有未保存的更改，显示提示并阻止关闭
+  if (props.hasUnsavedChanges) {
+    emit('copy-success', '检测到未保存的更改，请先保存后再关闭', 'error')
+    return
+  }
+
+  // 没有未保存更改，正常关闭
+  emit('close')
+}
+
 // 处理刷新事件
 const handleRefresh = async () => {
   // 如果有未保存的更改，警告用户
@@ -284,6 +297,7 @@ const handleRefresh = async () => {
     // 显示刷新结果通知
     const finalMessage = messages.join('; ')
     emit('copy-success', finalMessage, hasError ? 'error' : 'success')
+    emit('save')
   } catch (error) {
     // 显示错误通知
     emit('copy-success', `刷新失败: ${error.message}`, 'error')

@@ -1,6 +1,6 @@
 <template>
   <div class="token-generator">
-    <div class="modal-overlay" @click="$emit('close')">
+    <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h2>生成Augment Token</h2>

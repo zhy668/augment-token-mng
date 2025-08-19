@@ -1,6 +1,6 @@
 <template>
   <div class="bookmark-manager-modal">
-    <div class="modal-overlay" @click="$emit('close')">
+    <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h2>书签管理</h2>
@@ -70,7 +70,7 @@
         </div>
 
         <!-- Add/Edit Form Modal -->
-        <div v-if="showForm" class="form-overlay" @click="hideForm">
+        <div v-if="showForm" class="form-overlay">
           <div class="form-content" @click.stop>
             <div class="form-header">
               <h3>{{ editingBookmark ? '编辑书签' : '添加书签' }}</h3>

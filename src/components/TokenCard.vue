@@ -56,7 +56,7 @@
 
       <div class="actions">
         <button @click="openEditorModal" class="btn-action vscode" title="选择编辑器">
-          <img src="@/assets/icons/vscode.svg" alt="选择编辑器" width="18" height="18" />
+          <img :src="editorIcons.vscode" alt="选择编辑器" width="18" height="18" />
         </button>
         <button @click="copyToken" class="btn-action" title="复制Token">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -112,7 +112,7 @@
               <div class="editor-options jetbrains-grid">
                 <button @click="handleEditorClick('vscode')" class="editor-option vscode-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/vscode.svg" alt="VS Code" width="32" height="32" />
+                    <img :src="editorIcons.vscode" alt="VS Code" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">VS Code</span>
@@ -120,7 +120,7 @@
                 </button>
                 <button @click="handleEditorClick('cursor')" class="editor-option cursor-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/cursor.svg" alt="Cursor" width="32" height="32" />
+                    <img :src="editorIcons.cursor" alt="Cursor" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Cursor</span>
@@ -134,7 +134,7 @@
               <div class="editor-options jetbrains-grid">
                 <button @click="handleEditorClick('idea')" class="editor-option idea-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/idea.svg" alt="IntelliJ IDEA" width="32" height="32" />
+                    <img :src="editorIcons.idea" alt="IntelliJ IDEA" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">IntelliJ IDEA</span>
@@ -142,7 +142,7 @@
                 </button>
                 <button @click="handleEditorClick('pycharm')" class="editor-option pycharm-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/pycharm.svg" alt="PyCharm" width="32" height="32" />
+                    <img :src="editorIcons.pycharm" alt="PyCharm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">PyCharm</span>
@@ -150,7 +150,7 @@
                 </button>
                 <button @click="handleEditorClick('goland')" class="editor-option goland-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/goland.svg" alt="GoLand" width="32" height="32" />
+                    <img :src="editorIcons.goland" alt="GoLand" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">GoLand</span>
@@ -158,7 +158,7 @@
                 </button>
                 <button @click="handleEditorClick('rustrover')" class="editor-option rustrover-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/rustrover.svg" alt="RustRover" width="32" height="32" />
+                    <img :src="editorIcons.rustrover" alt="RustRover" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">RustRover</span>
@@ -166,7 +166,7 @@
                 </button>
                 <button @click="handleEditorClick('webstorm')" class="editor-option webstorm-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/webstorm.svg" alt="WebStorm" width="32" height="32" />
+                    <img :src="editorIcons.webstorm" alt="WebStorm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">WebStorm</span>
@@ -174,7 +174,7 @@
                 </button>
                 <button @click="handleEditorClick('phpstorm')" class="editor-option phpstorm-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/phpstorm.svg" alt="PhpStorm" width="32" height="32" />
+                    <img :src="editorIcons.phpstorm" alt="PhpStorm" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">PhpStorm</span>
@@ -182,7 +182,7 @@
                 </button>
                 <button @click="handleEditorClick('androidstudio')" class="editor-option androidstudio-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/androidstudio.svg" alt="Android Studio" width="32" height="32" />
+                    <img :src="editorIcons.androidstudio" alt="Android Studio" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Android Studio</span>
@@ -190,7 +190,7 @@
                 </button>
                 <button @click="handleEditorClick('clion')" class="editor-option clion-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/clion.svg" alt="CLion" width="32" height="32" />
+                    <img :src="editorIcons.clion" alt="CLion" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">CLion</span>
@@ -198,7 +198,7 @@
                 </button>
                 <button @click="handleEditorClick('datagrip')" class="editor-option datagrip-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/datagrip.svg" alt="DataGrip" width="32" height="32" />
+                    <img :src="editorIcons.datagrip" alt="DataGrip" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">DataGrip</span>
@@ -206,7 +206,7 @@
                 </button>
                 <button @click="handleEditorClick('rider')" class="editor-option rider-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/rider.svg" alt="Rider" width="32" height="32" />
+                    <img :src="editorIcons.rider" alt="Rider" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Rider</span>
@@ -214,7 +214,7 @@
                 </button>
                 <button @click="handleEditorClick('rubymine')" class="editor-option rubymine-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/rubymine.svg" alt="RubyMine" width="32" height="32" />
+                    <img :src="editorIcons.rubymine" alt="RubyMine" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">RubyMine</span>
@@ -222,7 +222,7 @@
                 </button>
                 <button @click="handleEditorClick('aqua')" class="editor-option aqua-option">
                   <div class="editor-icon">
-                    <img src="@/assets/icons/aqua.svg" alt="Aqua" width="32" height="32" />
+                    <img :src="editorIcons.aqua" alt="Aqua" width="32" height="32" />
                   </div>
                   <div class="editor-info">
                     <span class="editor-name">Aqua</span>
@@ -240,6 +240,22 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+
+// 导入SVG图标
+import vscodeIcon from '@/assets/icons/vscode.svg'
+import cursorIcon from '@/assets/icons/cursor.svg'
+import ideaIcon from '@/assets/icons/idea.svg'
+import pycharmIcon from '@/assets/icons/pycharm.svg'
+import golandIcon from '@/assets/icons/goland.svg'
+import rustroverIcon from '@/assets/icons/rustrover.svg'
+import webstormIcon from '@/assets/icons/webstorm.svg'
+import phpstormIcon from '@/assets/icons/phpstorm.svg'
+import clionIcon from '@/assets/icons/clion.svg'
+import datagripIcon from '@/assets/icons/datagrip.svg'
+import riderIcon from '@/assets/icons/rider.svg'
+import rubymineIcon from '@/assets/icons/rubymine.svg'
+import aquaIcon from '@/assets/icons/aqua.svg'
+import androidstudioIcon from '@/assets/icons/androidstudio.svg'
 
 // 防抖函数
 function debounce(func, wait) {
@@ -272,6 +288,24 @@ const isCheckingStatus = ref(false)
 const isEmailHovered = ref(false)
 const showEditorModal = ref(false)
 const isModalClosing = ref(false)
+
+// 图标映射
+const editorIcons = {
+  vscode: vscodeIcon,
+  cursor: cursorIcon,
+  idea: ideaIcon,
+  pycharm: pycharmIcon,
+  goland: golandIcon,
+  rustrover: rustroverIcon,
+  webstorm: webstormIcon,
+  phpstorm: phpstormIcon,
+  clion: clionIcon,
+  datagrip: datagripIcon,
+  rider: riderIcon,
+  rubymine: rubymineIcon,
+  aqua: aquaIcon,
+  androidstudio: androidstudioIcon
+}
 
 // Computed properties
 const displayUrl = computed(() => {

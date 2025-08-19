@@ -241,22 +241,6 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
-// 导入SVG图标
-import vscodeIcon from '@/assets/icons/vscode.svg'
-import cursorIcon from '@/assets/icons/cursor.svg'
-import ideaIcon from '@/assets/icons/idea.svg'
-import pycharmIcon from '@/assets/icons/pycharm.svg'
-import golandIcon from '@/assets/icons/goland.svg'
-import rustroverIcon from '@/assets/icons/rustrover.svg'
-import webstormIcon from '@/assets/icons/webstorm.svg'
-import phpstormIcon from '@/assets/icons/phpstorm.svg'
-import clionIcon from '@/assets/icons/clion.svg'
-import datagripIcon from '@/assets/icons/datagrip.svg'
-import riderIcon from '@/assets/icons/rider.svg'
-import rubymineIcon from '@/assets/icons/rubymine.svg'
-import aquaIcon from '@/assets/icons/aqua.svg'
-import androidstudioIcon from '@/assets/icons/androidstudio.svg'
-
 // 防抖函数
 function debounce(func, wait) {
   let timeout
@@ -291,20 +275,20 @@ const isModalClosing = ref(false)
 
 // 图标映射
 const editorIcons = {
-  vscode: vscodeIcon,
-  cursor: cursorIcon,
-  idea: ideaIcon,
-  pycharm: pycharmIcon,
-  goland: golandIcon,
-  rustrover: rustroverIcon,
-  webstorm: webstormIcon,
-  phpstorm: phpstormIcon,
-  clion: clionIcon,
-  datagrip: datagripIcon,
-  rider: riderIcon,
-  rubymine: rubymineIcon,
-  aqua: aquaIcon,
-  androidstudio: androidstudioIcon
+  vscode: '/icons/vscode.svg',
+  cursor: '/icons/cursor.svg',
+  idea: '/icons/idea.svg',
+  pycharm: '/icons/pycharm.svg',
+  goland: '/icons/goland.svg',
+  rustrover: '/icons/rustrover.svg',
+  webstorm: '/icons/webstorm.svg',
+  phpstorm: '/icons/phpstorm.svg',
+  clion: '/icons/clion.svg',
+  datagrip: '/icons/datagrip.svg',
+  rider: '/icons/rider.svg',
+  rubymine: '/icons/rubymine.svg',
+  aqua: '/icons/aqua.svg',
+  androidstudio: '/icons/androidstudio.svg'
 }
 
 // Computed properties

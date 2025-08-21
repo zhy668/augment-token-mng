@@ -4,10 +4,12 @@
 mod augment_oauth;
 mod bookmarks;
 mod http_server;
+mod outlook_manager;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
+use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
 use std::sync::Mutex;
 use std::path::PathBuf;
 use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
@@ -17,6 +19,7 @@ use chrono;
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     http_server: Mutex<Option<HttpServer>>,
+    outlook_manager: OutlookManager,
 }
 
 #[tauri::command]
@@ -598,11 +601,73 @@ async fn open_editor_with_protocol(
     protocol_url: String,
 ) -> Result<(), String> {
     println!("Opening editor with protocol URL: {}", protocol_url);
-    
+
     use tauri_plugin_opener::OpenerExt;
     app.opener().open_url(protocol_url, None::<&str>)
         .map_err(|e| format!("Failed to open editor with protocol: {}", e))
 }
+
+// Outlook 邮箱管理命令
+#[tauri::command]
+async fn outlook_save_credentials(
+    email: String,
+    refresh_token: String,
+    client_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let credentials = OutlookCredentials {
+        email,
+        refresh_token,
+        client_id,
+    };
+
+    state.outlook_manager.save_credentials(credentials).await
+}
+
+#[tauri::command]
+async fn outlook_get_all_accounts(
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    state.outlook_manager.get_all_accounts().await
+}
+
+#[tauri::command]
+async fn outlook_delete_account(
+    email: String,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    state.outlook_manager.delete_account(&email).await
+}
+
+#[tauri::command]
+async fn outlook_check_account_status(
+    email: String,
+    state: State<'_, AppState>,
+) -> Result<OutlookAccountStatus, String> {
+    state.outlook_manager.check_account_status(&email).await
+}
+
+#[tauri::command]
+async fn outlook_get_emails(
+    email: String,
+    folder: String,
+    page: i32,
+    page_size: i32,
+    state: State<'_, AppState>,
+) -> Result<EmailListResponse, String> {
+    state.outlook_manager.get_emails(&email, &folder, page, page_size).await
+}
+
+#[tauri::command]
+async fn outlook_get_email_details(
+    email: String,
+    message_id: String,
+    state: State<'_, AppState>,
+) -> Result<EmailDetailsResponse, String> {
+    state.outlook_manager.get_email_details(&email, &message_id).await
+}
+
+
 
 fn main() {
     tauri::Builder::default()
@@ -612,6 +677,7 @@ fn main() {
             app.manage(AppState {
                 augment_oauth_state: Mutex::new(None),
                 http_server: Mutex::new(None),
+                outlook_manager: OutlookManager::new(),
             });
 
             Ok(())
@@ -639,6 +705,13 @@ fn main() {
             open_data_folder,
             open_editor_with_protocol,
             create_jetbrains_token_file,
+            // Outlook 邮箱管理命令
+            outlook_save_credentials,
+            outlook_get_all_accounts,
+            outlook_delete_account,
+            outlook_check_account_status,
+            outlook_get_emails,
+            outlook_get_email_details,
 
             open_internal_browser,
             close_window

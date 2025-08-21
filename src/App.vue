@@ -28,6 +28,12 @@
           </svg>
           书签管理
         </button>
+        <button @click="showOutlookManager = true" class="btn warning">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          邮箱管理
+        </button>
         <button @click="showTokenList = true" class="btn primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
@@ -257,6 +263,13 @@
       @close="showBookmarkManager = false"
     />
 
+    <!-- Outlook Manager Modal -->
+    <OutlookManager
+      v-if="showOutlookManager"
+      @close="showOutlookManager = false"
+      @show-status="showStatus"
+    />
+
     <!-- Status Messages -->
     <div
       v-if="statusMessage"
@@ -355,12 +368,14 @@ import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
 import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
+import OutlookManager from './components/OutlookManager.vue'
 
 // 简化的状态管理
 const tokens = ref([])
 const isLoading = ref(false)
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
+const showOutlookManager = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
 const hasUnsavedChanges = ref(false)
@@ -956,12 +971,14 @@ html, body {
 }
 
 .btn.warning {
-  background: #ffc107;
-  color: #212529;
+  background: #f59e0b;
+  color: white;
 }
 
 .btn.warning:hover {
-  background: #e0a800;
+  background: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .btn.small {

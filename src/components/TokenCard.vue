@@ -126,6 +126,46 @@
                     <span class="editor-name">Cursor</span>
                   </div>
                 </button>
+                <button @click="handleEditorClick('kiro')" class="editor-option kiro-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.kiro" alt="Kiro" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Kiro</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('trae')" class="editor-option trae-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.trae" alt="Trae" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Trae</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('windsurf')" class="editor-option windsurf-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.windsurf" alt="Windsurf" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Windsurf</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('qoder')" class="editor-option qoder-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.qoder" alt="Qoder" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">Qoder</span>
+                  </div>
+                </button>
+                <button @click="handleEditorClick('vscodium')" class="editor-option vscodium-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.vscodium" alt="VSCodium" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">VSCodium</span>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -277,6 +317,11 @@ const isModalClosing = ref(false)
 const editorIcons = {
   vscode: '/icons/vscode.svg',
   cursor: '/icons/cursor.svg',
+  kiro: '/icons/kiro.svg',
+  trae: '/icons/trae.svg',
+  windsurf: '/icons/windsurf.svg',
+  qoder: '/icons/qoder.svg',
+  vscodium: '/icons/vscodium.svg',
   idea: '/icons/idea.svg',
   pycharm: '/icons/pycharm.svg',
   goland: '/icons/goland.svg',
@@ -454,6 +499,66 @@ const getVSCodeProtocolUrl = () => {
   }
 }
 
+// 生成 Kiro 协议 URL
+const getKiroProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `kiro://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate Kiro protocol URL:', error)
+    return '#'
+  }
+}
+
+// 生成 Trae 协议 URL
+const getTraeProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `trae://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate Trae protocol URL:', error)
+    return '#'
+  }
+}
+
+// 生成 Windsurf 协议 URL
+const getWindsurfProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `windsurf://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate Windsurf protocol URL:', error)
+    return '#'
+  }
+}
+
+// 生成 Qoder 协议 URL
+const getQoderProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `qoder://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate Qoder protocol URL:', error)
+    return '#'
+  }
+}
+
+// 生成 VSCodium 协议 URL
+const getVSCodiumProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `vscodium://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate VSCodium protocol URL:', error)
+    return '#'
+  }
+}
+
 // 生成 JetBrains 编辑器协议 URL
 const getJetBrainsProtocolUrl = (editorType) => {
   try {
@@ -508,6 +613,11 @@ const handleEditorClick = async (editorType) => {
       const editorNames = {
         'cursor': 'Cursor',
         'vscode': 'VS Code',
+        'kiro': 'Kiro',
+        'trae': 'Trae',
+        'windsurf': 'Windsurf',
+        'qoder': 'Qoder',
+        'vscodium': 'VSCodium',
         'idea': 'IntelliJ IDEA',
         'pycharm': 'PyCharm',
         'goland': 'GoLand',
@@ -546,6 +656,21 @@ const handleEditorClick = async (editorType) => {
           break
         case 'vscode':
           protocolUrl = getVSCodeProtocolUrl()
+          break
+        case 'kiro':
+          protocolUrl = getKiroProtocolUrl()
+          break
+        case 'trae':
+          protocolUrl = getTraeProtocolUrl()
+          break
+        case 'windsurf':
+          protocolUrl = getWindsurfProtocolUrl()
+          break
+        case 'qoder':
+          protocolUrl = getQoderProtocolUrl()
+          break
+        case 'vscodium':
+          protocolUrl = getVSCodiumProtocolUrl()
           break
         default:
           throw new Error(`Unknown VSCode editor type: ${editorType}`)
@@ -1311,6 +1436,15 @@ defineExpose({
 }
 
 .vscode-option .editor-icon {
+  background: #f0f9ff;
+  border-color: #e0f2fe;
+}
+
+.kiro-option .editor-icon,
+.trae-option .editor-icon,
+.windsurf-option .editor-icon,
+.qoder-option .editor-icon,
+.vscodium-option .editor-icon {
   background: #f0f9ff;
   border-color: #e0f2fe;
 }

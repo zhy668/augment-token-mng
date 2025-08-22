@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal-content outlook-manager" @click.stop>
       <div class="modal-header">
         <h3>Outlook 邮箱管理</h3>
@@ -10,16 +10,20 @@
         <!-- 添加邮箱表单 -->
         <div class="add-account-section">
           <h4>添加邮箱账户</h4>
+          <div class="session-notice">
+            <span class="notice-icon">ℹ️</span>
+            账户信息仅在当前会话中有效，关闭应用后需要重新添加
+          </div>
           <div class="form-group">
             <label>账户信息:</label>
             <input
               v-model="accountInput"
               type="text"
-              placeholder="邮箱----clientid----令牌"
+              placeholder="邮箱地址----密码----Refresh Token----Client ID"
               class="form-input"
             >
             <div class="input-hint">
-              请按格式输入：邮箱地址----Client ID----Refresh Token
+              请按格式输入：邮箱地址----密码----Refresh Token----Client ID
             </div>
           </div>
           <div class="form-actions">
@@ -36,7 +40,7 @@
         <!-- 账户列表 -->
         <div class="accounts-section">
           <div class="section-header">
-            <h4>已保存账户 ({{ accounts.length }})</h4>
+            <h4>当前会话账户 ({{ accounts.length }})</h4>
             <button
               @click="refreshAccounts"
               :disabled="isLoading"
@@ -53,7 +57,8 @@
           </div>
 
           <div v-else-if="accounts.length === 0" class="empty-state">
-            <p>暂无邮箱账户</p>
+            <p>当前会话中暂无邮箱账户</p>
+            <p class="empty-hint">添加账户后即可开始使用邮件功能</p>
           </div>
 
           <div v-else class="accounts-list">
@@ -86,7 +91,7 @@
                   @click="deleteAccount(account)"
                   class="btn danger small"
                 >
-                  删除
+                  移除
                 </button>
               </div>
             </div>
@@ -126,7 +131,7 @@ const accountInput = ref('')
 const canAddAccount = computed(() => {
   return accountInput.value.trim() &&
          accountInput.value.includes('----') &&
-         accountInput.value.split('----').length === 3
+         accountInput.value.split('----').length === 4
 })
 
 // 方法
@@ -138,7 +143,6 @@ const refreshAccounts = async () => {
   isLoading.value = true
   try {
     accounts.value = await invoke('outlook_get_all_accounts')
-    showStatus('账户列表已刷新', 'success')
   } catch (error) {
     showStatus(`刷新失败: ${error}`, 'error')
   } finally {
@@ -149,18 +153,19 @@ const refreshAccounts = async () => {
 const addAccount = async () => {
   isAdding.value = true
   try {
-    // 解析输入的账户信息
+    // 解析输入的账户信息（四字段格式：邮箱----密码----Refresh Token----Client ID）
     const parts = accountInput.value.trim().split('----')
-    if (parts.length !== 3) {
-      throw new Error('格式错误，请按照 邮箱----clientid----令牌 的格式输入')
+    if (parts.length !== 4) {
+      throw new Error('格式错误，请按照 邮箱地址----密码----Refresh Token----Client ID 的格式输入')
     }
 
-    const [email, clientId, refreshToken] = parts.map(part => part.trim())
+    const [email, password, refreshToken, clientId] = parts.map(part => part.trim())
 
-    if (!email || !clientId || !refreshToken) {
-      throw new Error('邮箱、Client ID 和令牌都不能为空')
+    if (!email || !password || !refreshToken || !clientId) {
+      throw new Error('邮箱、密码、Refresh Token 和 Client ID 都不能为空')
     }
 
+    // 后端仍然只接收 email、clientId、refreshToken 三个字段
     await invoke('outlook_save_credentials', {
       email,
       refreshToken,
@@ -181,21 +186,21 @@ const addAccount = async () => {
 }
 
 const deleteAccount = async (email) => {
-  if (!confirm(`确定要删除账户 ${email} 吗？`)) {
+  if (!confirm(`确定要从当前会话中移除账户 ${email} 吗？`)) {
     return
   }
-  
+
   try {
     const deleted = await invoke('outlook_delete_account', { email })
     if (deleted) {
       await refreshAccounts()
       delete accountStatuses.value[email]
-      showStatus('账户删除成功', 'success')
+      showStatus('账户已从当前会话中移除', 'success')
     } else {
       showStatus('账户不存在', 'warning')
     }
   } catch (error) {
-    showStatus(`删除失败: ${error}`, 'error')
+    showStatus(`移除失败: ${error}`, 'error')
   }
 }
 
@@ -377,6 +382,30 @@ onMounted(() => {
   font-size: 12px;
   color: #6b7280;
   font-style: italic;
+}
+
+.session-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.notice-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 8px;
 }
 
 .accounts-section h4 {

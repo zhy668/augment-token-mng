@@ -1,13 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use chrono::{DateTime, Utc};
+use chrono::{Utc, DateTime, Duration};
 use imap::Session;
 use native_tls::TlsStream;
 use std::net::TcpStream;
-use std::path::PathBuf;
-use std::fs;
+use std::sync::{Arc, RwLock};
+use tokio::sync::Mutex as TokioMutex;
 
 // XOAUTH2 认证器
 struct XOAuth2 {
@@ -81,129 +79,89 @@ struct TokenResponse {
     expires_in: i64,
 }
 
-// 邮件管理器
+// 缓存的令牌信息
+#[derive(Debug, Clone)]
+struct CachedToken {
+    access_token: String,
+    expires_at: DateTime<Utc>,
+}
+
+// 连接配置
+struct ConnectionConfig {
+    max_idle_time: Duration,
+    connection_timeout: Duration,
+}
+
+// 简化的邮件管理器
 pub struct OutlookManager {
-    credentials_store: Arc<Mutex<HashMap<String, OutlookCredentials>>>,
-    token_cache: Arc<Mutex<HashMap<String, (String, DateTime<Utc>)>>>, // email -> (token, expires_at)
-    storage_path: PathBuf,
+    credentials: HashMap<String, OutlookCredentials>,
+    token_cache: Arc<RwLock<HashMap<String, CachedToken>>>,
+    config: ConnectionConfig,
 }
 
 impl OutlookManager {
     pub fn new() -> Self {
-        // 使用用户数据目录存储凭证
-        let storage_path = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("ATM")
-            .join("outlook_accounts.json");
-
-        let manager = Self {
-            credentials_store: Arc::new(Mutex::new(HashMap::new())),
-            token_cache: Arc::new(Mutex::new(HashMap::new())),
-            storage_path,
-        };
-
-        // 尝试加载已保存的凭证
-        if let Err(e) = manager.load_credentials_sync() {
-            eprintln!("Failed to load outlook credentials: {}", e);
+        Self {
+            credentials: HashMap::new(),
+            token_cache: Arc::new(RwLock::new(HashMap::new())),
+            config: ConnectionConfig {
+                max_idle_time: Duration::minutes(5),
+                connection_timeout: Duration::seconds(30),
+            },
         }
-
-        manager
     }
 
-    // 同步加载凭证
-    fn load_credentials_sync(&self) -> Result<(), String> {
-        if !self.storage_path.exists() {
-            return Ok(());
-        }
+    // 保存账户凭证（内存中）
+    pub fn save_credentials(&mut self, credentials: OutlookCredentials) -> Result<(), String> {
+        let email = credentials.email.clone();
+        self.credentials.insert(email.clone(), credentials);
 
-        let content = fs::read_to_string(&self.storage_path)
-            .map_err(|e| format!("Failed to read credentials file: {}", e))?;
-
-        let credentials: HashMap<String, OutlookCredentials> = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse credentials: {}", e))?;
-
-        // 这里需要使用 tokio::runtime::Handle 来在同步上下文中更新异步 Mutex
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.block_on(async {
-                let mut store = self.credentials_store.lock().await;
-                *store = credentials;
-            });
+        // 清除该账户的缓存令牌（如果存在）
+        if let Ok(mut cache) = self.token_cache.write() {
+            cache.remove(&email);
         }
 
         Ok(())
-    }
-
-    // 保存凭证到文件
-    async fn save_credentials_to_file(&self) -> Result<(), String> {
-        // 确保目录存在
-        if let Some(parent) = self.storage_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
-        }
-
-        let store = self.credentials_store.lock().await;
-        let content = serde_json::to_string_pretty(&*store)
-            .map_err(|e| format!("Failed to serialize credentials: {}", e))?;
-
-        fs::write(&self.storage_path, content)
-            .map_err(|e| format!("Failed to write credentials file: {}", e))?;
-
-        Ok(())
-    }
-
-    // 保存账户凭证
-    pub async fn save_credentials(&self, credentials: OutlookCredentials) -> Result<(), String> {
-        {
-            let mut store = self.credentials_store.lock().await;
-            store.insert(credentials.email.clone(), credentials);
-        }
-        self.save_credentials_to_file().await
     }
 
     // 获取账户凭证
-    pub async fn get_credentials(&self, email: &str) -> Result<OutlookCredentials, String> {
-        let store = self.credentials_store.lock().await;
-        store.get(email)
+    pub fn get_credentials(&self, email: &str) -> Result<OutlookCredentials, String> {
+        self.credentials.get(email)
             .cloned()
             .ok_or_else(|| format!("Account not found: {}", email))
     }
 
     // 获取所有账户
-    pub async fn get_all_accounts(&self) -> Result<Vec<String>, String> {
-        let store = self.credentials_store.lock().await;
-        Ok(store.keys().cloned().collect())
+    pub fn get_all_accounts(&self) -> Result<Vec<String>, String> {
+        Ok(self.credentials.keys().cloned().collect())
     }
 
     // 删除账户
-    pub async fn delete_account(&self, email: &str) -> Result<bool, String> {
-        let removed = {
-            let mut store = self.credentials_store.lock().await;
-            let mut cache = self.token_cache.lock().await;
-
+    pub fn delete_account(&mut self, email: &str) -> Result<bool, String> {
+        // 清除缓存的令牌
+        if let Ok(mut cache) = self.token_cache.write() {
             cache.remove(email);
-            store.remove(email).is_some()
-        };
-
-        if removed {
-            self.save_credentials_to_file().await?;
         }
 
-        Ok(removed)
+        Ok(self.credentials.remove(email).is_some())
     }
 
-    // 获取访问令牌
+    // 获取访问令牌（带缓存）
     pub async fn get_access_token(&self, credentials: &OutlookCredentials) -> Result<String, String> {
+        let email = &credentials.email;
+
         // 检查缓存
         {
-            let cache = self.token_cache.lock().await;
-            if let Some((token, expires_at)) = cache.get(&credentials.email) {
-                if Utc::now() < *expires_at {
-                    return Ok(token.clone());
+            let cache = self.token_cache.read().map_err(|e| format!("Cache lock error: {}", e))?;
+            if let Some(cached) = cache.get(email) {
+                // 检查令牌是否仍然有效（留5分钟缓冲时间）
+                if cached.expires_at > Utc::now() + Duration::minutes(5) {
+                    return Ok(cached.access_token.clone());
                 }
             }
         }
 
-        // 获取新令牌
+        // 缓存未命中或已过期，获取新令牌
         let token_url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
         let params = [
             ("client_id", credentials.client_id.as_str()),
@@ -229,13 +187,16 @@ impl OutlookManager {
             .await
             .map_err(|e| format!("Failed to parse token response: {}", e))?;
 
-        // 缓存令牌
-        let expires_at = Utc::now() + chrono::Duration::seconds(token_response.expires_in - 300); // 提前5分钟过期
+        // 更新缓存
         {
-            let mut cache = self.token_cache.lock().await;
+            let mut cache = self.token_cache.write().map_err(|e| format!("Cache lock error: {}", e))?;
+            let expires_at = Utc::now() + Duration::seconds(token_response.expires_in);
             cache.insert(
-                credentials.email.clone(),
-                (token_response.access_token.clone(), expires_at),
+                email.clone(),
+                CachedToken {
+                    access_token: token_response.access_token.clone(),
+                    expires_at,
+                },
             );
         }
 
@@ -244,22 +205,28 @@ impl OutlookManager {
 
     // 验证账户状态
     pub async fn check_account_status(&self, email: &str) -> Result<AccountStatus, String> {
-        let credentials = self.get_credentials(email).await?;
-        
-        match self.get_access_token(&credentials).await {
+        let credentials = self.get_credentials(email)?;
+        self.check_account_status_with_credentials(&credentials).await
+    }
+
+    // 使用凭证验证账户状态（避免跨 await 持有锁）
+    pub async fn check_account_status_with_credentials(&self, credentials: &OutlookCredentials) -> Result<AccountStatus, String> {
+        match self.get_access_token(credentials).await {
             Ok(_) => Ok(AccountStatus {
-                email: email.to_string(),
+                email: credentials.email.clone(),
                 status: "active".to_string(),
             }),
             Err(_) => Ok(AccountStatus {
-                email: email.to_string(),
+                email: credentials.email.clone(),
                 status: "inactive".to_string(),
             }),
         }
     }
 
-    // 创建 IMAP 连接
-    async fn create_imap_connection(&self, credentials: &OutlookCredentials) -> Result<Session<TlsStream<TcpStream>>, String> {
+
+
+    // 创建新的 IMAP 连接
+    async fn create_new_imap_connection(&self, credentials: &OutlookCredentials) -> Result<Session<TlsStream<TcpStream>>, String> {
         let access_token = self.get_access_token(credentials).await?;
 
         // 在异步上下文中运行同步IMAP代码
@@ -288,9 +255,12 @@ impl OutlookManager {
 
     // 获取邮件详情
     pub async fn get_email_details(&self, email: &str, message_id: &str) -> Result<EmailDetailsResponse, String> {
-        let credentials = self.get_credentials(email).await?;
-        let access_token = self.get_access_token(&credentials).await?;
+        let credentials = self.get_credentials(email)?;
+        self.get_email_details_with_credentials(&credentials, message_id).await
+    }
 
+    // 使用凭证获取邮件详情（优化版）
+    pub async fn get_email_details_with_credentials(&self, credentials: &OutlookCredentials, message_id: &str) -> Result<EmailDetailsResponse, String> {
         // 解析 message_id (格式: folder-id)
         let parts: Vec<&str> = message_id.split('-').collect();
         if parts.len() != 2 {
@@ -299,29 +269,18 @@ impl OutlookManager {
         let folder_name = parts[0].to_string();
         let msg_id = parts[1].to_string();
 
-        let email_clone = email.to_string();
+        // 创建连接（使用缓存的令牌）
+        let mut session = self.create_new_imap_connection(credentials).await?;
+
+        let email_clone = credentials.email.clone();
         let message_id_clone = message_id.to_string();
 
         tokio::task::spawn_blocking(move || {
-            let tls = native_tls::TlsConnector::builder().build()
-                .map_err(|e| format!("TLS connector failed: {}", e))?;
-
-            let client = imap::connect(("outlook.office365.com", 993), "outlook.office365.com", &tls)
-                .map_err(|e| format!("IMAP connect failed: {}", e))?;
-
-            let auth = XOAuth2 {
-                user: email_clone.clone(),
-                access_token,
-            };
-            let mut session = client
-                .authenticate("XOAUTH2", &auth)
-                .map_err(|e| format!("IMAP authentication failed: {:?}", e))?;
-
             session.select(&folder_name)
                 .map_err(|e| format!("Failed to select folder: {:?}", e))?;
 
-            // 获取完整邮件内容
-            let messages = session.fetch(&msg_id, "RFC822")
+            // 优化：使用 BODY.PEEK 避免标记邮件为已读
+            let messages = session.fetch(&msg_id, "BODY.PEEK[]")
                 .map_err(|e| format!("Failed to fetch message: {:?}", e))?;
 
             if let Some(message) = messages.iter().next() {
@@ -364,8 +323,57 @@ impl OutlookManager {
 
     // 获取邮件列表
     pub async fn get_emails(&self, email: &str, folder: &str, page: i32, page_size: i32) -> Result<EmailListResponse, String> {
-        let credentials = self.get_credentials(email).await?;
-        let mut session = self.create_imap_connection(&credentials).await?;
+        let credentials = self.get_credentials(email)?;
+        self.get_emails_with_credentials(&credentials, folder, page, page_size).await
+    }
+
+    // 批量预取邮件头信息（可用于后台预加载）
+    pub async fn prefetch_email_headers(&self, email: &str, folder: &str, count: i32) -> Result<(), String> {
+        let credentials = self.get_credentials(email)?;
+
+        // 预取前 count 封邮件的头信息
+        let mut session = self.create_new_imap_connection(&credentials).await?;
+
+        let folder_name = match folder {
+            "inbox" => "INBOX",
+            "junk" => "Junk",
+            _ => "INBOX",
+        };
+
+        tokio::task::spawn_blocking(move || {
+            session.select(folder_name)
+                .map_err(|e| format!("Failed to select folder: {:?}", e))?;
+
+            // 获取最新的 count 封邮件
+            let messages = session.search("ALL")
+                .map_err(|e| format!("Failed to search messages: {:?}", e))?;
+
+            let mut message_vec: Vec<u32> = messages.into_iter().collect();
+            message_vec.sort_by(|a, b| b.cmp(a));
+
+            let fetch_count = std::cmp::min(count as usize, message_vec.len());
+            if fetch_count > 0 {
+                let msg_ids: Vec<String> = message_vec[0..fetch_count]
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect();
+                let fetch_range = msg_ids.join(",");
+
+                // 预取邮件头信息
+                session.fetch(&fetch_range, "ENVELOPE FLAGS")
+                    .map_err(|e| format!("Failed to prefetch headers: {:?}", e))?;
+            }
+
+            session.logout().ok();
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+    }
+
+    // 使用凭证获取邮件列表（优化批量获取）
+    pub async fn get_emails_with_credentials(&self, credentials: &OutlookCredentials, folder: &str, page: i32, page_size: i32) -> Result<EmailListResponse, String> {
+        let mut session = self.create_new_imap_connection(credentials).await?;
 
         let folder_name = match folder {
             "inbox" => "INBOX",
@@ -374,7 +382,7 @@ impl OutlookManager {
         };
 
         // 在异步上下文中运行同步IMAP代码
-        let email_clone = email.to_string();
+        let email_clone = credentials.email.clone();
         let folder_clone = folder.to_string();
 
         tokio::task::spawn_blocking(move || {
@@ -384,7 +392,10 @@ impl OutlookManager {
             let messages = session.search("ALL")
                 .map_err(|e| format!("Failed to search messages: {:?}", e))?;
 
-            let message_vec: Vec<u32> = messages.into_iter().collect();
+            let mut message_vec: Vec<u32> = messages.into_iter().collect();
+            // 按消息ID倒序排列，确保最新邮件在前
+            message_vec.sort_by(|a, b| b.cmp(a));
+
             let total_emails = message_vec.len() as i32;
             let start_idx = ((page - 1) * page_size) as usize;
             let end_idx = std::cmp::min(start_idx + page_size as usize, message_vec.len());
@@ -394,10 +405,18 @@ impl OutlookManager {
             if start_idx < message_vec.len() {
                 let page_messages = &message_vec[start_idx..end_idx];
 
-                for &msg_id in page_messages.iter().rev() { // 最新的在前
-                    if let Ok(messages) = session.fetch(msg_id.to_string(), "ENVELOPE") {
-                        for msg in messages.iter() {
+                // 批量获取：构建范围字符串
+                if !page_messages.is_empty() {
+                    // 构建消息ID范围字符串，例如 "1,2,3,4,5" 或 "1:5"
+                    let msg_ids: Vec<String> = page_messages.iter().map(|id| id.to_string()).collect();
+                    let fetch_range = msg_ids.join(",");
+
+                    // 批量获取所有邮件的 ENVELOPE 信息
+                    if let Ok(fetched_messages) = session.fetch(&fetch_range, "ENVELOPE FLAGS") {
+                        for msg in fetched_messages.iter() {
                             if let Some(envelope) = msg.envelope() {
+                                let msg_id = msg.message;
+
                                 let subject = envelope.subject
                                     .and_then(|s| std::str::from_utf8(s).ok())
                                     .unwrap_or("(No Subject)")
@@ -406,10 +425,18 @@ impl OutlookManager {
                                 let from_email = envelope.from
                                     .as_ref()
                                     .and_then(|addrs| addrs.first())
-                                    .and_then(|addr| addr.mailbox)
-                                    .and_then(|mb| std::str::from_utf8(mb).ok())
-                                    .unwrap_or("(Unknown)")
-                                    .to_string();
+                                    .and_then(|addr| {
+                                        let mailbox = addr.mailbox.and_then(|mb| std::str::from_utf8(mb).ok()).unwrap_or("");
+                                        let host = addr.host.and_then(|h| std::str::from_utf8(h).ok()).unwrap_or("");
+                                        if !mailbox.is_empty() && !host.is_empty() {
+                                            Some(format!("{}@{}", mailbox, host))
+                                        } else if !mailbox.is_empty() {
+                                            Some(mailbox.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or_else(|| "(Unknown)".to_string());
 
                                 let date = envelope.date
                                     .and_then(|d| std::str::from_utf8(d).ok())
@@ -421,14 +448,17 @@ impl OutlookManager {
                                     .to_uppercase()
                                     .to_string();
 
+                                // 检查是否已读
+                                let is_read = msg.flags().iter().any(|f| f == &imap::types::Flag::Seen);
+
                                 emails.push(EmailItem {
                                     message_id: format!("{}-{}", folder_name, msg_id),
                                     folder: folder_name.to_string(),
                                     subject,
                                     from_email,
                                     date,
-                                    is_read: false, // 简化处理
-                                    has_attachments: false, // 简化处理
+                                    is_read,
+                                    has_attachments: false, // 可以通过检查 BODYSTRUCTURE 来判断
                                     sender_initial,
                                 });
                             }
@@ -592,7 +622,6 @@ impl OutlookManager {
         for (i, line) in lines.iter().enumerate() {
             if in_headers && line.trim().is_empty() {
                 content_start = i + 1;
-                in_headers = false;
                 break;
             }
         }
@@ -621,12 +650,10 @@ impl OutlookManager {
     fn extract_simple_body(content: &str) -> String {
         let lines: Vec<&str> = content.lines().collect();
         let mut body_start = 0;
-        let mut found_empty_line = false;
 
         // 跳过头部，找到第一个空行后的内容
         for (i, line) in lines.iter().enumerate() {
-            if line.trim().is_empty() && !found_empty_line {
-                found_empty_line = true;
+            if line.trim().is_empty() {
                 body_start = i + 1;
                 break;
             }

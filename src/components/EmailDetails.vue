@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal-content email-details" @click.stop>
       <div class="modal-header">
         <h3>邮件详情</h3>
@@ -14,7 +14,7 @@
 
         <div v-else-if="error" class="error-state">
           <p>{{ error }}</p>
-          <button @click="loadEmailDetails" class="btn primary">重试</button>
+          <button @click="loadEmailDetails" class="btn primary">重新加载</button>
         </div>
 
         <div v-else-if="emailDetails" class="email-content">
@@ -52,6 +52,7 @@
 
             <div v-if="!emailDetails.body_html && !emailDetails.body_plain" class="no-content">
               <p>此邮件没有可显示的内容</p>
+              <p class="no-content-hint">可能是特殊格式或编码问题</p>
             </div>
           </div>
         </div>
@@ -145,9 +146,11 @@ onMounted(() => {
   border-radius: 12px;
   max-width: 90vw;
   max-height: 95vh;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -196,6 +199,8 @@ onMounted(() => {
 
 .modal-body {
   padding: 24px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .loading-state,
@@ -280,6 +285,7 @@ onMounted(() => {
   padding: 16px;
   max-height: 400px;
   overflow-y: auto;
+  word-wrap: break-word;
 }
 
 .plain-content {
@@ -301,6 +307,12 @@ onMounted(() => {
   padding: 40px;
   color: #9ca3af;
   font-style: italic;
+}
+
+.no-content-hint {
+  font-size: 12px;
+  margin-top: 8px;
+  color: #d1d5db;
 }
 
 .btn {

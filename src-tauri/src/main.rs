@@ -19,7 +19,7 @@ use chrono;
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     http_server: Mutex<Option<HttpServer>>,
-    outlook_manager: OutlookManager,
+    outlook_manager: Mutex<OutlookManager>,
 }
 
 #[tauri::command]
@@ -621,14 +621,16 @@ async fn outlook_save_credentials(
         client_id,
     };
 
-    state.outlook_manager.save_credentials(credentials).await
+    let mut manager = state.outlook_manager.lock().unwrap();
+    manager.save_credentials(credentials)
 }
 
 #[tauri::command]
 async fn outlook_get_all_accounts(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
-    state.outlook_manager.get_all_accounts().await
+    let manager = state.outlook_manager.lock().unwrap();
+    manager.get_all_accounts()
 }
 
 #[tauri::command]
@@ -636,7 +638,8 @@ async fn outlook_delete_account(
     email: String,
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
-    state.outlook_manager.delete_account(&email).await
+    let mut manager = state.outlook_manager.lock().unwrap();
+    manager.delete_account(&email)
 }
 
 #[tauri::command]
@@ -644,7 +647,15 @@ async fn outlook_check_account_status(
     email: String,
     state: State<'_, AppState>,
 ) -> Result<OutlookAccountStatus, String> {
-    state.outlook_manager.check_account_status(&email).await
+    // 克隆必要的数据以避免跨 await 持有锁
+    let credentials = {
+        let manager = state.outlook_manager.lock().unwrap();
+        manager.get_credentials(&email)?
+    };
+
+    // 创建临时管理器实例进行状态检查
+    let temp_manager = OutlookManager::new();
+    temp_manager.check_account_status_with_credentials(&credentials).await
 }
 
 #[tauri::command]
@@ -655,7 +666,15 @@ async fn outlook_get_emails(
     page_size: i32,
     state: State<'_, AppState>,
 ) -> Result<EmailListResponse, String> {
-    state.outlook_manager.get_emails(&email, &folder, page, page_size).await
+    // 克隆必要的数据以避免跨 await 持有锁
+    let credentials = {
+        let manager = state.outlook_manager.lock().unwrap();
+        manager.get_credentials(&email)?
+    };
+
+    // 创建临时管理器实例进行邮件获取
+    let temp_manager = OutlookManager::new();
+    temp_manager.get_emails_with_credentials(&credentials, &folder, page, page_size).await
 }
 
 #[tauri::command]
@@ -664,7 +683,15 @@ async fn outlook_get_email_details(
     message_id: String,
     state: State<'_, AppState>,
 ) -> Result<EmailDetailsResponse, String> {
-    state.outlook_manager.get_email_details(&email, &message_id).await
+    // 克隆必要的数据以避免跨 await 持有锁
+    let credentials = {
+        let manager = state.outlook_manager.lock().unwrap();
+        manager.get_credentials(&email)?
+    };
+
+    // 创建临时管理器实例进行邮件详情获取
+    let temp_manager = OutlookManager::new();
+    temp_manager.get_email_details_with_credentials(&credentials, &message_id).await
 }
 
 
@@ -677,7 +704,7 @@ fn main() {
             app.manage(AppState {
                 augment_oauth_state: Mutex::new(None),
                 http_server: Mutex::new(None),
-                outlook_manager: OutlookManager::new(),
+                outlook_manager: Mutex::new(OutlookManager::new()),
             });
 
             Ok(())

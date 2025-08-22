@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal-content email-viewer" @click.stop>
       <div class="modal-header">
         <h3>邮件管理 - {{ email }}</h3>
@@ -42,7 +42,7 @@
             :disabled="isLoading"
             class="btn primary small"
           >
-            {{ isLoading ? '加载中...' : '刷新' }}
+            {{ isLoading ? '加载中...' : '重新加载' }}
           </button>
 
         </div>
@@ -56,6 +56,7 @@
 
           <div v-else-if="emails.length === 0" class="empty-state">
             <p>该文件夹中暂无邮件</p>
+            <p class="empty-hint">请检查网络连接或稍后重试</p>
           </div>
 
           <div v-else class="emails-list">
@@ -180,7 +181,7 @@ const loadEmails = async () => {
 const refreshEmails = async () => {
   currentPage.value = 1
   await loadEmails()
-  showStatus('邮件列表已刷新', 'success')
+  showStatus('邮件列表已重新加载', 'success')
 }
 
 
@@ -520,6 +521,12 @@ onMounted(() => {
   text-align: center;
   padding: 60px 20px;
   color: #6b7280;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 8px;
 }
 
 .spinner {

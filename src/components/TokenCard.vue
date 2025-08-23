@@ -166,6 +166,14 @@
                     <span class="editor-name">VSCodium</span>
                   </div>
                 </button>
+                <button @click="handleEditorClick('codebuddy')" class="editor-option codebuddy-option">
+                  <div class="editor-icon">
+                    <img :src="editorIcons.codebuddy" alt="CodeBuddy" width="32" height="32" />
+                  </div>
+                  <div class="editor-info">
+                    <span class="editor-name">CodeBuddy</span>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -322,6 +330,7 @@ const editorIcons = {
   windsurf: '/icons/windsurf.svg',
   qoder: '/icons/qoder.svg',
   vscodium: '/icons/vscodium.svg',
+  codebuddy: '/icons/codebuddy.svg',
   idea: '/icons/idea.svg',
   pycharm: '/icons/pycharm.svg',
   goland: '/icons/goland.svg',
@@ -559,6 +568,18 @@ const getVSCodiumProtocolUrl = () => {
   }
 }
 
+// 生成 CodeBuddy 协议 URL
+const getCodeBuddyProtocolUrl = () => {
+  try {
+    const token = encodeURIComponent(props.token.access_token)
+    const url = encodeURIComponent(props.token.tenant_url)
+    return `codebuddy://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+  } catch (error) {
+    console.error('Failed to generate CodeBuddy protocol URL:', error)
+    return '#'
+  }
+}
+
 // 生成 JetBrains 编辑器协议 URL
 const getJetBrainsProtocolUrl = (editorType) => {
   try {
@@ -618,6 +639,7 @@ const handleEditorClick = async (editorType) => {
         'windsurf': 'Windsurf',
         'qoder': 'Qoder',
         'vscodium': 'VSCodium',
+        'codebuddy': 'CodeBuddy',
         'idea': 'IntelliJ IDEA',
         'pycharm': 'PyCharm',
         'goland': 'GoLand',
@@ -671,6 +693,9 @@ const handleEditorClick = async (editorType) => {
           break
         case 'vscodium':
           protocolUrl = getVSCodiumProtocolUrl()
+          break
+        case 'codebuddy':
+          protocolUrl = getCodeBuddyProtocolUrl()
           break
         default:
           throw new Error(`Unknown VSCode editor type: ${editorType}`)
@@ -1444,7 +1469,8 @@ defineExpose({
 .trae-option .editor-icon,
 .windsurf-option .editor-icon,
 .qoder-option .editor-icon,
-.vscodium-option .editor-icon {
+.vscodium-option .editor-icon,
+.codebuddy-option .editor-icon {
   background: #f0f9ff;
   border-color: #e0f2fe;
 }

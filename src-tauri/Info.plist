@@ -20,6 +20,46 @@
                 <string>vscode</string>
             </array>
         </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Kiro Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>kiro</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Trae Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>trae</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Windsurf Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>windsurf</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Qoder Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>qoder</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>CodeBuddy Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>codebuddy</string>
+            </array>
+        </dict>
     </array>
 </dict>
 </plist>

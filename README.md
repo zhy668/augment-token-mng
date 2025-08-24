@@ -84,3 +84,7 @@ cargo tauri build    # 构建生产版本
 ## 许可证
 
 本项目是开源项目，采用 MIT 许可证。
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=zhaochengcube/augment-token-mng&type=Date)](https://star-history.com/#zhaochengcube/augment-token-mng&Date)

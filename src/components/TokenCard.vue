@@ -489,7 +489,8 @@ const getCursorProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate Cursor protocol URL:', error)
     return '#'
@@ -501,7 +502,8 @@ const getVSCodeProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate VS Code protocol URL:', error)
     return '#'
@@ -513,7 +515,8 @@ const getKiroProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `kiro://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `kiro://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate Kiro protocol URL:', error)
     return '#'
@@ -525,7 +528,8 @@ const getTraeProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `trae://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `trae://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate Trae protocol URL:', error)
     return '#'
@@ -537,7 +541,8 @@ const getWindsurfProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `windsurf://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `windsurf://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate Windsurf protocol URL:', error)
     return '#'
@@ -549,7 +554,8 @@ const getQoderProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `qoder://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `qoder://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate Qoder protocol URL:', error)
     return '#'
@@ -561,7 +567,8 @@ const getVSCodiumProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `vscodium://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `vscodium://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate VSCodium protocol URL:', error)
     return '#'
@@ -573,7 +580,8 @@ const getCodeBuddyProtocolUrl = () => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
-    return `codebuddy://Augment.vscode-augment/autoAuth?token=${token}&url=${url}`
+    const portalUrl = encodeURIComponent(props.token.portal_url || "")
+    return `codebuddy://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
     console.error('Failed to generate CodeBuddy protocol URL:', error)
     return '#'

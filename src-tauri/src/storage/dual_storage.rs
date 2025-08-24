@@ -1,0 +1,399 @@
+use super::traits::{TokenStorage, TokenData, SyncManager, SyncStatus};
+use super::{LocalFileStorage, PostgreSQLStorage};
+use std::sync::Arc;
+use chrono::Utc;
+
+pub struct DualStorage {
+    local_storage: Arc<LocalFileStorage>,
+    postgres_storage: Option<Arc<PostgreSQLStorage>>,
+    prefer_database: bool,
+}
+
+impl DualStorage {
+    pub fn new(
+        local_storage: Arc<LocalFileStorage>,
+        postgres_storage: Option<Arc<PostgreSQLStorage>>,
+    ) -> Self {
+        Self {
+            local_storage,
+            postgres_storage,
+            prefer_database: true,
+        }
+    }
+
+    pub fn set_prefer_database(&mut self, prefer: bool) {
+        self.prefer_database = prefer;
+    }
+
+    pub fn is_database_available(&self) -> bool {
+        self.postgres_storage.is_some()
+    }
+
+    async fn sync_to_both_storages(&self, token: &TokenData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // 总是保存到本地存储
+        if let Err(e) = self.local_storage.save_token(token).await {
+            eprintln!("Failed to save to local storage: {}", e);
+        }
+
+        // 如果数据库可用，也保存到数据库
+        if let Some(postgres) = &self.postgres_storage {
+            if postgres.is_available().await {
+                if let Err(e) = postgres.save_token(token).await {
+                    eprintln!("Failed to save to database: {}", e);
+                    // 数据库保存失败不应该影响整体操作
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn delete_from_both_storages(&self, token_id: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let mut local_deleted = false;
+        let mut db_deleted = false;
+
+        // 从本地存储删除
+        if let Ok(deleted) = self.local_storage.delete_token(token_id).await {
+            local_deleted = deleted;
+        }
+
+        // 从数据库删除
+        if let Some(postgres) = &self.postgres_storage {
+            if postgres.is_available().await {
+                if let Ok(deleted) = postgres.delete_token(token_id).await {
+                    db_deleted = deleted;
+                }
+            }
+        }
+
+        Ok(local_deleted || db_deleted)
+    }
+
+    async fn load_from_preferred_storage(&self) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>> {
+        if self.prefer_database {
+            if let Some(postgres) = &self.postgres_storage {
+                if postgres.is_available().await {
+                    match postgres.load_tokens().await {
+                        Ok(tokens) => return Ok(tokens),
+                        Err(e) => {
+                            eprintln!("Failed to load from database, falling back to local: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 回退到本地存储
+        self.local_storage.load_tokens().await
+    }
+}
+
+#[async_trait::async_trait]
+impl TokenStorage for DualStorage {
+    async fn save_token(&self, token: &TokenData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.sync_to_both_storages(token).await
+    }
+
+    async fn load_tokens(&self) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>> {
+        self.load_from_preferred_storage().await
+    }
+
+    async fn update_token(&self, token: &TokenData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut updated_token = token.clone();
+        updated_token.update_timestamp();
+        self.sync_to_both_storages(&updated_token).await
+    }
+
+    async fn delete_token(&self, token_id: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        self.delete_from_both_storages(token_id).await
+    }
+
+    async fn get_token(&self, token_id: &str) -> Result<Option<TokenData>, Box<dyn std::error::Error + Send + Sync>> {
+        // 优先从首选存储获取
+        if self.prefer_database {
+            if let Some(postgres) = &self.postgres_storage {
+                if postgres.is_available().await {
+                    match postgres.get_token(token_id).await {
+                        Ok(Some(token)) => return Ok(Some(token)),
+                        Ok(None) => {}, // 继续尝试本地存储
+                        Err(e) => {
+                            eprintln!("Failed to get token from database: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 从本地存储获取
+        self.local_storage.get_token(token_id).await
+    }
+
+    async fn clear_all_tokens(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // 清空本地存储
+        if let Err(e) = self.local_storage.clear_all_tokens().await {
+            eprintln!("Failed to clear local storage: {}", e);
+        }
+
+        // 清空数据库
+        if let Some(postgres) = &self.postgres_storage {
+            if postgres.is_available().await {
+                if let Err(e) = postgres.clear_all_tokens().await {
+                    eprintln!("Failed to clear database: {}", e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn storage_type(&self) -> &'static str {
+        if self.is_database_available() {
+            "dual_storage"
+        } else {
+            "local_only"
+        }
+    }
+
+    async fn is_available(&self) -> bool {
+        // 至少本地存储应该可用
+        self.local_storage.is_available().await
+    }
+}
+
+#[async_trait::async_trait]
+impl SyncManager for DualStorage {
+    async fn sync_local_to_remote(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let postgres = self.postgres_storage.as_ref()
+            .ok_or("Database storage not available")?;
+
+        if !postgres.is_available().await {
+            return Err("Database not available".into());
+        }
+
+        let local_tokens = self.local_storage.load_tokens().await?;
+        let mut synced_count = 0;
+        let mut errors = Vec::new();
+
+        for token in local_tokens {
+            match postgres.save_token(&token).await {
+                Ok(_) => synced_count += 1,
+                Err(e) => errors.push(format!("Token {}: {}", token.id, e)),
+            }
+        }
+
+        let status = if errors.is_empty() { "success" } else { "partial_success" };
+        let error_message = if errors.is_empty() {
+            None
+        } else {
+            Some(errors.join("; "))
+        };
+
+        let sync_status = SyncStatus {
+            last_sync_at: Some(Utc::now()),
+            sync_direction: "local_to_remote".to_string(),
+            status: status.to_string(),
+            error_message: error_message.clone(),
+            tokens_synced: synced_count,
+        };
+
+        // 记录同步状态到数据库
+        if let Some(pool) = postgres.db_manager.get_pool() {
+            let _ = super::postgres_storage::record_sync_status(
+                &pool,
+                &sync_status.sync_direction,
+                &sync_status.status,
+                error_message.as_deref(),
+                sync_status.tokens_synced,
+            ).await;
+        }
+
+        Ok(sync_status)
+    }
+
+    async fn sync_remote_to_local(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let postgres = self.postgres_storage.as_ref()
+            .ok_or("Database storage not available")?;
+
+        if !postgres.is_available().await {
+            return Err("Database not available".into());
+        }
+
+        let remote_tokens = postgres.load_tokens().await?;
+        let mut synced_count = 0;
+        let mut errors = Vec::new();
+
+        for token in remote_tokens {
+            match self.local_storage.save_token(&token).await {
+                Ok(_) => synced_count += 1,
+                Err(e) => errors.push(format!("Token {}: {}", token.id, e)),
+            }
+        }
+
+        let status = if errors.is_empty() { "success" } else { "partial_success" };
+        let error_message = if errors.is_empty() {
+            None
+        } else {
+            Some(errors.join("; "))
+        };
+
+        let sync_status = SyncStatus {
+            last_sync_at: Some(Utc::now()),
+            sync_direction: "remote_to_local".to_string(),
+            status: status.to_string(),
+            error_message: error_message.clone(),
+            tokens_synced: synced_count,
+        };
+
+        // 记录同步状态到数据库
+        if let Some(pool) = postgres.db_manager.get_pool() {
+            let _ = super::postgres_storage::record_sync_status(
+                &pool,
+                &sync_status.sync_direction,
+                &sync_status.status,
+                error_message.as_deref(),
+                sync_status.tokens_synced,
+            ).await;
+        }
+
+        Ok(sync_status)
+    }
+
+    async fn bidirectional_sync(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let postgres = self.postgres_storage.as_ref()
+            .ok_or("Database storage not available")?;
+
+        if !postgres.is_available().await {
+            return Err("Database not available".into());
+        }
+
+        let local_tokens = self.local_storage.load_tokens().await?;
+        let remote_tokens = postgres.load_tokens().await?;
+
+        let resolved_tokens = self.resolve_conflicts(local_tokens, remote_tokens).await?;
+        
+        let mut synced_count = 0;
+        let mut errors = Vec::new();
+
+        // 同步到两个存储
+        for token in resolved_tokens {
+            let mut local_ok = false;
+            let mut remote_ok = false;
+
+            if let Ok(_) = self.local_storage.save_token(&token).await {
+                local_ok = true;
+            }
+
+            if let Ok(_) = postgres.save_token(&token).await {
+                remote_ok = true;
+            }
+
+            if local_ok || remote_ok {
+                synced_count += 1;
+            } else {
+                errors.push(format!("Failed to sync token {}", token.id));
+            }
+        }
+
+        let status = if errors.is_empty() { "success" } else { "partial_success" };
+        let error_message = if errors.is_empty() {
+            None
+        } else {
+            Some(errors.join("; "))
+        };
+
+        let sync_status = SyncStatus {
+            last_sync_at: Some(Utc::now()),
+            sync_direction: "bidirectional".to_string(),
+            status: status.to_string(),
+            error_message: error_message.clone(),
+            tokens_synced: synced_count,
+        };
+
+        // 记录同步状态到数据库
+        if let Some(pool) = postgres.db_manager.get_pool() {
+            let _ = super::postgres_storage::record_sync_status(
+                &pool,
+                &sync_status.sync_direction,
+                &sync_status.status,
+                error_message.as_deref(),
+                sync_status.tokens_synced,
+            ).await;
+        }
+
+        Ok(sync_status)
+    }
+
+    async fn get_sync_status(&self) -> Result<Option<SyncStatus>, Box<dyn std::error::Error + Send + Sync>> {
+        if let Some(postgres) = &self.postgres_storage {
+            if postgres.is_available().await {
+                if let Some(pool) = postgres.db_manager.get_pool() {
+                    return super::postgres_storage::get_latest_sync_status(&pool).await;
+                }
+            }
+        }
+        // 如果数据库不可用，返回None
+        Ok(None)
+    }
+
+    async fn resolve_conflicts(&self, local_tokens: Vec<TokenData>, remote_tokens: Vec<TokenData>) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>> {
+        use std::collections::HashMap;
+
+        let mut resolved = HashMap::new();
+
+        // 首先添加所有本地tokens
+        for token in local_tokens {
+            resolved.insert(token.id.clone(), token);
+        }
+
+        // 然后处理远程tokens，解决冲突
+        for remote_token in remote_tokens {
+            match resolved.get(&remote_token.id) {
+                Some(local_token) => {
+                    // 存在冲突，选择更新时间较晚的版本
+                    if remote_token.updated_at > local_token.updated_at {
+                        resolved.insert(remote_token.id.clone(), remote_token);
+                    }
+                    // 否则保持本地版本
+                }
+                None => {
+                    // 没有冲突，直接添加远程token
+                    resolved.insert(remote_token.id.clone(), remote_token);
+                }
+            }
+        }
+
+        Ok(resolved.into_values().collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_dual_storage_local_only() {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir.path().join("test_tokens.json");
+        let local_storage = Arc::new(LocalFileStorage::new_with_path(storage_path));
+        
+        let dual_storage = DualStorage::new(local_storage, None);
+        
+        assert!(!dual_storage.is_database_available());
+        assert_eq!(dual_storage.storage_type(), "local_only");
+        assert!(dual_storage.is_available().await);
+
+        // 测试基本操作
+        let token = TokenData::new(
+            "test_id".to_string(),
+            "https://example.com".to_string(),
+            "test_token".to_string(),
+            None,
+            None,
+        );
+
+        assert!(dual_storage.save_token(&token).await.is_ok());
+        let loaded_tokens = dual_storage.load_tokens().await.unwrap();
+        assert_eq!(loaded_tokens.len(), 1);
+    }
+}

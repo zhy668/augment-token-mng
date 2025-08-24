@@ -31,6 +31,15 @@ chrono = { version = "0.4", features = ["serde"] }
 # 邮件功能依赖
 imap = "2.4"
 native-tls = "0.2"
+# 数据库功能依赖
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-serde_json-1"] }
+deadpool-postgres = "0.10"
+aes-gcm = "0.10"
+hex = "0.4"
+async-trait = "0.1"
+
+[dev-dependencies]
+tempfile = "3.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

@@ -5,21 +5,27 @@ mod augment_oauth;
 mod bookmarks;
 mod http_server;
 mod outlook_manager;
+mod database;
+mod storage;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
-use std::sync::Mutex;
+use database::{DatabaseConfig, DatabaseConfigManager, DatabaseManager};
+use storage::{DualStorage, LocalFileStorage, PostgreSQLStorage, TokenStorage, SyncManager};
+use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 
-// Global state to store OAuth state
+// Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     http_server: Mutex<Option<HttpServer>>,
     outlook_manager: Mutex<OutlookManager>,
+    storage_manager: Arc<Mutex<Option<Arc<DualStorage>>>>,
+    database_manager: Arc<Mutex<Option<Arc<DatabaseManager>>>>,
 }
 
 #[tauri::command]
@@ -694,6 +700,240 @@ async fn outlook_get_email_details(
     temp_manager.get_email_details_with_credentials(&credentials, &message_id).await
 }
 
+// 数据库配置相关命令
+#[tauri::command]
+async fn save_database_config(
+    host: String,
+    port: u16,
+    database: String,
+    username: String,
+    password: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let config_manager = DatabaseConfigManager::new(&app)
+        .map_err(|e| format!("Failed to create config manager: {}", e))?;
+
+    let config = DatabaseConfig::new(host, port, database, username, password);
+
+    config_manager.save_config(&config)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+
+    // 尝试初始化数据库连接
+    let mut db_manager = DatabaseManager::new(config);
+    match db_manager.initialize().await {
+        Ok(_) => {
+            // 检查数据库表是否已存在
+            if let Some(pool) = db_manager.get_pool() {
+                let client = pool.get().await
+                    .map_err(|e| format!("Failed to get database client: {}", e))?;
+
+                let tables_exist = database::check_tables_exist(&client).await
+                    .map_err(|e| format!("Failed to check tables: {}", e))?;
+
+                if !tables_exist {
+                    // 表不存在，创建表
+                    database::create_tables(&client).await
+                        .map_err(|e| format!("Failed to create tables: {}", e))?;
+                } else {
+                    // 表已存在，执行一次同步
+                    println!("Database tables already exist, will perform initial sync");
+                }
+            }
+
+            // 更新应用状态
+            *state.database_manager.lock().unwrap() = Some(Arc::new(db_manager));
+
+            // 重新初始化存储管理器
+            initialize_storage_manager(&app, &state).await
+                .map_err(|e| format!("Failed to initialize storage: {}", e))?;
+
+            // 如果表已存在，执行初始同步
+            let pool_option = {
+                let db_guard = state.database_manager.lock().unwrap();
+                db_guard.as_ref().and_then(|db| db.get_pool())
+            };
+
+            if let Some(pool) = pool_option {
+                let client = pool.get().await
+                    .map_err(|e| format!("Failed to get database client for sync check: {}", e))?;
+
+                let tables_exist = database::check_tables_exist(&client).await
+                    .map_err(|e| format!("Failed to check tables for sync: {}", e))?;
+
+                if tables_exist {
+                    // 执行初始双向同步
+                    let storage_manager = {
+                        let storage_guard = state.storage_manager.lock().unwrap();
+                        storage_guard.as_ref().cloned()
+                    };
+
+                    if let Some(storage_manager) = storage_manager {
+                        match storage_manager.bidirectional_sync().await {
+                            Ok(sync_result) => {
+                                println!("Initial sync completed: {} tokens synced", sync_result.tokens_synced);
+                            }
+                            Err(e) => {
+                                eprintln!("Initial sync failed: {}", e);
+                                // 同步失败不影响配置保存
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to connect to database: {}", e))
+    }
+}
+
+#[tauri::command]
+async fn load_database_config(
+    app: tauri::AppHandle,
+) -> Result<DatabaseConfig, String> {
+    let config_manager = DatabaseConfigManager::new(&app)
+        .map_err(|e| format!("Failed to create config manager: {}", e))?;
+
+    config_manager.load_config()
+        .map_err(|e| format!("Failed to load config: {}", e))
+}
+
+#[tauri::command]
+async fn test_database_connection(
+    host: String,
+    port: u16,
+    database: String,
+    username: String,
+    password: String,
+) -> Result<(), String> {
+    let config = DatabaseConfig::new(host, port, database, username, password);
+
+    database::test_database_connection(&config).await
+        .map_err(|e| format!("Connection test failed: {}", e))
+}
+
+#[tauri::command]
+async fn delete_database_config(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let config_manager = DatabaseConfigManager::new(&app)
+        .map_err(|e| format!("Failed to create config manager: {}", e))?;
+
+    config_manager.delete_config()
+        .map_err(|e| format!("Failed to delete config: {}", e))?;
+
+    // 清除应用状态中的数据库管理器
+    *state.database_manager.lock().unwrap() = None;
+
+    // 重新初始化存储管理器（仅本地存储）
+    initialize_storage_manager(&app, &state).await
+        .map_err(|e| format!("Failed to reinitialize storage: {}", e))?;
+
+    Ok(())
+}
+
+// 同步相关命令
+#[tauri::command]
+async fn sync_tokens_to_database(
+    state: State<'_, AppState>,
+) -> Result<storage::SyncStatus, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    storage_manager.sync_local_to_remote().await
+        .map_err(|e| format!("Sync failed: {}", e))
+}
+
+#[tauri::command]
+async fn sync_tokens_from_database(
+    state: State<'_, AppState>,
+) -> Result<storage::SyncStatus, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    storage_manager.sync_remote_to_local().await
+        .map_err(|e| format!("Sync failed: {}", e))
+}
+
+#[tauri::command]
+async fn bidirectional_sync_tokens(
+    state: State<'_, AppState>,
+) -> Result<storage::SyncStatus, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    storage_manager.bidirectional_sync().await
+        .map_err(|e| format!("Sync failed: {}", e))
+}
+
+#[tauri::command]
+async fn get_storage_status(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    let is_available = storage_manager.is_available().await;
+    let storage_type = storage_manager.storage_type();
+    let is_database_available = storage_manager.is_database_available();
+
+    Ok(serde_json::json!({
+        "is_available": is_available,
+        "storage_type": storage_type,
+        "is_database_available": is_database_available
+    }))
+}
+
+#[tauri::command]
+async fn get_sync_status(
+    state: State<'_, AppState>,
+) -> Result<Option<storage::SyncStatus>, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    storage_manager.get_sync_status().await
+        .map_err(|e| format!("Failed to get sync status: {}", e))
+}
+
+// 辅助函数：初始化存储管理器
+async fn initialize_storage_manager(
+    app: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // 创建本地存储
+    let local_storage = Arc::new(LocalFileStorage::new(app)?);
+
+    // 尝试加载数据库配置并创建数据库存储
+    let postgres_storage = {
+        let db_manager_guard = state.database_manager.lock().unwrap();
+        if let Some(db_manager) = db_manager_guard.as_ref() {
+            Some(Arc::new(PostgreSQLStorage::new(db_manager.clone())))
+        } else {
+            None
+        }
+    };
+
+    // 创建双重存储管理器
+    let dual_storage = Arc::new(DualStorage::new(local_storage, postgres_storage));
+
+    // 更新应用状态
+    *state.storage_manager.lock().unwrap() = Some(dual_storage);
+
+    Ok(())
+}
+
 
 
 fn main() {
@@ -701,10 +941,102 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            app.manage(AppState {
+            let app_state = AppState {
                 augment_oauth_state: Mutex::new(None),
                 http_server: Mutex::new(None),
                 outlook_manager: Mutex::new(OutlookManager::new()),
+                storage_manager: Arc::new(Mutex::new(None)),
+                database_manager: Arc::new(Mutex::new(None)),
+            };
+
+            app.manage(app_state);
+
+            // 异步初始化存储管理器
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle.state::<AppState>();
+
+                // 尝试加载数据库配置
+                let mut should_sync = false;
+                match DatabaseConfigManager::new(&app_handle) {
+                    Ok(config_manager) => {
+                        match config_manager.load_config() {
+                            Ok(config) => {
+                                if config.enabled {
+                                    let mut db_manager = DatabaseManager::new(config);
+                                    if db_manager.initialize().await.is_ok() {
+                                        // 检查表是否存在
+                                        should_sync = if let Some(pool) = db_manager.get_pool() {
+                                            match pool.get().await {
+                                                Ok(client) => {
+                                                    match database::check_tables_exist(&client).await {
+                                                        Ok(exists) => {
+                                                            if !exists {
+                                                                // 创建表
+                                                                if let Err(e) = database::create_tables(&client).await {
+                                                                    eprintln!("Failed to create tables on startup: {}", e);
+                                                                }
+                                                                false // 新创建的表不需要同步
+                                                            } else {
+                                                                true // 表已存在，需要同步
+                                                            }
+                                                        }
+                                                        Err(e) => {
+                                                            eprintln!("Failed to check tables on startup: {}", e);
+                                                            false
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    eprintln!("Failed to get database client on startup: {}", e);
+                                                    false
+                                                }
+                                            }
+                                        } else {
+                                            false
+                                        };
+
+                                        *state.database_manager.lock().unwrap() = Some(Arc::new(db_manager));
+
+                                        // 如果需要同步，在存储管理器初始化后执行
+                                        if should_sync {
+                                            // 初始化存储管理器
+                                            if let Err(e) = initialize_storage_manager(&app_handle, &state).await {
+                                                eprintln!("Failed to initialize storage manager on startup: {}", e);
+                                            } else {
+                                                // 执行初始同步
+                                                let storage_manager = {
+                                                    let storage_guard = state.storage_manager.lock().unwrap();
+                                                    storage_guard.as_ref().cloned()
+                                                };
+
+                                                if let Some(storage_manager) = storage_manager {
+                                                    match storage_manager.bidirectional_sync().await {
+                                                        Ok(sync_result) => {
+                                                            println!("Startup sync completed: {} tokens synced", sync_result.tokens_synced);
+                                                        }
+                                                        Err(e) => {
+                                                            eprintln!("Startup sync failed: {}", e);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => eprintln!("Failed to load database config: {}", e),
+                        }
+                    }
+                    Err(e) => eprintln!("Failed to create config manager: {}", e),
+                }
+
+                // 如果没有执行同步（表不存在或数据库不可用），则初始化存储管理器
+                if !should_sync {
+                    if let Err(e) = initialize_storage_manager(&app_handle, &state).await {
+                        eprintln!("Failed to initialize storage manager: {}", e);
+                    }
+                }
             });
 
             Ok(())
@@ -739,6 +1071,17 @@ fn main() {
             outlook_check_account_status,
             outlook_get_emails,
             outlook_get_email_details,
+            // 数据库配置命令
+            save_database_config,
+            load_database_config,
+            test_database_connection,
+            delete_database_config,
+            // 同步命令
+            sync_tokens_to_database,
+            sync_tokens_from_database,
+            bidirectional_sync_tokens,
+            get_storage_status,
+            get_sync_status,
 
             open_internal_browser,
             close_window

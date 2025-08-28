@@ -39,7 +39,7 @@
       "deb": {
         "depends": ["xdg-utils"],
         "files": {
-          "/usr/share/applications/": "./assets/atm.desktop"
+          "/usr/share/applications/atm.desktop": "./assets/atm.desktop"
         }
       },
       "appimage": {

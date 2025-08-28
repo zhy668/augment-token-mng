@@ -64,17 +64,7 @@
               >
             </div>
 
-            <div class="connection-status" v-if="connectionStatus">
-              <div :class="['status-indicator', connectionStatus.type]">
-                <svg v-if="connectionStatus.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                </svg>
-                <svg v-else-if="connectionStatus.type === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-                <span>{{ connectionStatus.message }}</span>
-              </div>
-            </div>
+
           </div>
         </div>
 
@@ -119,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Props
@@ -147,8 +137,8 @@ const isLoading = ref(false)
 const isTesting = ref(false)
 const isSaving = ref(false)
 const isDeleting = ref(false)
-const connectionStatus = ref(null)
 const hasExistingConfig = ref(false)
+const isConnectionTested = ref(false)
 
 // Computed properties
 const canTest = computed(() => {
@@ -160,7 +150,7 @@ const canTest = computed(() => {
 })
 
 const canSave = computed(() => {
-  return canTest.value && connectionStatus.value?.type === 'success'
+  return canTest.value && isConnectionTested.value
 })
 
 // Methods
@@ -188,8 +178,8 @@ const loadConfig = async () => {
 
 const testConnection = async () => {
   isTesting.value = true
-  connectionStatus.value = null
-  
+  isConnectionTested.value = false
+
   try {
     await invoke('test_database_connection', {
       host: config.value.host,
@@ -198,16 +188,14 @@ const testConnection = async () => {
       username: config.value.username,
       password: config.value.password
     })
-    
-    connectionStatus.value = {
-      type: 'success',
-      message: '连接成功！'
-    }
+
+    // 连接成功时发送toast通知
+    emit('show-status', '数据库连接测试成功！', 'success')
+    isConnectionTested.value = true
   } catch (error) {
-    connectionStatus.value = {
-      type: 'error',
-      message: `连接失败: ${error}`
-    }
+    // 连接失败时发送toast通知
+    emit('show-status', `数据库连接测试失败: ${error}`, 'error')
+    isConnectionTested.value = false
   } finally {
     isTesting.value = false
   }
@@ -254,6 +242,11 @@ const deleteConfig = async () => {
     isDeleting.value = false
   }
 }
+
+// Watch for config changes to reset connection test status
+watch(config, () => {
+  isConnectionTested.value = false
+}, { deep: true })
 
 // Lifecycle
 onMounted(() => {
@@ -367,31 +360,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.connection-status {
-  margin-top: 16px;
-}
 
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.status-indicator.success {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
-}
-
-.status-indicator.error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
 
 .modal-footer {
   display: flex;

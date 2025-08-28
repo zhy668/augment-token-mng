@@ -5,17 +5,25 @@
         <div class="modal-header">
           <div class="header-title">
             <h2>已保存Token</h2>
-            <div :class="['status-badge', hasUnsavedChanges ? 'unsaved' : 'saved']">
-              <span :class="['status-dot', hasUnsavedChanges ? 'unsaved' : 'saved']"></span>
-              <span class="status-text">{{ hasUnsavedChanges ? '未保存' : '正常' }}</span>
+            <div :class="['status-badge', storageStatusClass]">
+              <span :class="['status-dot', storageStatusClass]"></span>
+              <span class="status-text">{{ storageStatusText }}</span>
             </div>
           </div>
           <div class="header-actions">
-            <button @click="$emit('save')" class="btn success small" :disabled="!hasUnsavedChanges">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+
+            <button @click="handleSave" class="btn success small" :disabled="isSaving">
+              <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
               </svg>
-              保存
+              {{ isSaving ? '保存中...' : '保存' }}
+            </button>
+            <!-- 数据库配置按钮 -->
+            <button @click="showDatabaseConfig = true" class="btn info small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
+              </svg>
+              数据库配置
             </button>
             <button @click="$emit('add-token')" class="btn primary small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -23,11 +31,11 @@
               </svg>
               添加
             </button>
-            <button @click="handleRefresh" class="btn secondary small">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <button @click="handleRefresh" class="btn secondary small" :disabled="isRefreshing">
+              <svg v-if="!isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
               </svg>
-              刷新
+              {{ isRefreshing ? '刷新中...' : '刷新' }}
             </button>
             <button class="close-btn" @click="handleClose">×</button>
           </div>
@@ -76,6 +84,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Database Config Modal -->
+    <DatabaseConfig
+      v-if="showDatabaseConfig"
+      @close="showDatabaseConfig = false"
+      @show-status="handleShowStatus"
+      @config-saved="handleDatabaseConfigSaved"
+      @config-deleted="handleDatabaseConfigDeleted"
+    />
   </div>
 </template>
 
@@ -83,6 +100,7 @@
 import { ref, nextTick, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import TokenCard from './TokenCard.vue'
+import DatabaseConfig from './DatabaseConfig.vue'
 
 // Props
 const props = defineProps({
@@ -103,8 +121,24 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save', 'token-updated'])
 
+// Additional state for new components
+const showDatabaseConfig = ref(false)
+const isDatabaseAvailable = ref(false)
+const isSaving = ref(false)
+const isRefreshing = ref(false)
+
 // Token card refs for accessing child methods
 const tokenCardRefs = ref({})
+
+// Computed properties for storage status display
+const storageStatusText = computed(() => {
+  const baseText = isDatabaseAvailable.value ? '双向存储' : '本地存储'
+  return props.hasUnsavedChanges ? `${baseText}-未保存` : baseText
+})
+
+const storageStatusClass = computed(() => {
+  return props.hasUnsavedChanges ? 'unsaved' : 'saved'
+})
 
 
 
@@ -118,68 +152,7 @@ const setTokenCardRef = (el, tokenId) => {
   }
 }
 
-// 刷新所有Portal信息
-const refreshAllPortalInfo = async () => {
-  await nextTick() // 确保DOM已更新
 
-  const portalTokens = Object.entries(tokenCardRefs.value).filter(([tokenId, cardRef]) => {
-    const token = props.tokens.find(t => t.id === tokenId)
-    return token && token.portal_url && cardRef && typeof cardRef.refreshPortalInfo === 'function'
-  })
-
-  if (portalTokens.length === 0) {
-    return { success: true, message: '没有需要刷新的 Portal 信息' }
-  }
-
-  try {
-    // 并行刷新所有Portal信息
-    const refreshPromises = portalTokens.map(async ([tokenId, cardRef]) => {
-      try {
-        await cardRef.refreshPortalInfo()
-        return { tokenId, success: true }
-      } catch (error) {
-        console.error(`Failed to refresh portal info for token ${tokenId}:`, error)
-        return { tokenId, success: false, error: error.message }
-      }
-    })
-
-    const results = await Promise.allSettled(refreshPromises)
-
-    // 统计成功和失败的数量
-    let successCount = 0
-    let failureCount = 0
-
-    results.forEach(result => {
-      if (result.status === 'fulfilled' && result.value.success) {
-        successCount++
-      } else {
-        failureCount++
-      }
-    })
-
-    if (failureCount === 0) {
-      return {
-        success: true,
-        message: `Portal 信息刷新完成 (${successCount}/${portalTokens.length})`
-      }
-    } else if (successCount === 0) {
-      return {
-        success: false,
-        message: `Portal 信息刷新失败 (${failureCount}/${portalTokens.length})`
-      }
-    } else {
-      return {
-        success: true,
-        message: `Portal 信息部分刷新成功 (${successCount}/${portalTokens.length})`
-      }
-    }
-  } catch (error) {
-    return {
-      success: false,
-      message: `刷新 Portal 信息时发生错误: ${error.message}`
-    }
-  }
-}
 
 // 检查所有Token的账号状态
 const checkAllAccountStatus = async () => {
@@ -257,7 +230,7 @@ const handleClose = () => {
   emit('close')
 }
 
-// 处理刷新事件
+// 处理刷新事件 - 智能刷新逻辑
 const handleRefresh = async () => {
   // 如果有未保存的更改，警告用户
   if (props.hasUnsavedChanges) {
@@ -265,54 +238,130 @@ const handleRefresh = async () => {
     return
   }
 
-  // 显示开始刷新的通知
-  emit('copy-success', '正在刷新 Token 状态和 Portal 信息...', 'info')
+  if (isRefreshing.value) return
+
+  isRefreshing.value = true
 
   try {
-    // 先刷新token列表
-    emit('refresh')
-    await nextTick() // 等待DOM更新
+    if (isDatabaseAvailable.value) {
+      // 双向存储模式：执行双向同步
+      emit('copy-success', '正在执行双向同步...', 'info')
 
-    // 并行执行账号状态检查和Portal信息刷新
-    const [statusResult, portalResult] = await Promise.allSettled([
-      checkAllAccountStatus(),
-      refreshAllPortalInfo()
-    ])
+      const result = await invoke('bidirectional_sync_tokens')
+      emit('copy-success', '双向同步完成', 'success')
 
-    // 处理结果
-    const messages = []
-    let hasError = false
+      // 刷新本地token列表显示
+      emit('refresh', false) // 不显示成功消息，因为已经有同步完成的消息
+      await nextTick() // 等待DOM更新
 
-    if (statusResult.status === 'fulfilled') {
-      messages.push(statusResult.value.message)
-      if (!statusResult.value.success) hasError = true
+      // 只执行账号状态检查（包含Portal信息刷新）
+      const statusResult = await Promise.allSettled([
+        checkAllAccountStatus()
+      ])
+
+      // 处理检查结果
+      if (statusResult[0].status === 'fulfilled') {
+        if (!statusResult[0].value.success) {
+          emit('copy-success', `同步完成，但账号状态检查失败: ${statusResult[0].value.message}`, 'error')
+        }
+      } else {
+        emit('copy-success', `同步完成，但账号状态检查失败: ${statusResult[0].reason}`, 'error')
+      }
     } else {
-      messages.push(`账号状态检查失败: ${statusResult.reason}`)
-      hasError = true
-    }
+      // 本地存储模式：使用原有逻辑
+      emit('copy-success', '正在刷新 Token 状态和 Portal 信息...', 'info')
 
-    if (portalResult.status === 'fulfilled') {
-      messages.push(portalResult.value.message)
-      if (!portalResult.value.success) hasError = true
-    } else {
-      messages.push(`Portal 信息刷新失败: ${portalResult.reason}`)
-      hasError = true
-    }
+      // 先刷新token列表
+      emit('refresh')
+      await nextTick() // 等待DOM更新
 
-    // 显示刷新结果通知
-    const finalMessage = messages.join('; ')
-    emit('copy-success', finalMessage, hasError ? 'error' : 'success')
-    emit('save')
+      // 只执行账号状态检查（包含Portal信息刷新）
+      const statusResult = await Promise.allSettled([
+        checkAllAccountStatus()
+      ])
+
+      // 处理结果
+      if (statusResult[0].status === 'fulfilled') {
+        const result = statusResult[0].value
+        emit('copy-success', result.message, result.success ? 'success' : 'error')
+      } else {
+        emit('copy-success', `账号状态检查失败: ${statusResult[0].reason}`, 'error')
+      }
+
+      emit('save')
+    }
   } catch (error) {
     // 显示错误通知
     emit('copy-success', `刷新失败: ${error.message}`, 'error')
+  } finally {
+    isRefreshing.value = false
   }
 }
 
 
 
+// 新增的事件处理方法
+const handleShowStatus = (message, type = 'info') => {
+  emit('copy-success', message, type)
+}
+
+const handleDatabaseConfigSaved = async () => {
+  emit('copy-success', '数据库配置已保存，存储功能已更新', 'success')
+  // 重新获取存储状态
+  await getInitialStorageStatus()
+  // 自动执行刷新操作
+  await handleRefresh()
+}
+
+const handleDatabaseConfigDeleted = () => {
+  emit('copy-success', '数据库配置已删除，已切换到仅本地存储', 'info')
+  // 更新数据库状态
+  isDatabaseAvailable.value = false
+}
+
+
+
+// 智能保存方法
+const handleSave = async () => {
+  if (isSaving.value) return
+
+  isSaving.value = true
+  try {
+    if (isDatabaseAvailable.value) {
+      // 双向存储模式：先保存到本地文件，然后执行双向同步
+      emit('save')
+      await nextTick() // 等待本地保存完成
+
+      // 执行双向同步
+      const result = await invoke('bidirectional_sync_tokens')
+      emit('copy-success', '双向同步保存完成', 'success')
+    } else {
+      // 本地存储模式：只保存到本地文件
+      emit('save')
+    }
+  } catch (error) {
+    emit('copy-success', `保存失败: ${error}`, 'error')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+// 获取初始存储状态
+const getInitialStorageStatus = async () => {
+  try {
+    const status = await invoke('get_storage_status')
+    isDatabaseAvailable.value = status?.is_database_available || false
+  } catch (error) {
+    console.error('Failed to get initial storage status:', error)
+    isDatabaseAvailable.value = false
+  }
+}
+
 // 组件挂载时只在没有未保存更改时才刷新
 onMounted(async () => {
+  // 获取初始存储状态
+  await getInitialStorageStatus()
+
   // 如果有未保存的更改，不要重新加载文件数据，避免覆盖内存中的新token
   if (!props.hasUnsavedChanges) {
     emit('refresh', true) // 传递 true 表示显示成功消息
@@ -321,7 +370,7 @@ onMounted(async () => {
 
 // 暴露方法给父组件
 defineExpose({
-  refreshAllPortalInfo
+  // 目前没有需要暴露的方法
 })
 </script>
 
@@ -461,6 +510,10 @@ defineExpose({
     padding: 16px;
   }
 
+  .header-actions {
+    gap: 6px;
+  }
+
   .token-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -571,6 +624,17 @@ defineExpose({
   cursor: not-allowed;
 }
 
+.btn.info {
+  background: #0ea5e9;
+  color: white;
+}
+
+.btn.info:hover:not(:disabled) {
+  background: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
+}
+
 .btn.small {
   padding: 6px 12px;
   font-size: 12px;
@@ -608,7 +672,10 @@ defineExpose({
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
+
+
 
 /* Status badge styles */
 .status-badge {

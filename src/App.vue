@@ -34,12 +34,7 @@
           </svg>
           邮箱管理
         </button>
-        <button @click="showDatabaseConfig = true" class="btn info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
-          </svg>
-          数据库配置
-        </button>
+
         <button @click="showTokenList = true" class="btn primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
@@ -58,10 +53,7 @@
               <h2>生成Augment Token</h2>
               <p>按照以下步骤获取你的Augment访问令牌</p>
             </div>
-            <!-- Sync Status Component -->
-            <div class="sync-status-container">
-              <SyncStatus @show-status="showStatus" />
-            </div>
+
           </div>
         </div>
 
@@ -284,14 +276,7 @@
       @show-status="showStatus"
     />
 
-    <!-- Database Config Modal -->
-    <DatabaseConfig
-      v-if="showDatabaseConfig"
-      @close="showDatabaseConfig = false"
-      @show-status="showStatus"
-      @config-saved="handleDatabaseConfigSaved"
-      @config-deleted="handleDatabaseConfigDeleted"
-    />
+
 
     <!-- Status Messages -->
     <div
@@ -392,8 +377,6 @@ import TokenList from './components/TokenList.vue'
 import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 import OutlookManager from './components/OutlookManager.vue'
-import DatabaseConfig from './components/DatabaseConfig.vue'
-import SyncStatus from './components/SyncStatus.vue'
 
 // 简化的状态管理
 const tokens = ref([])
@@ -401,7 +384,6 @@ const isLoading = ref(false)
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
 const showOutlookManager = ref(false)
-const showDatabaseConfig = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
 const hasUnsavedChanges = ref(false)
@@ -839,16 +821,7 @@ const openPluginHomeInternal = async () => {
   }
 }
 
-// Database config event handlers
-const handleDatabaseConfigSaved = () => {
-  showStatus('数据库配置已保存，存储功能已更新', 'success')
-  // 可以在这里刷新同步状态或重新加载tokens
-}
 
-const handleDatabaseConfigDeleted = () => {
-  showStatus('数据库配置已删除，已切换到仅本地存储', 'info')
-  // 可以在这里刷新同步状态
-}
 
 // Initialize
 onMounted(async () => {
@@ -979,26 +952,13 @@ html, body {
   min-height: 0;
 }
 
-.sync-status-container {
-  position: absolute;
-  top: 0;
-  right: -20px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-}
 
-.sync-status-container > * {
-  width: 240px;
-  max-width: 30%;
-}
 
 .generator-header {
   margin-bottom: 32px;
 }
 
 .header-content {
-  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1572,16 +1532,6 @@ input[type="text"]:read-only {
   .header-content {
     flex-direction: column;
     gap: 16px;
-  }
-
-  .sync-status-container {
-    position: static;
-    justify-content: center;
-  }
-
-  .sync-status-container > * {
-    width: 100%;
-    max-width: 100%;
   }
 
   .title-section h2 {

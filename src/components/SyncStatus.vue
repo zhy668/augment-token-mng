@@ -30,7 +30,7 @@ import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Emits
-const emit = defineEmits(['show-status'])
+const emit = defineEmits(['show-status', 'storage-status-changed'])
 
 // Reactive data
 const storageStatus = ref(null)
@@ -98,6 +98,9 @@ const refreshStatus = async () => {
   try {
     const status = await invoke('get_storage_status')
     storageStatus.value = status
+
+    // 发出存储状态变化事件
+    emit('storage-status-changed', status?.is_database_available || false)
 
     // 同时获取同步状态
     try {

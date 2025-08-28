@@ -44,6 +44,21 @@ chmod +x build.sh
 ./build.sh
 ```
 
+#### Docker
+```bash
+# Make build script executable
+chmod +x docker/build.sh
+
+# Build for Linux
+./docker/build.sh linux
+
+# Cross-platform build
+./docker/build.sh cross
+
+# Start development environment
+./docker/build.sh dev
+```
+
 ### 手动构建
 
 #### 开发模式：

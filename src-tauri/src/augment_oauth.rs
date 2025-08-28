@@ -57,12 +57,6 @@ pub struct ChatMessage {
     pub request_message: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ChatRequest {
-    pub chat_history: Vec<ChatMessage>,
-    pub message: String,
-    pub mode: String,
-}
 
 #[derive(Debug, Deserialize)]
 struct TokenApiResponse {
@@ -183,15 +177,7 @@ pub async fn check_account_ban_status(
 ) -> Result<AccountStatus, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
 
-    // Prepare test chat request
-    let chat_request = ChatRequest {
-        chat_history: vec![ChatMessage {
-            response_text: "你好 Cube! 我是 Augment，很高兴为你提供帮助。".to_string(),
-            request_message: "你好，我是Cube".to_string(),
-        }],
-        message: "我叫什么名字".to_string(),
-        mode: "CHAT".to_string(),
-    };
+
 
     // Ensure tenant_url ends with a slash
     let base_url = if tenant_url.ends_with('/') {
@@ -200,10 +186,10 @@ pub async fn check_account_ban_status(
         format!("{}/", tenant_url)
     };
 
-    let chat_url = format!("{}chat-stream", base_url);
+    let api_url = format!("{}find-missing", base_url);
 
-    // Serialize request body for debugging
-    let request_body = serde_json::to_string_pretty(&chat_request)?;
+    // Empty request body for find-missing endpoint
+    let request_body = serde_json::json!({});
 
     // Prepare request headers for debugging
     let mut request_headers = HashMap::new();
@@ -212,18 +198,18 @@ pub async fn check_account_ban_status(
 
     // Print debug info to console
     println!("=== API Request Debug Info ===");
-    println!("URL: {}", chat_url);
+    println!("URL: {}", api_url);
     println!("Method: POST");
     println!("Headers: {:#?}", request_headers);
-    println!("Request Body: {}", request_body);
+    println!("Request Body: {}", request_body.to_string());
     println!("==============================");
 
-    // Send request to chat-stream API
+    // Send request to find-missing API
     let response = client
-        .post(&chat_url)
+        .post(&api_url)
         .header("Content-Type", "application/json")
         .header("Authorization", &format!("Bearer {}", token))
-        .json(&chat_request)
+        .json(&request_body)
         .send()
         .await?;
 
@@ -251,36 +237,35 @@ pub async fn check_account_ban_status(
 
     // Create debug info
     let debug_info = DebugInfo {
-        request_url: chat_url,
+        request_url: api_url,
         request_headers,
-        request_body,
+        request_body: request_body.to_string(),
         response_headers,
         response_body: response_body.clone(),
         response_status_text: status_text,
     };
 
     // Analyze response to determine ban status
-    if (200..300).contains(&status_code) {
-        // Check for "suspended" string in response body
-        if response_body.contains("suspended") {
-            Ok(AccountStatus {
-                is_banned: true,
-                status: "SUSPENDED".to_string(),
-                error_message: Some("Account is suspended based on response content".to_string()),
-                response_code: Some(status_code),
-                debug_info,
-            })
-        } else {
-            Ok(AccountStatus {
-                is_banned: false,
-                status: "ACTIVE".to_string(),
-                error_message: None,
-                response_code: Some(status_code),
-                debug_info,
-            })
-        }
+    // First check for "suspended" keyword in response body regardless of status code
+    if response_body.to_lowercase().contains("suspended") {
+        Ok(AccountStatus {
+            is_banned: true,
+            status: "SUSPENDED".to_string(),
+            error_message: Some("Account is suspended based on response content".to_string()),
+            response_code: Some(status_code),
+            debug_info,
+        })
+    } else if (200..300).contains(&status_code) {
+        // Success status and no "suspended" keyword - account is active
+        Ok(AccountStatus {
+            is_banned: false,
+            status: "ACTIVE".to_string(),
+            error_message: None,
+            response_code: Some(status_code),
+            debug_info,
+        })
     } else {
-        // Handle different error status codes
+        // Handle different error status codes (without "suspended" keyword)
         let (is_banned, status, error_message) = match status_code {
             401 => (true, "UNAUTHORIZED", "Token is invalid or account is banned"),
             403 => (true, "FORBIDDEN", "Access forbidden - account may be banned"),

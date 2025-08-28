@@ -12,11 +12,11 @@
     "windows": [
       {
         "title": "ATM",
-        "width": 800,
+        "width": 850,
         "height": 700,
         "resizable": true,
         "fullscreen": false,
-        "minWidth": 800,
+        "minWidth": 850,
         "minHeight": 700
       }
     ],
@@ -34,6 +34,18 @@
       "icons/icon.icns",
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["xdg-utils"],
+        "files": {
+          "/usr/share/applications/": "./assets/atm.desktop"
+        }
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "resources": ["assets/*"]
   }
 }

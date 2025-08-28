@@ -1,6 +1,6 @@
 <template>
   <div class="database-config-modal">
-    <div class="modal-overlay" @click="$emit('close')">
+    <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h2>数据库配置</h2>
@@ -261,212 +261,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.database-config-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
 
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
-  border-radius: 12px 12px 0 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #374151;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.config-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: #374151;
-  font-size: 14px;
-}
-
-.form-group input {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-group input:disabled {
-  background-color: #f9fafb;
-  color: #6b7280;
-  cursor: not-allowed;
-}
-
-.connection-status {
-  margin-top: 16px;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.status-indicator.success {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
-}
-
-.status-indicator.error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
-  border-radius: 0 0 12px 12px;
-}
-
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn.primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn.secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: #4b5563;
-}
-
-.btn.danger {
-  background: #dc2626;
-  color: white;
-}
-
-.btn.danger:hover:not(:disabled) {
-  background: #b91c1c;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn.loading {
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-@media (max-width: 768px) {
-  .modal-content {
-    width: 95%;
-    margin: 20px;
-  }
-
-  .modal-footer {
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
 
 <style scoped>
 .database-config-modal {
@@ -488,7 +283,7 @@ onMounted(() => {
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 

@@ -708,13 +708,20 @@ async fn save_database_config(
     database: String,
     username: String,
     password: String,
+    ssl_mode: Option<String>,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let config_manager = DatabaseConfigManager::new(&app)
         .map_err(|e| format!("Failed to create config manager: {}", e))?;
 
-    let config = DatabaseConfig::new(host, port, database, username, password);
+    let ssl_mode = match ssl_mode.as_deref() {
+        Some("disable") => database::SslMode::Disable,
+        Some("require") => database::SslMode::Require,
+        _ => database::SslMode::Prefer,
+    };
+
+    let config = DatabaseConfig::new_with_ssl(host, port, database, username, password, ssl_mode);
 
     config_manager.save_config(&config)
         .map_err(|e| format!("Failed to save config: {}", e))?;
@@ -806,8 +813,15 @@ async fn test_database_connection(
     database: String,
     username: String,
     password: String,
+    ssl_mode: Option<String>,
 ) -> Result<(), String> {
-    let config = DatabaseConfig::new(host, port, database, username, password);
+    let ssl_mode = match ssl_mode.as_deref() {
+        Some("disable") => database::SslMode::Disable,
+        Some("require") => database::SslMode::Require,
+        _ => database::SslMode::Prefer,
+    };
+
+    let config = DatabaseConfig::new_with_ssl(host, port, database, username, password, ssl_mode);
 
     database::test_database_connection(&config).await
         .map_err(|e| format!("Connection test failed: {}", e))

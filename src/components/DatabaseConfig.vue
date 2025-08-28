@@ -64,6 +64,17 @@
               >
             </div>
 
+            <div class="form-group">
+              <label for="sslMode">SSL模式:</label>
+              <select
+                id="sslMode"
+                v-model="config.sslMode"
+                :disabled="isLoading"
+              >
+                <option value="require">Require (强制SSL)</option>
+                <option value="disable">Disable (禁用SSL)</option>
+              </select>
+            </div>
 
           </div>
         </div>
@@ -130,6 +141,7 @@ const config = ref({
   database: 'augment_tokens',
   username: 'postgres',
   password: '',
+  sslMode: 'require',
   enabled: true
 })
 
@@ -165,6 +177,7 @@ const loadConfig = async () => {
         database: loadedConfig.database || 'augment_tokens',
         username: loadedConfig.username || 'postgres',
         password: '', // 不显示已保存的密码
+        sslMode: loadedConfig.ssl_mode || 'require',
         enabled: loadedConfig.enabled || false
       }
       hasExistingConfig.value = true
@@ -186,7 +199,8 @@ const testConnection = async () => {
       port: config.value.port,
       database: config.value.database,
       username: config.value.username,
-      password: config.value.password
+      password: config.value.password,
+      ssl_mode: config.value.sslMode
     })
 
     // 连接成功时发送toast通知
@@ -210,7 +224,8 @@ const saveConfig = async () => {
       port: config.value.port,
       database: config.value.database,
       username: config.value.username,
-      password: config.value.password
+      password: config.value.password,
+      ssl_mode: config.value.sslMode
     })
     
     emit('show-status', '数据库配置保存成功！', 'success')
@@ -276,8 +291,10 @@ onMounted(() => {
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
-  overflow-y: hidden;
+  overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -288,6 +305,7 @@ onMounted(() => {
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
   border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -320,6 +338,9 @@ onMounted(() => {
 
 .modal-body {
   padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .config-form {
@@ -360,6 +381,27 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+.form-group select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  background-color: white;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group select:disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
 
 
 .modal-footer {
@@ -370,6 +412,7 @@ onMounted(() => {
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
   border-radius: 0 0 12px 12px;
+  flex-shrink: 0;
 }
 
 .btn {

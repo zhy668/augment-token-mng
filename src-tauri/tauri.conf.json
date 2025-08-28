@@ -37,7 +37,7 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["xdg-utils"],
+        "depends": ["xdg-utils", "libwebkit2gtk-4.0-0 | libwebkit2gtk-4.1-0"],
         "files": {
           "/usr/share/applications/atm.desktop": "./assets/atm.desktop"
         }

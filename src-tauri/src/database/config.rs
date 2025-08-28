@@ -9,6 +9,19 @@ use aes_gcm::{
 use rand::{rngs::OsRng, RngCore};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SslMode {
+    Disable,
+    Prefer,
+    Require,
+}
+
+impl Default for SslMode {
+    fn default() -> Self {
+        SslMode::Prefer
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub host: String,
     pub port: u16,
@@ -17,6 +30,7 @@ pub struct DatabaseConfig {
     #[serde(skip_serializing, skip_deserializing)]
     pub password: String,
     pub password_encrypted: String,
+    pub ssl_mode: SslMode,
     pub enabled: bool,
 }
 
@@ -29,6 +43,7 @@ impl Default for DatabaseConfig {
             username: "postgres".to_string(),
             password: String::new(),
             password_encrypted: String::new(),
+            ssl_mode: SslMode::default(),
             enabled: false,
         }
     }
@@ -43,20 +58,46 @@ impl DatabaseConfig {
             username,
             password: password.clone(),
             password_encrypted: String::new(),
+            ssl_mode: SslMode::default(),
             enabled: true,
         };
-        
+
         if let Ok(encrypted) = encrypt_password(&password) {
             config.password_encrypted = encrypted;
         }
-        
+
+        config
+    }
+
+    pub fn new_with_ssl(host: String, port: u16, database: String, username: String, password: String, ssl_mode: SslMode) -> Self {
+        let mut config = Self {
+            host,
+            port,
+            database,
+            username,
+            password: password.clone(),
+            password_encrypted: String::new(),
+            ssl_mode,
+            enabled: true,
+        };
+
+        if let Ok(encrypted) = encrypt_password(&password) {
+            config.password_encrypted = encrypted;
+        }
+
         config
     }
 
     pub fn connection_string(&self) -> String {
+        let ssl_mode_str = match self.ssl_mode {
+            SslMode::Disable => "disable",
+            SslMode::Prefer => "prefer",
+            SslMode::Require => "require",
+        };
+
         format!(
-            "host={} port={} dbname={} user={} password={}",
-            self.host, self.port, self.database, self.username, self.password
+            "host={} port={} dbname={} user={} password={} sslmode={}",
+            self.host, self.port, self.database, self.username, self.password, ssl_mode_str
         )
     }
 

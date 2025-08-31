@@ -651,7 +651,8 @@ const handleUpdateToken = (updatedTokenData) => {
       tenant_url: updatedTokenData.tenantUrl,
       access_token: updatedTokenData.accessToken,
       portal_url: updatedTokenData.portalUrl,
-      email_note: updatedTokenData.emailNote
+      email_note: updatedTokenData.emailNote,
+      updated_at: new Date().toISOString() // 更新时间戳
     }
     hasUnsavedChanges.value = true
   }

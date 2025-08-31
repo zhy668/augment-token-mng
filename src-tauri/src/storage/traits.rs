@@ -104,24 +104,30 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(Utc::now);
-    
+
+    let updated_at = legacy.get("updated_at")
+        .and_then(|v| v.as_str())
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or(created_at); // 如果没有updated_at字段，使用created_at作为默认值
+
     let portal_url = legacy.get("portal_url")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    
+
     let email_note = legacy.get("email_note")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    
+
     let ban_status = legacy.get("ban_status").cloned();
     let portal_info = legacy.get("portal_info").cloned();
-    
+
     Ok(TokenData {
         id,
         tenant_url,
         access_token,
         created_at,
-        updated_at: created_at,
+        updated_at,
         portal_url,
         email_note,
         ban_status,
@@ -137,6 +143,7 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
     map.insert("tenant_url".to_string(), serde_json::Value::String(token.tenant_url.clone()));
     map.insert("access_token".to_string(), serde_json::Value::String(token.access_token.clone()));
     map.insert("created_at".to_string(), serde_json::Value::String(token.created_at.to_rfc3339()));
+    map.insert("updated_at".to_string(), serde_json::Value::String(token.updated_at.to_rfc3339()));
     
     if let Some(portal_url) = &token.portal_url {
         map.insert("portal_url".to_string(), serde_json::Value::String(portal_url.clone()));

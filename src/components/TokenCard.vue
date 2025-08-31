@@ -837,6 +837,8 @@ const loadPortalInfo = async (forceRefresh = false) => {
           expiry_date: newPortalData.expiry_date,
           is_active: newPortalData.is_active
         }
+        // 更新时间戳以确保双向同步时选择正确版本
+        props.token.updated_at = new Date().toISOString()
         console.log('Updated token portal_info:', props.token.portal_info)
       } else {
         // 如果没有credits_balance数据且没有本地数据，静默处理
@@ -923,6 +925,8 @@ const checkAccountStatus = async () => {
 
       // 更新本地token对象
       props.token.ban_status = banStatus
+      // 更新时间戳以确保双向同步时选择正确版本
+      props.token.updated_at = new Date().toISOString()
 
       statusMessage = result.is_banned ? '账号已封禁' : '账号状态正常'
       statusType = result.is_banned ? 'error' : 'success'

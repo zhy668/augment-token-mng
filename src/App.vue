@@ -391,7 +391,7 @@ const hasUnsavedChanges = ref(false)
 // 简化的工具函数
 const createNewToken = (tenantUrl, accessToken, portalUrl = null, emailNote = null) => {
   return {
-    id: 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    id: crypto.randomUUID(),
     tenant_url: tenantUrl,
     access_token: accessToken,
     created_at: new Date().toISOString(),

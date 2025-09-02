@@ -33,13 +33,13 @@
 
 #### Windows：
 ```powershell
-cd tauri-oauth-app
+cd augment-token-mng
 .\build.ps1
 ```
 
 #### macOS/Linux：
 ```bash
-cd tauri-oauth-app
+cd augment-token-mng
 chmod +x build.sh
 ./build.sh
 ```
@@ -63,14 +63,14 @@ chmod +x docker/build.sh
 
 #### 开发模式：
 ```bash
-cd tauri-oauth-app
+cd augment-token-mng
 npm install          # 安装前端依赖
 cargo tauri dev      # 启动开发服务器
 ```
 
 #### 发布构建：
 ```bash
-cd tauri-oauth-app
+cd augment-token-mng
 npm install          # 安装前端依赖
 cargo tauri build    # 构建生产版本
 ```

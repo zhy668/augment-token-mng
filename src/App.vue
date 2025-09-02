@@ -183,6 +183,7 @@
       :tokens="tokens"
       :isLoading="isLoading"
       :hasUnsavedChanges="hasUnsavedChanges"
+      :isDatabaseAvailable="isDatabaseAvailable"
       @close="showTokenList = false"
       @delete="deleteToken"
       @copy-success="showStatus"
@@ -192,6 +193,7 @@
       @edit="handleEditToken"
       @save="saveTokensToFile"
       @token-updated="hasUnsavedChanges = true"
+      @storage-config-changed="handleStorageConfigChanged"
     />
 
     <!-- Token Form Modal -->
@@ -387,6 +389,9 @@ const showOutlookManager = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
 const hasUnsavedChanges = ref(false)
+
+// 存储状态管理
+const isDatabaseAvailable = ref(false)
 
 // 简化的工具函数
 const createNewToken = (tenantUrl, accessToken, portalUrl = null, emailNote = null) => {
@@ -824,8 +829,27 @@ const openPluginHomeInternal = async () => {
 
 
 
+// 获取初始存储状态
+const getInitialStorageStatus = async () => {
+  try {
+    const status = await invoke('get_storage_status')
+    isDatabaseAvailable.value = status?.is_database_available || false
+  } catch (error) {
+    console.error('Failed to get initial storage status:', error)
+    isDatabaseAvailable.value = false
+  }
+}
+
+// 处理存储配置变更
+const handleStorageConfigChanged = async () => {
+  await getInitialStorageStatus()
+}
+
 // Initialize
 onMounted(async () => {
+  // 首先获取存储状态
+  await getInitialStorageStatus()
+  // 然后加载tokens
   await loadTokens()
 })
 

@@ -115,15 +115,18 @@ const props = defineProps({
   hasUnsavedChanges: {
     type: Boolean,
     default: false
+  },
+  isDatabaseAvailable: {
+    type: Boolean,
+    default: false
   }
 })
 
 // Emits
-const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save', 'token-updated'])
+const emit = defineEmits(['close', 'delete', 'copy-success', 'add-token', 'refresh', 'open-portal', 'edit', 'save', 'token-updated', 'storage-config-changed'])
 
 // Additional state for new components
 const showDatabaseConfig = ref(false)
-const isDatabaseAvailable = ref(false)
 const isSaving = ref(false)
 const isRefreshing = ref(false)
 
@@ -132,7 +135,7 @@ const tokenCardRefs = ref({})
 
 // Computed properties for storage status display
 const storageStatusText = computed(() => {
-  const baseText = isDatabaseAvailable.value ? '双向存储' : '本地存储'
+  const baseText = props.isDatabaseAvailable ? '双向存储' : '本地存储'
   return props.hasUnsavedChanges ? `${baseText}-未保存` : baseText
 })
 
@@ -243,7 +246,7 @@ const handleRefresh = async () => {
   isRefreshing.value = true
 
   try {
-    if (isDatabaseAvailable.value) {
+    if (props.isDatabaseAvailable) {
       // 双向存储模式：执行双向同步
       emit('copy-success', '正在执行双向同步...', 'info')
 
@@ -307,16 +310,16 @@ const handleShowStatus = (message, type = 'info') => {
 
 const handleDatabaseConfigSaved = async () => {
   emit('copy-success', '数据库配置已保存，存储功能已更新', 'success')
-  // 重新获取存储状态
-  await getInitialStorageStatus()
+  // 通知父组件重新获取存储状态
+  emit('storage-config-changed')
   // 自动执行刷新操作
   await handleRefresh()
 }
 
 const handleDatabaseConfigDeleted = () => {
   emit('copy-success', '数据库配置已删除，已切换到仅本地存储', 'info')
-  // 更新数据库状态
-  isDatabaseAvailable.value = false
+  // 通知父组件重新获取存储状态
+  emit('storage-config-changed')
 }
 
 
@@ -327,7 +330,7 @@ const handleSave = async () => {
 
   isSaving.value = true
   try {
-    if (isDatabaseAvailable.value) {
+    if (props.isDatabaseAvailable) {
       // 双向存储模式：先保存到本地文件，然后执行双向同步
       emit('save')
       await nextTick() // 等待本地保存完成
@@ -346,22 +349,8 @@ const handleSave = async () => {
   }
 }
 
-// 获取初始存储状态
-const getInitialStorageStatus = async () => {
-  try {
-    const status = await invoke('get_storage_status')
-    isDatabaseAvailable.value = status?.is_database_available || false
-  } catch (error) {
-    console.error('Failed to get initial storage status:', error)
-    isDatabaseAvailable.value = false
-  }
-}
-
 // 组件挂载时只在没有未保存更改时才刷新
 onMounted(async () => {
-  // 获取初始存储状态
-  await getInitialStorageStatus()
-
   // 如果有未保存的更改，不要重新加载文件数据，避免覆盖内存中的新token
   if (!props.hasUnsavedChanges) {
     emit('refresh', true) // 传递 true 表示显示成功消息

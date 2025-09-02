@@ -907,6 +907,36 @@ async fn get_storage_status(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
+    // 首先尝试重新加载数据库配置（如果还没有的话）
+    let db_manager_exists = {
+        let guard = state.database_manager.lock().unwrap();
+        guard.is_some()
+    };
+
+    if !db_manager_exists {
+        // 尝试加载数据库配置
+        match database::DatabaseConfigManager::new(&app) {
+            Ok(config_manager) => {
+                match config_manager.load_config() {
+                    Ok(config) => {
+                        if config.enabled {
+                            let mut db_manager = database::DatabaseManager::new(config);
+                            if db_manager.initialize().await.is_ok() {
+                                *state.database_manager.lock().unwrap() = Some(Arc::new(db_manager));
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        // 配置加载失败，继续使用本地存储
+                    }
+                }
+            }
+            Err(_) => {
+                // 配置管理器创建失败，继续使用本地存储
+            }
+        }
+    }
+
     // 检查存储管理器是否已初始化，如果没有则尝试初始化
     let storage_manager = {
         let manager_option = {

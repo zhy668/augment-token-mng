@@ -502,16 +502,28 @@ const confirmDelete = async () => {
   if (!tokenToDelete.value) return
 
   try {
-    // 调用后端删除 token
-    const deleted = await invoke('delete_token', { tokenId: tokenToDelete.value })
-
-    if (deleted) {
-      // 从内存中也删除 token
-      tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
-      showStatus('Token已删除', 'success')
-    } else {
-      showStatus('Token删除失败：未找到指定token', 'error')
+    // 先从内存中删除 token
+    const tokenIndex = tokens.value.findIndex(token => token.id === tokenToDelete.value)
+    if (tokenIndex === -1) {
+      showStatus('Token不存在', 'error')
+      showDeleteConfirm.value = false
+      tokenToDelete.value = null
+      return
     }
+
+    // 从内存中删除
+    tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
+
+    // 尝试从后端存储删除（如果Token已保存的话）
+    try {
+      await invoke('delete_token', { tokenId: tokenToDelete.value })
+    } catch (error) {
+      // 如果后端删除失败（比如Token未保存），不影响前端删除操作
+      console.log('Backend delete failed (token may not be saved):', error)
+    }
+
+    showStatus('Token已删除', 'success')
+    hasUnsavedChanges.value = true // 标记有未保存的更改
   } catch (error) {
     showStatus(`删除Token失败: ${error}`, 'error')
   }

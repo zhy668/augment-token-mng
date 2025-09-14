@@ -37,6 +37,7 @@ pub struct AccountStatus {
     pub status: String,
     pub error_message: Option<String>,
     pub response_code: Option<u16>,
+    pub response_body: Option<String>,
     // 调试信息
     pub debug_info: DebugInfo,
 }
@@ -253,6 +254,17 @@ pub async fn check_account_ban_status(
             status: "SUSPENDED".to_string(),
             error_message: Some("Account is suspended based on response content".to_string()),
             response_code: Some(status_code),
+            response_body: Some(response_body),
+            debug_info,
+        })
+    } else if response_body.to_lowercase().contains("invalid token") {
+        // Special case for invalid token - not banned, just invalid
+        Ok(AccountStatus {
+            is_banned: false,
+            status: "INVALID_TOKEN".to_string(),
+            error_message: Some("Token is invalid".to_string()),
+            response_code: Some(status_code),
+            response_body: Some(response_body),
             debug_info,
         })
     } else if (200..300).contains(&status_code) {
@@ -262,6 +274,7 @@ pub async fn check_account_ban_status(
             status: "ACTIVE".to_string(),
             error_message: None,
             response_code: Some(status_code),
+            response_body: Some(response_body),
             debug_info,
         })
     } else {
@@ -279,6 +292,7 @@ pub async fn check_account_ban_status(
             status: status.to_string(),
             error_message: Some(format!("{}: {}", error_message, response_body)),
             response_code: Some(status_code),
+            response_body: Some(response_body),
             debug_info,
         })
     }

@@ -3,8 +3,8 @@
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
       <!-- 账号状态优先显示 -->
-      <span v-if="token.ban_status" :class="['status-badge', token.ban_status === 'SUSPENDED' ? 'banned' : 'active']">
-        {{ token.ban_status === 'SUSPENDED' ? '已封禁' : '正常' }}
+      <span v-if="token.ban_status" :class="['status-badge', getStatusClass(token.ban_status)]">
+        {{ getStatusText(token.ban_status) }}
       </span>
       <!-- Portal状态作为备选 -->
       <span v-else-if="token.portal_url && portalInfo.data" :class="['status-badge', portalInfo.data.is_active ? 'active' : 'inactive']">
@@ -44,7 +44,19 @@
               <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
                 <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
-                <span class="portal-meta balance">剩余: {{ portalInfo.data.credits_balance }}</span>
+                <span :class="['portal-meta', 'balance', { 'exhausted': portalInfo.data.credits_balance === 0 && !hasUnlimitedUsage }]">
+                  <template v-if="portalInfo.data.credits_balance === 0">
+                    <template v-if="hasUnlimitedUsage">
+                      还能使用
+                    </template>
+                    <template v-else>
+                      使用次数耗尽
+                    </template>
+                  </template>
+                  <template v-else>
+                    剩余: {{ portalInfo.data.credits_balance }}
+                  </template>
+                </span>
               </template>
               <!-- 如果没有数据且正在加载，显示加载状态 -->
               <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
@@ -320,6 +332,7 @@ const isCheckingStatus = ref(false)
 const isEmailHovered = ref(false)
 const showEditorModal = ref(false)
 const isModalClosing = ref(false)
+const hasUnlimitedUsage = ref(false)
 
 // 图标映射
 const editorIcons = {
@@ -387,6 +400,36 @@ const maskedEmail = computed(() => {
 
   return maskedUsername + '@' + domain
 })
+
+// 获取状态样式类
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'SUSPENDED':
+      return 'banned'
+    case 'INVALID_TOKEN':
+      return 'invalid'
+    case 'ACTIVE':
+      return 'active'
+    default:
+      return 'active'
+  }
+}
+
+// 获取状态显示文本
+const getStatusText = (status) => {
+  switch (status) {
+    case 'SUSPENDED':
+      return '已封禁'
+    case 'INVALID_TOKEN':
+      return 'Token失效'
+    case 'ACTIVE':
+      return '正常'
+    default:
+      return '正常'
+  }
+}
+
+
 
 
 
@@ -840,6 +883,11 @@ const loadPortalInfo = async (forceRefresh = false) => {
         // 更新时间戳以确保双向同步时选择正确版本
         props.token.updated_at = new Date().toISOString()
         console.log('Updated token portal_info:', props.token.portal_info)
+
+        // 如果剩余次数为0，检查是否有无限制使用权限
+        if (newPortalData.credits_balance === 0) {
+          await checkSubscriptionInfo()
+        }
       } else {
         // 如果没有credits_balance数据且没有本地数据，静默处理
         if (!props.token.portal_info) {
@@ -878,6 +926,22 @@ const formatExpiryDate = (dateString) => {
     })
   } catch {
     return dateString
+  }
+}
+
+// 检查订阅信息
+const checkSubscriptionInfo = async () => {
+  try {
+    console.log('Checking subscription info for unlimited usage...')
+    const hasUnlimited = await invoke('check_subscription_info', {
+      token: props.token.access_token,
+      tenantUrl: props.token.tenant_url
+    })
+    hasUnlimitedUsage.value = hasUnlimited
+    console.log('Subscription check result:', hasUnlimited)
+  } catch (error) {
+    console.error('Failed to check subscription info:', error)
+    hasUnlimitedUsage.value = false
   }
 }
 
@@ -920,16 +984,34 @@ const checkAccountStatus = async () => {
 
     if (statusResult.status === 'fulfilled') {
       const result = statusResult.value
-      // 移除了自动保存，现在只更新内存中的数据
-      const banStatus = result.is_banned ? 'SUSPENDED' : 'ACTIVE'
+      console.log('Account status check result:', result)
+
+      // 使用后端返回的具体状态，而不是简单的is_banned判断
+      const banStatus = result.status || (result.is_banned ? 'SUSPENDED' : 'ACTIVE')
 
       // 更新本地token对象
       props.token.ban_status = banStatus
       // 更新时间戳以确保双向同步时选择正确版本
       props.token.updated_at = new Date().toISOString()
 
-      statusMessage = result.is_banned ? '账号已封禁' : '账号状态正常'
-      statusType = result.is_banned ? 'error' : 'success'
+      // 根据具体状态设置消息
+      switch (banStatus) {
+        case 'SUSPENDED':
+          statusMessage = '账号已封禁'
+          statusType = 'error'
+          break
+        case 'INVALID_TOKEN':
+          statusMessage = 'Token失效'
+          statusType = 'warning'
+          break
+        case 'ACTIVE':
+          statusMessage = '账号状态正常'
+          statusType = 'success'
+          break
+        default:
+          statusMessage = `账号状态: ${banStatus}`
+          statusType = 'info'
+      }
     } else {
       console.error('Account status check failed:', statusResult.reason)
       statusMessage = `状态检测失败: ${statusResult.reason}`
@@ -971,7 +1053,7 @@ const refreshPortalInfo = async () => {
 }
 
 // 组件挂载时加载Portal信息
-onMounted(() => {
+onMounted(async () => {
   if (props.token.portal_url) {
     // 如果有本地数据，立即显示
     if (props.token.portal_info) {
@@ -982,6 +1064,10 @@ onMounted(() => {
           is_active: props.token.portal_info.is_active
         },
         error: null
+      }
+      // 如果本地数据显示剩余次数为0，检查订阅信息
+      if (props.token.portal_info.credits_balance === 0) {
+        await checkSubscriptionInfo()
       }
     }
     // 然后在后台刷新数据
@@ -1054,6 +1140,12 @@ defineExpose({
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.status-badge.invalid {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
 }
 
 .token-card:hover {
@@ -1186,6 +1278,11 @@ defineExpose({
   color: #155724;
   background: #d4edda;
   font-weight: 600;
+}
+
+.portal-meta.balance.exhausted {
+  color: #721c24;
+  background: #f8d7da;
 }
 
 

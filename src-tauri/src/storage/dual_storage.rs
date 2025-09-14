@@ -412,12 +412,17 @@ impl SyncManager for DualStorage {
         let local_tokens = self.local_storage.load_tokens().await?;
         let remote_tokens = postgres.load_tokens().await?;
 
-        let resolved_tokens = self.resolve_conflicts(local_tokens, remote_tokens).await?;
-        
+        let resolved_tokens = self.resolve_conflicts(local_tokens.clone(), remote_tokens.clone()).await?;
+
         let mut synced_count = 0;
         let mut errors = Vec::new();
 
-        // 同步到两个存储
+        // 先清空本地存储，然后重新写入解决后的tokens
+        if let Err(e) = self.local_storage.clear_all_tokens().await {
+            errors.push(format!("Failed to clear local storage: {}", e));
+        }
+
+        // 同步解决后的tokens到两个存储
         for token in resolved_tokens {
             let mut local_ok = false;
             let mut remote_ok = false;
@@ -483,25 +488,24 @@ impl SyncManager for DualStorage {
 
         let mut resolved = HashMap::new();
 
-        // 首先添加所有本地tokens
-        for token in local_tokens {
-            resolved.insert(token.id.clone(), token);
+        // 合并策略：保留所有tokens，以最新更新时间为准
+
+        // 首先添加所有远程tokens
+        for remote_token in remote_tokens {
+            resolved.insert(remote_token.id.clone(), remote_token);
         }
 
-        // 然后处理远程tokens，解决冲突
-        for remote_token in remote_tokens {
-            match resolved.get(&remote_token.id) {
-                Some(local_token) => {
-                    // 存在冲突，选择更新时间较晚的版本
-                    if remote_token.updated_at > local_token.updated_at {
-                        resolved.insert(remote_token.id.clone(), remote_token);
-                    }
-                    // 否则保持本地版本
+        // 然后处理本地tokens
+        for local_token in local_tokens {
+            if let Some(remote_token) = resolved.get(&local_token.id) {
+                // 远程也存在此token，比较更新时间，使用更新的版本
+                if local_token.updated_at > remote_token.updated_at {
+                    resolved.insert(local_token.id.clone(), local_token);
                 }
-                None => {
-                    // 没有冲突，直接添加远程token
-                    resolved.insert(remote_token.id.clone(), remote_token);
-                }
+                // 否则保持远程版本
+            } else {
+                // 远程不存在此token，添加本地token（新增的token）
+                resolved.insert(local_token.id.clone(), local_token);
             }
         }
 

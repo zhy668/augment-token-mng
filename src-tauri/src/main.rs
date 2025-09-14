@@ -11,7 +11,7 @@ mod storage;
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
-use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus};
+use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus, AccountInfo};
 use database::{DatabaseConfig, DatabaseConfigManager, DatabaseManager};
 use storage::{DualStorage, LocalFileStorage, PostgreSQLStorage, TokenStorage, SyncManager};
 use std::sync::{Arc, Mutex};
@@ -479,6 +479,36 @@ async fn get_ledger_summary(customer_id: String, pricing_unit_id: String, token:
 }
 
 #[tauri::command]
+async fn check_subscription_info(token: String, tenant_url: String) -> Result<bool, String> {
+    let url = format!("{}/subscription-info", tenant_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+
+        // 检查响应中是否包含 "out of user messages"
+        let has_usage_limit = response_text.contains("out of user messages");
+        Ok(!has_usage_limit) // 如果包含限制信息则返回false，否则返回true
+    } else {
+        Err(format!("API request failed with status {}: {}", status, response.status()))
+    }
+}
+
+#[tauri::command]
 async fn test_api_call() -> Result<String, String> {
     let url = "https://portal.withorb.com/api/v1/customer_from_link?token=ImRhUHFhU3ZtelpKdEJrUVci.1konHDs_4UqVUJWcxaZpKV4nQik";
 
@@ -625,6 +655,7 @@ async fn outlook_save_credentials(
         email,
         refresh_token,
         client_id,
+        created_at: chrono::Utc::now(),
     };
 
     let mut manager = state.outlook_manager.lock().unwrap();
@@ -637,6 +668,14 @@ async fn outlook_get_all_accounts(
 ) -> Result<Vec<String>, String> {
     let manager = state.outlook_manager.lock().unwrap();
     manager.get_all_accounts()
+}
+
+#[tauri::command]
+async fn outlook_get_all_accounts_info(
+    state: State<'_, AppState>,
+) -> Result<Vec<AccountInfo>, String> {
+    let manager = state.outlook_manager.lock().unwrap();
+    manager.get_all_accounts_info()
 }
 
 #[tauri::command]
@@ -1150,6 +1189,7 @@ fn main() {
             // API 调用命令
             get_customer_info,
             get_ledger_summary,
+            check_subscription_info,
             test_api_call,
             open_data_folder,
             open_editor_with_protocol,
@@ -1157,6 +1197,7 @@ fn main() {
             // Outlook 邮箱管理命令
             outlook_save_credentials,
             outlook_get_all_accounts,
+            outlook_get_all_accounts_info,
             outlook_delete_account,
             outlook_check_account_status,
             outlook_get_emails,

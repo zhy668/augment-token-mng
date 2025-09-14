@@ -28,6 +28,7 @@ pub struct OutlookCredentials {
     pub email: String,
     pub refresh_token: String,
     pub client_id: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +70,12 @@ pub struct AccountStatus {
     pub status: String, // "active", "inactive", "unknown"
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccountInfo {
+    pub email: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
 // OAuth2 令牌响应
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
@@ -102,9 +109,23 @@ impl OutlookManager {
             .ok_or_else(|| format!("Account not found: {}", email))
     }
 
-    // 获取所有账户
+    // 获取所有账户（按添加时间排序）
     pub fn get_all_accounts(&self) -> Result<Vec<String>, String> {
-        Ok(self.credentials.keys().cloned().collect())
+        let mut accounts: Vec<_> = self.credentials.iter().collect();
+        // 按创建时间排序（最新的在前）
+        accounts.sort_by(|a, b| b.1.created_at.cmp(&a.1.created_at));
+        Ok(accounts.into_iter().map(|(email, _)| email.clone()).collect())
+    }
+
+    // 获取所有账户详细信息（按添加时间排序）
+    pub fn get_all_accounts_info(&self) -> Result<Vec<AccountInfo>, String> {
+        let mut accounts: Vec<_> = self.credentials.iter().collect();
+        // 按创建时间排序（最新的在前）
+        accounts.sort_by(|a, b| b.1.created_at.cmp(&a.1.created_at));
+        Ok(accounts.into_iter().map(|(email, creds)| AccountInfo {
+            email: email.clone(),
+            created_at: creds.created_at,
+        }).collect())
     }
 
     // 删除账户

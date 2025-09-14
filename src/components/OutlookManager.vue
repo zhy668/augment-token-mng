@@ -64,31 +64,36 @@
           <div v-else class="accounts-list">
             <div
               v-for="account in accounts"
-              :key="account"
+              :key="account.email"
               class="account-item"
             >
               <div class="account-info">
-                <div class="account-email">{{ account }}</div>
-                <div class="account-status" :class="getStatusClass(account)">
-                  {{ getStatusText(account) }}
+                <div class="account-email">{{ account.email }}</div>
+                <div class="account-meta">
+                  <div class="account-status" :class="getStatusClass(account.email)">
+                    {{ getStatusText(account.email) }}
+                  </div>
+                  <div class="account-created">
+                    {{ formatDate(account.created_at) }}
+                  </div>
                 </div>
               </div>
               <div class="account-actions">
                 <button
-                  @click="viewEmails(account)"
+                  @click="viewEmails(account.email)"
                   class="btn primary small"
                 >
                   查看邮件
                 </button>
                 <button
-                  @click="checkStatus(account)"
+                  @click="checkStatus(account.email)"
                   :disabled="isCheckingStatus"
                   class="btn secondary small"
                 >
                   检查状态
                 </button>
                 <button
-                  @click="deleteAccount(account)"
+                  @click="deleteAccount(account.email)"
                   class="btn danger small"
                 >
                   移除
@@ -142,7 +147,7 @@ const showStatus = (message, type = 'info') => {
 const refreshAccounts = async () => {
   isLoading.value = true
   try {
-    accounts.value = await invoke('outlook_get_all_accounts')
+    accounts.value = await invoke('outlook_get_all_accounts_info')
   } catch (error) {
     showStatus(`刷新失败: ${error}`, 'error')
   } finally {
@@ -165,7 +170,7 @@ const addAccount = async () => {
       throw new Error('邮箱、密码、Refresh Token 和 Client ID 都不能为空')
     }
 
-    // 后端仍然只接收 email、clientId、refreshToken 三个字段
+    // 回退到IMAP版本（Graph API需要不同的权限）
     await invoke('outlook_save_credentials', {
       email,
       refreshToken,
@@ -243,6 +248,18 @@ const getStatusText = (email) => {
     case 'error': return '错误'
     default: return '未知'
   }
+}
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 // 生命周期
@@ -445,7 +462,14 @@ onMounted(() => {
 .account-email {
   font-weight: 500;
   color: #374151;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.account-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .account-status {
@@ -453,6 +477,14 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 12px;
   display: inline-block;
+}
+
+.account-created {
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
 .status-active {

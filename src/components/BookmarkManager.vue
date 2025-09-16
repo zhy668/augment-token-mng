@@ -376,7 +376,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   width: 100%;
   max-width: 900px;
@@ -398,7 +398,7 @@ onMounted(() => {
 
 .modal-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .header-actions {
@@ -412,7 +412,7 @@ onMounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-muted, #666);
   padding: 0;
   width: 30px;
   height: 30px;
@@ -422,27 +422,27 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .btn-icon.info {
-  background: #f8f9fa;
-  color: #007bff;
+  background: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-blue-primary, #007bff);
 }
 
 .btn-icon.info:hover {
-  background: #e9ecef;
-  color: #0056b3;
+  background: var(--color-surface-muted, #e9ecef);
+  color: var(--color-blue-primary-hover, #0056b3);
 }
 
 .btn-icon.add {
-  background: #f8f9fa;
-  color: #28a745;
+  background: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-success-bg, #28a745);
 }
 
 .btn-icon.add:hover {
-  background: #e9ecef;
-  color: #1e7e34;
+  background: var(--color-surface-muted, #e9ecef);
+  color: var(--color-success-bg-hover, #1e7e34);
 }
 
 .modal-body {
@@ -466,9 +466,9 @@ onMounted(() => {
 .bookmark-card {
   position: relative;
   aspect-ratio: 1;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--color-divider, #e1e5e9);
   border-radius: 12px;
-  background: white;
+  background: var(--color-surface, #ffffff);
   transition: all 0.2s;
   overflow: hidden;
   display: flex;
@@ -476,7 +476,7 @@ onMounted(() => {
 }
 
 .bookmark-card:hover {
-  border-color: #007bff;
+  border-color: var(--color-blue-primary, #007bff);
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
   transform: translateY(-2px);
 }
@@ -508,13 +508,13 @@ onMounted(() => {
 
 .bookmark-icon {
   margin-bottom: 8px;
-  color: #007bff;
+  color: var(--color-blue-primary, #007bff);
   opacity: 0.8;
 }
 
 .bookmark-name {
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 13px;
   line-height: 1.3;
   margin-bottom: 4px;
@@ -526,7 +526,7 @@ onMounted(() => {
 }
 
 .bookmark-desc {
-  color: #666;
+  color: var(--color-text-muted, #666);
   font-size: 11px;
   line-height: 1.3;
   display: -webkit-box;
@@ -554,13 +554,13 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
   min-width: 60px;
 }
 
 .bookmark-open-btn:hover {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
@@ -579,17 +579,17 @@ onMounted(() => {
 }
 
 .btn-small.primary {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn-small.primary:hover {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
 }
 
 .btn-small.secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-muted, #6c757d);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn-small.secondary:hover {
@@ -611,32 +611,32 @@ onMounted(() => {
 
 .btn-icon.edit {
   background: rgba(255, 255, 255, 0.9);
-  color: #6c757d;
+  color: var(--color-text-muted, #6c757d);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-icon.edit:hover {
   background: rgba(233, 236, 239, 0.95);
-  color: #495057;
+  color: var(--color-text-secondary, #495057);
   transform: scale(1.1);
 }
 
 .btn-icon.delete {
   background: rgba(255, 255, 255, 0.9);
-  color: #dc3545;
+  color: var(--color-danger-bg, #dc3545);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-icon.delete:hover {
   background: rgba(245, 198, 203, 0.95);
-  color: #721c24;
+  color: var(--color-danger-text, #721c24);
   transform: scale(1.1);
 }
 
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #666;
+  color: var(--color-text-muted, #666);
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -653,7 +653,7 @@ onMounted(() => {
 .empty-state p:first-child {
   font-size: 18px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 /* Form Modal Styles */
@@ -671,7 +671,7 @@ onMounted(() => {
 }
 
 .form-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
@@ -692,7 +692,7 @@ onMounted(() => {
 
 .form-header h3 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 18px;
 }
 
@@ -710,7 +710,7 @@ onMounted(() => {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 14px;
 }
 
@@ -718,7 +718,7 @@ onMounted(() => {
 .form-group textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 4px;
   font-size: 14px;
   transition: border-color 0.2s;
@@ -728,7 +728,7 @@ onMounted(() => {
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--color-blue-primary, #007bff);
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
@@ -762,17 +762,17 @@ onMounted(() => {
 }
 
 .btn.primary {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
 }
 
 .btn.secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-muted, #6c757d);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.secondary:hover {
@@ -797,21 +797,21 @@ onMounted(() => {
 }
 
 .status.info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+  background: var(--color-info-surface, #d1ecf1);
+  color: var(--color-info-text, #0c5460);
+  border: 1px solid var(--color-info-border, #bee5eb);
 }
 
 .status.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: var(--color-success-surface, #d4edda);
+  color: var(--color-success-text, #155724);
+  border: 1px solid var(--color-success-border, #c3e6cb);
 }
 
 .status.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--color-danger-surface, #f8d7da);
+  color: var(--color-danger-text, #721c24);
+  border: 1px solid var(--color-danger-border, #f5c6cb);
 }
 
 /* Responsive Design */
@@ -886,7 +886,7 @@ onMounted(() => {
 }
 
 .portal-dialog {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   padding: 24px;
   min-width: 320px;
@@ -897,7 +897,7 @@ onMounted(() => {
 
 .portal-dialog h3 {
   margin: 0 0 20px 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 18px;
   font-weight: 600;
 }
@@ -924,28 +924,28 @@ onMounted(() => {
 }
 
 .dialog-btn.copy {
-  background: #28a745;
-  color: white;
+  background: var(--color-success-bg, #28a745);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .dialog-btn.copy:hover {
-  background: #218838;
+  background: var(--color-success-bg-hover, #218838);
   transform: translateY(-1px);
 }
 
 .dialog-btn.external {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .dialog-btn.external:hover {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
   transform: translateY(-1px);
 }
 
 .dialog-btn.internal {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-muted, #6c757d);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .dialog-btn.internal:hover {
@@ -954,13 +954,13 @@ onMounted(() => {
 }
 
 .dialog-btn.cancel {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
+  background: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-text-muted, #6c757d);
+  border: 1px solid var(--color-border-strong, #dee2e6);
 }
 
 .dialog-btn.cancel:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--color-surface-muted, #e9ecef);
+  color: var(--color-text-secondary, #495057);
 }
 </style>

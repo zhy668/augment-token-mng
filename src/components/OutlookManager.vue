@@ -283,7 +283,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   max-width: 90vw;
   max-height: 95vh;
@@ -297,14 +297,14 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-alt, #f9fafb);
   border-radius: 12px 12px 0 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 18px;
   font-weight: 600;
 }
@@ -314,7 +314,7 @@ onMounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -326,8 +326,8 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-border, #e5e7eb);
+  color: var(--color-text-primary, #374151);
 }
 
 .outlook-manager {
@@ -342,7 +342,7 @@ onMounted(() => {
 }
 
 .add-account-section {
-  background: #f8f9fa;
+  background: var(--color-surface-muted, #f8f9fa);
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 24px;
@@ -350,7 +350,7 @@ onMounted(() => {
 
 .add-account-section h4 {
   margin: 0 0 16px 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 16px;
   font-weight: 600;
 }
@@ -363,7 +363,7 @@ onMounted(() => {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 14px;
 }
 
@@ -371,7 +371,7 @@ onMounted(() => {
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong, #d1d5db);
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s ease;
@@ -381,7 +381,7 @@ onMounted(() => {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -397,7 +397,7 @@ onMounted(() => {
 .input-hint {
   margin-top: 6px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   font-style: italic;
 }
 
@@ -406,12 +406,12 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
+  background: var(--color-warning-surface, #fef3c7);
+  border: 1px solid var(--color-warning-bg, #f59e0b);
   border-radius: 6px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: #92400e;
+  color: var(--color-warning-text, #92400e);
 }
 
 .notice-icon {
@@ -421,13 +421,13 @@ onMounted(() => {
 
 .empty-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--color-text-soft, #9ca3af);
   margin-top: 8px;
 }
 
 .accounts-section h4 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 16px;
   font-weight: 600;
 }
@@ -450,8 +450,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
 }
 
@@ -461,7 +461,7 @@ onMounted(() => {
 
 .account-email {
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   margin-bottom: 6px;
 }
 
@@ -481,30 +481,30 @@ onMounted(() => {
 
 .account-created {
   font-size: 11px;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-surface-hover, #f3f4f6);
   padding: 2px 6px;
   border-radius: 8px;
 }
 
 .status-active {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-surface, #d1fae5);
+  color: var(--color-success-text, #065f46);
 }
 
 .status-inactive {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-soft-surface, #fee2e2);
+  color: var(--color-danger-bg-hover, #991b1b);
 }
 
 .status-error {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-surface, #fef3c7);
+  color: var(--color-warning-text, #92400e);
 }
 
 .status-unknown {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-muted, #6b7280);
 }
 
 .account-actions {
@@ -533,32 +533,32 @@ onMounted(() => {
 }
 
 .btn.primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-accent-hover, #2563eb);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .btn.secondary {
-  background: #6b7280;
-  color: white;
+  background: var(--color-text-muted, #6b7280);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #4b5563;
+  background: var(--color-text-secondary, #4b5563);
 }
 
 .btn.danger {
-  background: #dc2626;
-  color: white;
+  background: var(--color-danger-bg, #dc2626);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.danger:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--color-danger-bg-hover, #b91c1c);
 }
 
 .btn.small {
@@ -577,26 +577,26 @@ onMounted(() => {
 }
 
 .btn.danger {
-  background: #dc2626;
-  color: white;
+  background: var(--color-danger-bg, #dc2626);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.danger:hover {
-  background: #b91c1c;
+  background: var(--color-danger-bg-hover, #b91c1c);
 }
 
 .loading-state,
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #3b82f6;
+  border: 3px solid var(--color-surface-hover, #f3f3f3);
+  border-top: 3px solid var(--color-accent, #3b82f6);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;

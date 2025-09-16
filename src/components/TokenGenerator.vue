@@ -295,7 +295,7 @@ const saveAndClose = async () => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 8px;
   width: 90%;
   max-width: 600px;
@@ -314,7 +314,7 @@ const saveAndClose = async () => {
 
 .modal-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .close-btn {
@@ -322,7 +322,7 @@ const saveAndClose = async () => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-muted, #666);
   padding: 0;
   width: 30px;
   height: 30px;
@@ -332,7 +332,7 @@ const saveAndClose = async () => {
 }
 
 .close-btn:hover {
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .modal-body {
@@ -345,7 +345,7 @@ const saveAndClose = async () => {
 
 .section h3 {
   margin: 0 0 15px 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 18px;
 }
 
@@ -359,17 +359,17 @@ const saveAndClose = async () => {
 }
 
 .btn.primary {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
 }
 
 .btn.secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-muted, #6c757d);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.secondary:hover {
@@ -377,12 +377,12 @@ const saveAndClose = async () => {
 }
 
 .btn.success {
-  background: #28a745;
-  color: white;
+  background: var(--color-success-bg, #28a745);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.success:hover {
-  background: #1e7e34;
+  background: var(--color-success-bg-hover, #1e7e34);
 }
 
 .btn:disabled {
@@ -401,7 +401,7 @@ const saveAndClose = async () => {
   height: 16px;
   margin: auto;
   border: 2px solid transparent;
-  border-top-color: #ffffff;
+  border-top-color: var(--color-surface, #ffffff);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -423,7 +423,7 @@ const saveAndClose = async () => {
   margin: 0 0 10px 0;
   text-align: left;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .url-input-container {
@@ -433,7 +433,7 @@ const saveAndClose = async () => {
 .url-input-container input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 4px;
   font-family: monospace;
   font-size: 12px;
@@ -462,7 +462,7 @@ const saveAndClose = async () => {
 .token-container input {
   flex: 1;
   padding: 8px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 4px;
   font-family: monospace;
   font-size: 11px;
@@ -484,13 +484,13 @@ const saveAndClose = async () => {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 4px;
   font-family: monospace;
   font-size: 12px;
@@ -500,7 +500,7 @@ textarea {
 .additional-fields {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
 }
 
 .field-container {
@@ -511,14 +511,14 @@ textarea {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 14px;
 }
 
 .field-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong, #d1d5db);
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s ease;
@@ -526,12 +526,12 @@ textarea {
 
 .field-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .field-input::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-soft, #9ca3af);
 }
 
 .button-container {

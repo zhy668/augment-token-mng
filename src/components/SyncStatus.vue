@@ -157,10 +157,10 @@ onMounted(() => {
 
 <style scoped>
 .sync-status-component {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 6px;
   padding: 10px 5px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border, #e5e7eb);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -174,7 +174,7 @@ onMounted(() => {
 
 .sync-status-component:hover:not(:disabled) {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  border-color: #d1d5db;
+  border-color: var(--color-border-strong, #d1d5db);
 }
 
 .sync-status-component:disabled {
@@ -199,7 +199,7 @@ onMounted(() => {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
 }
 
 
@@ -236,24 +236,24 @@ onMounted(() => {
 
 .sync-hint {
   font-size: 10px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   text-align: center;
   font-weight: 500;
 }
 
 .storage-badge.dual {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-surface, #d1fae5);
+  color: var(--color-success-text, #065f46);
 }
 
 .storage-badge.local {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-surface, #fef3c7);
+  color: var(--color-warning-text, #92400e);
 }
 
 .storage-badge.database {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--color-info-surface, #dbeafe);
+  color: var(--color-blue-primary-hover, #1e40af);
 }
 
 

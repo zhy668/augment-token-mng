@@ -1097,8 +1097,8 @@ defineExpose({
 
 <style scoped>
 .token-card {
-  background: white;
-  border: 1px solid #e1e5e9;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-divider, #e1e5e9);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -1125,32 +1125,32 @@ defineExpose({
 }
 
 .status-badge.active {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: var(--color-success-surface, #d4edda);
+  color: var(--color-success-text, #155724);
+  border: 1px solid var(--color-success-border, #c3e6cb);
 }
 
 .status-badge.inactive {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--color-danger-surface, #f8d7da);
+  color: var(--color-danger-text, #721c24);
+  border: 1px solid var(--color-danger-border, #f5c6cb);
 }
 
 .status-badge.banned {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--color-danger-surface, #f8d7da);
+  color: var(--color-danger-text, #721c24);
+  border: 1px solid var(--color-danger-border, #f5c6cb);
 }
 
 .status-badge.invalid {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
+  background: var(--color-warning-surface, #fff3cd);
+  color: var(--color-warning-text, #856404);
+  border: 1px solid var(--color-warning-border, #ffeaa7);
 }
 
 .token-card:hover {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  border-color: #3b82f6;
+  border-color: var(--color-accent, #3b82f6);
   transform: translateY(-2px);
 }
 
@@ -1170,7 +1170,7 @@ defineExpose({
   margin: 0 0 6px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
   word-break: break-all;
   line-height: 1.3;
 }
@@ -1195,7 +1195,7 @@ defineExpose({
 
 .created-date {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-muted, #666);
 }
 
 .email-note-container {
@@ -1206,23 +1206,36 @@ defineExpose({
 
 .email-note {
   font-size: 12px;
-  color: #4f46e5;
+  color: var(--color-link-visited, #4f46e5);
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #f0f9ff;
+  background: var(--color-info-surface, #f0f9ff);
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #e0f2fe;
+  border: 1px solid var(--color-info-surface, #e0f2fe);
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .email-note:hover {
-  background: #e0f2fe;
-  border-color: #bae6fd;
+  background: var(--color-info-surface, #e0f2fe);
+  border-color: var(--color-info-border, #bae6fd);
   transform: translateY(-1px);
+}
+
+/* 黑暗模式下的邮箱样式优化 */
+[data-theme='dark'] .email-note {
+  background: rgba(56, 189, 248, 0.2);
+  color: #93c5fd;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+[data-theme='dark'] .email-note:hover {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #bfdbfe;
 }
 
 .email-icon {
@@ -1235,7 +1248,7 @@ defineExpose({
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   border-radius: 3px;
   transition: all 0.2s ease;
   display: flex;
@@ -1244,8 +1257,8 @@ defineExpose({
 }
 
 .copy-email-btn:hover {
-  background: #f3f4f6;
-  color: #4f46e5;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-link-visited, #4f46e5);
 }
 
 .copy-email-btn:active {
@@ -1260,29 +1273,29 @@ defineExpose({
 }
 
 .portal-meta.loading {
-  color: #6c757d;
+  color: var(--color-text-muted, #6c757d);
   font-style: italic;
 }
 
 .portal-meta.error {
-  color: #dc3545;
-  background: #f8d7da;
+  color: var(--color-danger-bg, #dc3545);
+  background: var(--color-danger-surface, #f8d7da);
 }
 
 .portal-meta.expiry {
-  color: #856404;
-  background: #fff3cd;
+  color: var(--color-warning-text, #856404);
+  background: var(--color-warning-surface, #fff3cd);
 }
 
 .portal-meta.balance {
-  color: #155724;
-  background: #d4edda;
+  color: var(--color-success-text, #155724);
+  background: var(--color-success-surface, #d4edda);
   font-weight: 600;
 }
 
 .portal-meta.balance.exhausted {
-  color: #721c24;
-  background: #f8d7da;
+  color: var(--color-danger-text, #721c24);
+  background: var(--color-danger-surface, #f8d7da);
 }
 
 
@@ -1299,12 +1312,12 @@ defineExpose({
 }
 
 .btn-action {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--color-surface-muted, #f8f9fa);
+  border: 1px solid var(--color-border-strong, #dee2e6);
   border-radius: 8px;
   padding: 8px;
   cursor: pointer;
-  color: #495057;
+  color: var(--color-text-secondary, #495057);
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -1315,54 +1328,54 @@ defineExpose({
 }
 
 .btn-action:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
+  background: var(--color-surface-muted, #e9ecef);
+  border-color: var(--color-border-strong, #adb5bd);
   transform: translateY(-1px);
 }
 
 .btn-action.delete {
-  color: #dc3545;
+  color: var(--color-danger-bg, #dc3545);
 }
 
 .btn-action.delete:hover {
-  background: #f8d7da;
-  border-color: #f5c6cb;
+  background: var(--color-danger-surface, #f8d7da);
+  border-color: var(--color-danger-border, #f5c6cb);
 }
 
 .btn-action.portal {
-  color: #007bff;
+  color: var(--color-blue-primary, #007bff);
 }
 
 .btn-action.portal:hover {
-  background: #e3f2fd;
-  border-color: #90caf9;
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  border-color: var(--color-blue-soft-border, #90caf9);
 }
 
 .btn-action.edit {
-  color: #28a745;
+  color: var(--color-success-bg, #28a745);
 }
 
 .btn-action.edit:hover {
-  background: #d4edda;
-  border-color: #c3e6cb;
+  background: var(--color-success-surface, #d4edda);
+  border-color: var(--color-success-border, #c3e6cb);
 }
 
 .btn-action.vscode {
-  color: #007acc;
+  color: var(--color-link, #007acc);
 }
 
 .btn-action.vscode:hover {
-  background: #e3f2fd;
-  border-color: #90caf9;
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  border-color: var(--color-blue-soft-border, #90caf9);
 }
 
 .btn-action.status-check {
-  color: #ffc107;
+  color: var(--color-warning-bg, #ffc107);
 }
 
 .btn-action.status-check:hover {
-  background: #fff3cd;
-  border-color: #ffeaa7;
+  background: var(--color-warning-surface, #fff3cd);
+  border-color: var(--color-warning-border, #ffeaa7);
 }
 
 .btn-action.status-check.loading {
@@ -1425,7 +1438,7 @@ defineExpose({
 }
 
 .editor-modal {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 700px;
@@ -1443,14 +1456,14 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid #e1e5e9;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .modal-close {
@@ -1458,7 +1471,7 @@ defineExpose({
   border: none;
   padding: 4px;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-muted, #666);
   border-radius: 4px;
   transition: all 0.2s ease;
   display: flex;
@@ -1467,8 +1480,8 @@ defineExpose({
 }
 
 .modal-close:hover {
-  background: #f3f4f6;
-  color: #333;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-heading, #333);
 }
 
 .modal-content {
@@ -1482,7 +1495,7 @@ defineExpose({
 .editor-section {
   margin-bottom: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #e1e5e9;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
 }
 
 .editor-section:last-child {
@@ -1508,9 +1521,9 @@ defineExpose({
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border: 2px solid #e1e5e9;
+  border: 2px solid var(--color-divider, #e1e5e9);
   border-radius: 8px;
-  background: white;
+  background: var(--color-surface, #ffffff);
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
@@ -1525,13 +1538,13 @@ defineExpose({
 }
 
 .editor-option:hover {
-  border-color: #3b82f6;
-  background: #f8fafc;
+  border-color: var(--color-accent, #3b82f6);
+  background: var(--color-surface-soft, #f8fafc);
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
 }
 
 .editor-option:active {
-  background: #f1f5f9;
+  background: var(--color-surface-soft, #f1f5f9);
   box-shadow: 0 1px 4px rgba(59, 130, 246, 0.08);
 }
 
@@ -1542,7 +1555,7 @@ defineExpose({
 }
 
 .editor-option:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-accent, #3b82f6);
   outline-offset: 2px;
 }
 
@@ -1554,8 +1567,8 @@ defineExpose({
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: var(--color-surface-muted, #f8f9fa);
+  border: 1px solid var(--color-surface-muted, #e9ecef);
 }
 
 .editor-icon img {
@@ -1565,13 +1578,13 @@ defineExpose({
 }
 
 .cursor-option .editor-icon {
-  background: #f0f9ff;
-  border-color: #e0f2fe;
+  background: var(--color-info-surface, #f0f9ff);
+  border-color: var(--color-info-surface, #e0f2fe);
 }
 
 .vscode-option .editor-icon {
-  background: #f0f9ff;
-  border-color: #e0f2fe;
+  background: var(--color-info-surface, #f0f9ff);
+  border-color: var(--color-info-surface, #e0f2fe);
 }
 
 .kiro-option .editor-icon,
@@ -1580,8 +1593,8 @@ defineExpose({
 .qoder-option .editor-icon,
 .vscodium-option .editor-icon,
 .codebuddy-option .editor-icon {
-  background: #f0f9ff;
-  border-color: #e0f2fe;
+  background: var(--color-info-surface, #f0f9ff);
+  border-color: var(--color-info-surface, #e0f2fe);
 }
 
 .idea-option .editor-icon,
@@ -1596,8 +1609,8 @@ defineExpose({
 .rider-option .editor-icon,
 .rubymine-option .editor-icon,
 .aqua-option .editor-icon {
-  background: #f0f9ff;
-  border-color: #e0f2fe;
+  background: var(--color-info-surface, #f0f9ff);
+  border-color: var(--color-info-surface, #e0f2fe);
 }
 
 .editor-info {
@@ -1610,7 +1623,7 @@ defineExpose({
 .editor-name {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 

@@ -257,7 +257,7 @@ const handleCancel = () => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
@@ -271,22 +271,22 @@ const handleCancel = () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e1e5e9;
-  background: #f8f9fa;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+  background: var(--color-surface-muted, #f8f9fa);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #666;
+  color: var(--color-text-muted, #666);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -299,8 +299,8 @@ const handleCancel = () => {
 }
 
 .close-btn:hover {
-  background: #e9ecef;
-  color: #333;
+  background: var(--color-surface-muted, #e9ecef);
+  color: var(--color-text-heading, #333);
 }
 
 .modal-body {
@@ -317,7 +317,7 @@ const handleCancel = () => {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 14px;
 }
 
@@ -325,7 +325,7 @@ const handleCancel = () => {
 .form-group textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s;
@@ -335,14 +335,14 @@ const handleCancel = () => {
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-group input:disabled,
 .form-group textarea:disabled {
-  background: #f5f5f5;
-  color: #666;
+  background: var(--color-btn-tertiary-bg, #f5f5f5);
+  color: var(--color-text-muted, #666);
   cursor: not-allowed;
 }
 
@@ -353,12 +353,12 @@ const handleCancel = () => {
 
 .help-text {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-muted, #666);
   margin-top: 4px;
 }
 
 .error-message {
-  color: #dc3545;
+  color: var(--color-danger-bg, #dc3545);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -369,7 +369,7 @@ const handleCancel = () => {
   justify-content: flex-end;
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
 }
 
 .btn {
@@ -393,22 +393,22 @@ const handleCancel = () => {
 }
 
 .btn.primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-accent-hover, #2563eb);
 }
 
 .btn.secondary {
-  background: #f8f9fa;
-  color: #495057;
-  border: 1px solid #dee2e6;
+  background: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-text-secondary, #495057);
+  border: 1px solid var(--color-border-strong, #dee2e6);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #e9ecef;
+  background: var(--color-surface-muted, #e9ecef);
 }
 
 .loading-spinner {

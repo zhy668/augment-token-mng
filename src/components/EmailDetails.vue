@@ -142,7 +142,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   max-width: 90vw;
   max-height: 95vh;
@@ -158,14 +158,14 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-alt, #f9fafb);
   border-radius: 12px 12px 0 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 18px;
   font-weight: 600;
 }
@@ -175,7 +175,7 @@ onMounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -187,8 +187,8 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-border, #e5e7eb);
+  color: var(--color-text-primary, #374151);
 }
 
 .email-details {
@@ -207,14 +207,14 @@ onMounted(() => {
 .error-state {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3b82f6;
+  border: 4px solid var(--color-surface-hover, #f3f3f3);
+  border-top: 4px solid var(--color-accent, #3b82f6);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;
@@ -228,12 +228,12 @@ onMounted(() => {
 .email-header {
   margin-bottom: 24px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
 }
 
 .email-subject {
   margin: 0 0 16px 0;
-  color: #111827;
+  color: var(--color-text-strong, #111827);
   font-size: 24px;
   font-weight: 600;
   line-height: 1.3;
@@ -253,13 +253,13 @@ onMounted(() => {
 
 .meta-label {
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   min-width: 60px;
   flex-shrink: 0;
 }
 
 .meta-value {
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   word-break: break-all;
 }
 
@@ -273,14 +273,14 @@ onMounted(() => {
 
 .body-section h4 {
   margin: 0 0 12px 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 16px;
   font-weight: 600;
 }
 
 .html-content {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface-alt, #f9fafb);
+  border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
   padding: 16px;
   max-height: 400px;
@@ -289,8 +289,8 @@ onMounted(() => {
 }
 
 .plain-content {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface-alt, #f9fafb);
+  border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
   padding: 16px;
   font-family: 'Courier New', monospace;
@@ -305,14 +305,14 @@ onMounted(() => {
 .no-content {
   text-align: center;
   padding: 40px;
-  color: #9ca3af;
+  color: var(--color-text-soft, #9ca3af);
   font-style: italic;
 }
 
 .no-content-hint {
   font-size: 12px;
   margin-top: 8px;
-  color: #d1d5db;
+  color: var(--color-border-strong, #d1d5db);
 }
 
 .btn {
@@ -329,12 +329,12 @@ onMounted(() => {
 }
 
 .btn.primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover {
-  background: #2563eb;
+  background: var(--color-accent-hover, #2563eb);
 }
 
 @media (max-width: 768px) {

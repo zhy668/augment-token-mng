@@ -387,7 +387,7 @@ defineExpose({
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   width: 100%;
   max-width: 900px;
@@ -404,7 +404,7 @@ defineExpose({
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   padding: 4px;
   border-radius: 4px;
   transition: all 0.2s;
@@ -417,8 +417,8 @@ defineExpose({
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
 }
 
 .modal-body {
@@ -433,18 +433,18 @@ defineExpose({
 }
 
 .empty-icon {
-  color: #d1d5db;
+  color: var(--color-border-strong, #d1d5db);
   margin-bottom: 16px;
 }
 
 .empty-state h3 {
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   margin: 0 0 8px 0;
   font-size: 1.25rem;
 }
 
 .empty-state p {
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   margin: 0;
 }
 
@@ -456,8 +456,8 @@ defineExpose({
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e5e7eb;
-  border-top: 3px solid #3b82f6;
+  border: 3px solid var(--color-border, #e5e7eb);
+  border-top: 3px solid var(--color-accent, #3b82f6);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -469,7 +469,7 @@ defineExpose({
 }
 
 .loading-state p {
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   margin: 0;
 }
 
@@ -560,12 +560,12 @@ defineExpose({
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
 }
 
 .list-header h3 {
   margin: 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 1.125rem;
   font-weight: 600;
 }
@@ -587,39 +587,39 @@ defineExpose({
 }
 
 .btn.secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
 }
 
 .btn.secondary:hover {
-  background: #e5e7eb;
+  background: var(--color-border, #e5e7eb);
 }
 
 .btn.success {
-  background: #10b981;
-  color: white;
-  border: 1px solid #10b981;
+  background: var(--color-success-bg, #10b981);
+  color: var(--color-text-inverse, #ffffff);
+  border: 1px solid var(--color-success-bg, #10b981);
 }
 
 .btn.success:hover:not(:disabled) {
-  background: #059669;
-  border-color: #059669;
+  background: var(--color-success-bg-hover, #059669);
+  border-color: var(--color-success-bg-hover, #059669);
 }
 
 .btn.success:disabled {
-  background: #d1d5db;
-  color: #9ca3af;
-  border-color: #d1d5db;
+  background: var(--color-border-strong, #d1d5db);
+  color: var(--color-text-soft, #9ca3af);
+  border-color: var(--color-border-strong, #d1d5db);
   cursor: not-allowed;
 }
 
 .btn.info {
-  background: #0ea5e9;
-  color: white;
+  background: var(--color-info-bg, #0ea5e9);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.info:hover:not(:disabled) {
-  background: #0284c7;
+  background: var(--color-info-bg-hover, #0284c7);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
 }
@@ -636,8 +636,8 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-alt, #f9fafb);
   min-height: 60px;
 }
 
@@ -650,7 +650,7 @@ defineExpose({
 
 .header-title h2 {
   margin: 0;
-  color: #111827;
+  color: var(--color-text-strong, #111827);
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.2;
@@ -679,13 +679,13 @@ defineExpose({
 }
 
 .status-badge.saved {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--color-success-surface, #d1fae5);
+  color: var(--color-success-text, #065f46);
 }
 
 .status-badge.unsaved {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--color-warning-surface, #fef3c7);
+  color: var(--color-warning-text, #92400e);
 }
 
 .status-dot {
@@ -696,11 +696,11 @@ defineExpose({
 }
 
 .status-dot.saved {
-  background-color: #10b981;
+  background-color: var(--color-success-bg, #10b981);
 }
 
 .status-dot.unsaved {
-  background-color: #f59e0b;
+  background-color: var(--color-warning-bg, #f59e0b);
 }
 
 .status-text {

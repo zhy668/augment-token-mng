@@ -41,6 +41,29 @@
           </svg>
           已保存Token
         </button>
+        <button
+          type="button"
+          class="btn ghost theme-toggle"
+          @click="toggleTheme"
+          :aria-pressed="isDarkTheme"
+          :aria-label="themeToggleLabel"
+          :title="themeToggleLabel"
+        >
+          <svg v-if="isDarkTheme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="m12 1 0 2"/>
+            <path d="m12 21 0 2"/>
+            <path d="m4.22 4.22 1.42 1.42"/>
+            <path d="m18.36 18.36 1.42 1.42"/>
+            <path d="m1 12 2 0"/>
+            <path d="m21 12 2 0"/>
+            <path d="m4.22 19.78 1.42-1.42"/>
+            <path d="m18.36 5.64 1.42-1.42"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -372,7 +395,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, inject, onBeforeUnmount } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
@@ -428,6 +451,85 @@ const tenantUrlInput = ref(null)
 // Portal dialog
 const showPortalDialog = ref(false)
 const currentPortalToken = ref(null)
+
+const themeManager = inject('themeManager', null)
+const themeStorageKey = themeManager?.storageKey ?? 'atm-theme'
+
+let storedThemePreference = null
+try {
+  storedThemePreference = themeManager?.getStoredTheme?.() ?? localStorage.getItem(themeStorageKey) ?? null
+} catch (error) {
+  console.warn('Failed to read stored theme preference inside App.vue', error)
+}
+
+const hasManualThemePreference = ref(storedThemePreference === 'dark' || storedThemePreference === 'light')
+const currentTheme = ref(themeManager?.initialTheme ?? document.documentElement.dataset.theme ?? 'light')
+const isDarkTheme = computed(() => currentTheme.value === 'dark')
+
+const fallbackApplyTheme = (theme) => {
+  const normalized = theme === 'dark' ? 'dark' : 'light'
+  const root = document.documentElement
+  root.dataset.theme = normalized
+  root.style.colorScheme = normalized
+}
+
+const setTheme = (nextTheme, options = {}) => {
+  const normalized = nextTheme === 'dark' ? 'dark' : 'light'
+  currentTheme.value = normalized
+
+  if (themeManager?.applyTheme) {
+    themeManager.applyTheme(normalized)
+  } else {
+    fallbackApplyTheme(normalized)
+  }
+
+  if (options.persist === false) {
+    return
+  }
+
+  try {
+    localStorage.setItem(themeStorageKey, normalized)
+    hasManualThemePreference.value = true
+  } catch (error) {
+    console.warn('Failed to persist theme preference', error)
+  }
+}
+
+const toggleTheme = () => {
+  setTheme(isDarkTheme.value ? 'light' : 'dark')
+}
+
+const themeToggleLabel = computed(() => (isDarkTheme.value ? '切换到白天模式' : '切换到夜间模式'))
+
+let cleanupSystemThemeListener
+
+if (themeManager?.mediaQuery) {
+  const mediaQuery = themeManager.mediaQuery
+  const handleSystemThemeChange = (event) => {
+    if (hasManualThemePreference.value) {
+      return
+    }
+    setTheme(event.matches ? 'dark' : 'light', { persist: false })
+  }
+
+  if (typeof mediaQuery.addEventListener === 'function') {
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
+    cleanupSystemThemeListener = () => mediaQuery.removeEventListener('change', handleSystemThemeChange)
+  } else if (typeof mediaQuery.addListener === 'function') {
+    mediaQuery.addListener(handleSystemThemeChange)
+    cleanupSystemThemeListener = () => mediaQuery.removeListener(handleSystemThemeChange)
+  }
+}
+
+onMounted(() => {
+  setTheme(currentTheme.value, { persist: hasManualThemePreference.value })
+})
+
+onBeforeUnmount(() => {
+  if (typeof cleanupSystemThemeListener === 'function') {
+    cleanupSystemThemeListener()
+  }
+})
 
 // Delete confirmation dialog
 const showDeleteConfirm = ref(false)
@@ -871,7 +973,7 @@ onMounted(async () => {
 <style scoped>
 .app {
   height: 100vh;
-  background: #f8f9fa;
+  background: var(--color-surface-muted, #f8f9fa);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -897,8 +999,8 @@ html, body {
 }
 
 .app-header {
-  background: white;
-  border-bottom: 1px solid #e1e5e9;
+  background: var(--color-surface, #ffffff);
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
@@ -921,7 +1023,7 @@ html, body {
 
 .app-header h1 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 20px;
   font-weight: 600;
   white-space: nowrap;
@@ -939,6 +1041,58 @@ html, body {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--color-text-primary, #374151);
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface, #ffffff);
+  border-radius: 8px;
+  min-width: 36px;
+  min-height: 36px;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  border-color: var(--color-border-strong, #d1d5db);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle[aria-pressed="true"] {
+  background: var(--color-surface-alt, #f9fafb);
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.theme-toggle svg {
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover svg {
+  transform: scale(1.1);
+}
+
+/* 黑暗模式下的主题切换按钮样式 */
+[data-theme='dark'] .theme-toggle {
+  background: var(--color-surface, #1e293b);
+  border-color: rgba(148, 163, 184, 0.35);
+  color: var(--color-text-primary, #cbd5e1);
+}
+
+[data-theme='dark'] .theme-toggle:hover {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .theme-toggle[aria-pressed="true"] {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
 .external-links-group {
@@ -959,23 +1113,23 @@ html, body {
 }
 
 .btn.app-home-btn {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.app-home-btn:hover {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
 .btn.plugin-home-btn {
-  background: #28a745;
-  color: white;
+  background: var(--color-success-bg, #28a745);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.plugin-home-btn:hover {
-  background: #1e7e34;
+  background: var(--color-success-bg-hover, #1e7e34);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
 }
@@ -1010,14 +1164,14 @@ html, body {
   margin: 0 0 8px 0;
   font-size: 28px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text-strong, #1f2937);
   line-height: 1.2;
 }
 
 .title-section p {
   margin: 0;
   font-size: 16px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   line-height: 1.5;
 }
 
@@ -1035,41 +1189,41 @@ html, body {
 }
 
 .btn.primary {
-  background: #007bff;
-  color: white;
+  background: var(--color-blue-primary, #007bff);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover {
-  background: #0056b3;
+  background: var(--color-blue-primary-hover, #0056b3);
 }
 
 .btn.secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-muted, #6c757d);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.secondary:hover {
-  background: #545b62;
+  background: var(--color-btn-secondary-bg-active, #545b62);
 }
 
 .btn.warning {
-  background: #f59e0b;
-  color: white;
+  background: var(--color-warning-bg, #f59e0b);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.warning:hover {
-  background: #d97706;
+  background: var(--color-warning-bg-hover, #d97706);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .btn.info {
-  background: #0ea5e9;
-  color: white;
+  background: var(--color-info-bg, #0ea5e9);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.info:hover {
-  background: #0284c7;
+  background: var(--color-info-bg-hover, #0284c7);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
 }
@@ -1095,7 +1249,7 @@ html, body {
 /* 输入框样式 */
 input[type="text"] {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-btn-secondary-border, #ddd);
   border-radius: 4px;
   font-size: 14px;
   transition: border-color 0.2s;
@@ -1105,13 +1259,13 @@ input[type="text"] {
 
 input[type="text"]:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--color-blue-primary, #007bff);
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
 input[type="text"]:read-only {
-  background-color: #f8f9fa;
-  color: #6c757d;
+  background-color: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-text-muted, #6c757d);
 }
 
 /* 带复制图标的输入框 */
@@ -1135,7 +1289,7 @@ input[type="text"]:read-only {
   cursor: pointer;
   padding: 6px;
   border-radius: 4px;
-  color: #6c757d;
+  color: var(--color-text-muted, #6c757d);
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -1143,8 +1297,8 @@ input[type="text"]:read-only {
 }
 
 .copy-icon-btn:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--color-surface-muted, #e9ecef);
+  color: var(--color-text-secondary, #495057);
 }
 
 .copy-icon-btn:active {
@@ -1177,6 +1331,17 @@ input[type="text"]:read-only {
     padding: 6px 10px;
     font-size: 12px;
   }
+
+  .theme-toggle {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 6px;
+  }
+
+  .theme-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 /* Modal styles */
@@ -1194,7 +1359,7 @@ input[type="text"]:read-only {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   max-width: 90vw;
   max-height: 95vh;
@@ -1207,14 +1372,14 @@ input[type="text"]:read-only {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-alt, #f9fafb);
   border-radius: 12px 12px 0 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 18px;
   font-weight: 600;
 }
@@ -1224,7 +1389,7 @@ input[type="text"]:read-only {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -1236,8 +1401,8 @@ input[type="text"]:read-only {
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-border, #e5e7eb);
+  color: var(--color-text-primary, #374151);
 }
 
 @media (max-width: 480px) {
@@ -1258,27 +1423,38 @@ input[type="text"]:read-only {
     width: 100%;
   }
 
+  .theme-toggle {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 5px;
+  }
+
+  .theme-toggle svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .user-controls {
     margin-left: auto;
     padding-left: 8px;
-    border-left: 1px solid #e1e5e9;
+    border-left: 1px solid var(--color-divider, #e1e5e9);
   }
 }
 
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #666;
+  color: var(--color-text-muted, #666);
 }
 
 .empty-icon {
   margin-bottom: 24px;
-  color: #ccc;
+  color: var(--color-btn-primary-disabled-bg, #ccc);
 }
 
 .empty-state h2 {
   margin: 0 0 12px 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 24px;
   font-weight: 600;
 }
@@ -1292,14 +1468,14 @@ input[type="text"]:read-only {
 .loading-state {
   text-align: center;
   padding: 40px 20px;
-  color: #666;
+  color: var(--color-text-muted, #666);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
+  border: 4px solid var(--color-surface-hover, #f3f3f3);
+  border-top: 4px solid var(--color-blue-primary, #007bff);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;
@@ -1323,7 +1499,7 @@ input[type="text"]:read-only {
 
 .list-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-heading, #333);
   font-size: 20px;
   font-weight: 600;
 }
@@ -1341,6 +1517,29 @@ input[type="text"]:read-only {
   animation: slideIn 0.3s ease;
 }
 
+[data-theme='dark'] .status-toast {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme='dark'] .status-toast.info {
+  background: var(--color-info-surface, rgba(56, 189, 248, 0.8));
+  color: var(--color-info-text, #f0f9ff);
+  border: 2px solid var(--color-info-border, rgba(56, 189, 248, 0.9));
+}
+
+[data-theme='dark'] .status-toast.success {
+  background: var(--color-success-surface, rgba(20, 184, 166, 0.8));
+  color: var(--color-success-text, #ecfdf5);
+  border: 2px solid var(--color-success-border, rgba(45, 212, 191, 0.9));
+}
+
+[data-theme='dark'] .status-toast.error {
+  background: var(--color-danger-surface, rgba(239, 68, 68, 0.8));
+  color: var(--color-danger-text, #fef2f2);
+  border: 2px solid var(--color-danger-border, rgba(239, 68, 68, 0.9));
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);
@@ -1353,21 +1552,21 @@ input[type="text"]:read-only {
 }
 
 .status-toast.info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+  background: var(--color-info-surface, #d1ecf1);
+  color: var(--color-info-text, #0c5460);
+  border: 1px solid var(--color-info-border, #bee5eb);
 }
 
 .status-toast.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: var(--color-success-surface, #d4edda);
+  color: var(--color-success-text, #155724);
+  border: 1px solid var(--color-success-border, #c3e6cb);
 }
 
 .status-toast.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--color-danger-surface, #f8d7da);
+  color: var(--color-danger-text, #721c24);
+  border: 1px solid var(--color-danger-border, #f5c6cb);
 }
 
 /* Portal对话框样式 */
@@ -1385,7 +1584,7 @@ input[type="text"]:read-only {
 }
 
 .portal-dialog {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
@@ -1397,7 +1596,7 @@ input[type="text"]:read-only {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading, #333);
   text-align: center;
 }
 
@@ -1414,8 +1613,8 @@ input[type="text"]:read-only {
   padding: 12px 16px;
   border: 2px solid transparent;
   border-radius: 8px;
-  background: #f8f9fa;
-  color: #495057;
+  background: var(--color-surface-muted, #f8f9fa);
+  color: var(--color-text-secondary, #495057);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1429,53 +1628,53 @@ input[type="text"]:read-only {
 }
 
 .dialog-btn.external {
-  background: #e3f2fd;
-  color: #1976d2;
-  border-color: #90caf9;
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  color: var(--color-blue-soft-text, #1976d2);
+  border-color: var(--color-blue-soft-border, #90caf9);
 }
 
 .dialog-btn.external:hover {
-  background: #bbdefb;
-  border-color: #64b5f6;
+  background: var(--color-blue-soft-bg, #bbdefb);
+  border-color: var(--color-blue-soft-hover, #64b5f6);
 }
 
 .dialog-btn.internal {
-  background: #e8f5e8;
-  color: #2e7d32;
-  border-color: #a5d6a7;
+  background: var(--color-success-surface, #e8f5e8);
+  color: var(--color-success-text, #2e7d32);
+  border-color: var(--color-success-border, #a5d6a7);
 }
 
 .dialog-btn.internal:hover {
-  background: #c8e6c9;
-  border-color: #81c784;
+  background: var(--color-success-surface, #c8e6c9);
+  border-color: var(--color-success-border, #81c784);
 }
 
 .dialog-btn.cancel {
-  background: #fce4ec;
-  color: #c2185b;
-  border-color: #f8bbd9;
+  background: var(--color-rose-surface, #fce4ec);
+  color: var(--color-rose-text, #c2185b);
+  border-color: var(--color-rose-border, #f8bbd9);
 }
 
 .dialog-btn.cancel:hover {
-  background: #f8bbd9;
-  border-color: #f48fb1;
+  background: var(--color-rose-border, #f8bbd9);
+  border-color: var(--color-rose-hover, #f48fb1);
 }
 
 .dialog-btn.delete {
-  background: #ffebee;
-  color: #d32f2f;
-  border-color: #ffcdd2;
+  background: var(--color-danger-soft-surface, #ffebee);
+  color: var(--color-danger-text, #d32f2f);
+  border-color: var(--color-danger-soft-border, #ffcdd2);
 }
 
 .dialog-btn.delete:hover {
-  background: #ffcdd2;
-  border-color: #ef9a9a;
+  background: var(--color-danger-soft-border, #ffcdd2);
+  border-color: var(--color-danger-soft-border, #ef9a9a);
 }
 
 /* 删除确认对话框特定样式 */
 .portal-dialog.delete-confirm p {
   margin: 0 0 20px 0;
-  color: #666;
+  color: var(--color-text-muted, #666);
   text-align: center;
   line-height: 1.5;
 }
@@ -1492,7 +1691,7 @@ input[type="text"]:read-only {
 .additional-fields {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
 }
 
 .field-container {
@@ -1503,14 +1702,14 @@ input[type="text"]:read-only {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 14px;
 }
 
 .field-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong, #d1d5db);
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s ease;
@@ -1518,12 +1717,12 @@ input[type="text"]:read-only {
 
 .field-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .field-input::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-soft, #9ca3af);
 }
 
 /* 移除了重复的状态指示器样式，现在在 TokenList.vue 中 */
@@ -1593,3 +1792,4 @@ input[type="text"]:read-only {
   }
 }
 </style>
+

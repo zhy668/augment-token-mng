@@ -246,7 +246,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface, #ffffff);
   border-radius: 12px;
   max-width: 90vw;
   max-height: 95vh;
@@ -260,14 +260,14 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-alt, #f9fafb);
   border-radius: 12px 12px 0 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 18px;
   font-weight: 600;
 }
@@ -277,7 +277,7 @@ onMounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -289,8 +289,8 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-border, #e5e7eb);
+  color: var(--color-text-primary, #374151);
 }
 
 .email-viewer {
@@ -310,7 +310,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--color-surface-muted, #f8f9fa);
   border-radius: 8px;
   flex-wrap: wrap;
   gap: 12px;
@@ -324,12 +324,12 @@ onMounted(() => {
 
 .folder-selector label {
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
 }
 
 .folder-select {
   padding: 6px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong, #d1d5db);
   border-radius: 4px;
   font-size: 14px;
 }
@@ -342,7 +342,7 @@ onMounted(() => {
 
 .page-info {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   white-space: nowrap;
 }
 
@@ -360,21 +360,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 16px;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .email-item:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: var(--color-surface-alt, #f9fafb);
+  border-color: var(--color-border-strong, #d1d5db);
 }
 
 .email-item.selected {
-  background: #eff6ff;
-  border-color: #3b82f6;
+  background: var(--color-accent-muted, #eff6ff);
+  border-color: var(--color-accent, #3b82f6);
 }
 
 .email-sender {
@@ -388,8 +388,8 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #3b82f6;
-  color: white;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -404,7 +404,7 @@ onMounted(() => {
 
 .sender-name {
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
@@ -413,7 +413,7 @@ onMounted(() => {
 
 .email-date {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .email-content {
@@ -428,7 +428,7 @@ onMounted(() => {
 
 .email-subject {
   font-weight: 500;
-  color: #111827;
+  color: var(--color-text-strong, #111827);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -437,8 +437,8 @@ onMounted(() => {
 
 .email-folder {
   font-size: 12px;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-surface-hover, #f3f4f6);
   padding: 2px 8px;
   border-radius: 12px;
   display: inline-block;
@@ -451,7 +451,7 @@ onMounted(() => {
 }
 
 .unread-indicator {
-  color: #3b82f6;
+  color: var(--color-accent, #3b82f6);
   font-size: 12px;
 }
 
@@ -463,13 +463,13 @@ onMounted(() => {
   text-align: center;
   margin-top: 20px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--color-surface-muted, #f8f9fa);
   border-radius: 8px;
 }
 
 .pagination-info p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
   font-size: 14px;
 }
 
@@ -494,21 +494,21 @@ onMounted(() => {
 }
 
 .btn.primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-accent-hover, #2563eb);
 }
 
 .btn.secondary {
-  background: #6b7280;
-  color: white;
+  background: var(--color-text-muted, #6b7280);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #4b5563;
+  background: var(--color-text-secondary, #4b5563);
 }
 
 .btn.small {
@@ -520,20 +520,20 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .empty-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--color-text-soft, #9ca3af);
   margin-top: 8px;
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3b82f6;
+  border: 4px solid var(--color-surface-hover, #f3f3f3);
+  border-top: 4px solid var(--color-accent, #3b82f6);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;

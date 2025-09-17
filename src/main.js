@@ -1,6 +1,7 @@
 import { createApp } from "vue"
 import "./style.css"
 import App from "./App.vue"
+import i18n from "./locales"
 
 const THEME_STORAGE_KEY = "atm-theme"
 const prefersDarkMedia = window.matchMedia("(prefers-color-scheme: dark)")
@@ -41,5 +42,6 @@ const themeManager = {
 }
 
 const app = createApp(App)
+app.use(i18n)
 app.provide("themeManager", themeManager)
 app.mount("#app")

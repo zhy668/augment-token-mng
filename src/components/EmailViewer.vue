@@ -2,7 +2,7 @@
   <div class="modal-overlay">
     <div class="modal-content email-viewer" @click.stop>
       <div class="modal-header">
-        <h3>邮件管理 - {{ email }}</h3>
+        <h3>{{ $t('emailViewer.title') }} - {{ email }}</h3>
         <button @click="$emit('close')" class="close-btn">×</button>
       </div>
 
@@ -10,30 +10,30 @@
         <!-- 文件夹选择和控制 -->
         <div class="controls-section">
           <div class="folder-selector">
-            <label>文件夹:</label>
+            <label>{{ $t('emailViewer.folder') }}:</label>
             <select v-model="selectedFolder" @change="loadEmails" class="folder-select">
-              <option value="inbox">收件箱</option>
-              <option value="junk">垃圾邮件</option>
+              <option value="inbox">{{ $t('emailViewer.inbox') }}</option>
+              <option value="junk">{{ $t('emailViewer.junk') }}</option>
             </select>
           </div>
-          
+
           <div class="page-controls">
             <button
               @click="previousPage"
               :disabled="currentPage <= 1 || isLoading"
               class="btn secondary small"
             >
-              上一页
+              {{ $t('emailViewer.previousPage') }}
             </button>
             <span class="page-info">
-              第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+              {{ $t('emailViewer.pageInfo', { current: currentPage, total: totalPages }) }}
             </span>
             <button
               @click="nextPage"
               :disabled="currentPage >= totalPages || isLoading"
               class="btn secondary small"
             >
-              下一页
+              {{ $t('emailViewer.nextPage') }}
             </button>
           </div>
 
@@ -42,7 +42,7 @@
             :disabled="isLoading"
             class="btn primary small"
           >
-            {{ isLoading ? '加载中...' : '重新加载' }}
+            {{ isLoading ? $t('emailViewer.loading') : $t('emailViewer.reload') }}
           </button>
 
         </div>
@@ -51,12 +51,12 @@
         <div class="emails-section">
           <div v-if="isLoading" class="loading-state">
             <div class="spinner"></div>
-            <p>加载邮件中...</p>
+            <p>{{ $t('emailViewer.loading') }}</p>
           </div>
 
           <div v-else-if="emails.length === 0" class="empty-state">
-            <p>该文件夹中暂无邮件</p>
-            <p class="empty-hint">请检查网络连接或稍后重试</p>
+            <p>{{ $t('emailViewer.noEmails') }}</p>
+            <p class="empty-hint">{{ $t('emailViewer.noEmails') }}</p>
           </div>
 
           <div v-else class="emails-list">
@@ -83,7 +83,7 @@
                   @click.stop="viewEmailDetails(emailItem)"
                   class="btn primary small"
                 >
-                  查看详情
+                  {{ $t('emailViewer.viewDetails') }}
                 </button>
               </div>
               <div class="email-status">
@@ -96,9 +96,7 @@
           <!-- 分页信息 -->
           <div v-if="emails.length > 0" class="pagination-info">
             <p>
-              显示 {{ (currentPage - 1) * pageSize + 1 }} - 
-              {{ Math.min(currentPage * pageSize, totalEmails) }} 
-              / 共 {{ totalEmails }} 封邮件
+              {{ $t('emailViewer.totalEmails', { count: totalEmails }) }}
             </p>
           </div>
         </div>
@@ -119,6 +117,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 import EmailDetails from './EmailDetails.vue'
 
 const props = defineProps({
@@ -129,6 +128,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'show-status'])
+
+// i18n
+const { t } = useI18n()
 
 // 响应式数据
 const emails = ref([])
@@ -242,7 +244,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-content {

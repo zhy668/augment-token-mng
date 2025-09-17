@@ -3,14 +3,14 @@
     <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>书签管理</h2>
+          <h2>{{ $t('bookmarkManager.title') }}</h2>
           <div class="header-actions">
-            <button @click="openDataFolder" class="btn-icon info" title="打开数据存储文件夹">
+            <button @click="openDataFolder" class="btn-icon info" :title="$t('bookmarkManager.openDataFolder')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
               </svg>
             </button>
-            <button @click="showAddForm()" class="btn-icon add" title="添加书签">
+            <button @click="showAddForm()" class="btn-icon add" :title="$t('bookmarkManager.addBookmark')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
@@ -28,12 +28,12 @@
               class="bookmark-card"
             >
               <div class="bookmark-actions">
-                <button @click="editBookmark(bookmark)" class="btn-icon edit" title="编辑">
+                <button @click="editBookmark(bookmark)" class="btn-icon edit" :title="$t('bookmarkManager.editBookmark')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                   </svg>
                 </button>
-                <button @click="deleteBookmark(bookmark.id)" class="btn-icon delete" title="删除">
+                <button @click="deleteBookmark(bookmark.id)" class="btn-icon delete" :title="$t('bookmarkManager.deleteBookmark')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                   </svg>
@@ -64,8 +64,8 @@
           </div>
 
           <div v-if="allBookmarks.length === 0" class="empty-state">
-            <p>还没有添加书签</p>
-            <p>点击"添加书签"来添加你常用的网站</p>
+            <p>{{ $t('bookmarkManager.emptyState') }}</p>
+            <p>{{ $t('bookmarkManager.emptyDescription') }}</p>
           </div>
         </div>
 
@@ -73,44 +73,44 @@
         <div v-if="showForm" class="form-overlay">
           <div class="form-content" @click.stop>
             <div class="form-header">
-              <h3>{{ editingBookmark ? '编辑书签' : '添加书签' }}</h3>
+              <h3>{{ editingBookmark ? $t('bookmarkManager.editBookmark') : $t('bookmarkManager.addBookmark') }}</h3>
               <button class="close-btn" @click="hideForm">×</button>
             </div>
             
             <div class="form-body">
               <div class="form-group">
-                <label>名称 *</label>
-                <input 
-                  v-model="formData.name" 
-                  type="text" 
-                  placeholder="输入书签名称"
+                <label>{{ $t('bookmarkManager.form.name') }} *</label>
+                <input
+                  v-model="formData.name"
+                  type="text"
+                  :placeholder="$t('bookmarkManager.form.name')"
                   required
                 >
               </div>
-              
+
               <div class="form-group">
-                <label>网址 *</label>
-                <input 
-                  v-model="formData.url" 
-                  type="url" 
+                <label>{{ $t('bookmarkManager.form.url') }} *</label>
+                <input
+                  v-model="formData.url"
+                  type="url"
                   placeholder="https://example.com"
                   required
                 >
               </div>
-              
+
               <div class="form-group">
-                <label>描述</label>
-                <textarea 
-                  v-model="formData.description" 
-                  placeholder="可选的描述信息"
+                <label>{{ $t('bookmarkManager.form.description') }}</label>
+                <textarea
+                  v-model="formData.description"
+                  :placeholder="$t('bookmarkManager.form.description')"
                   rows="2"
                 ></textarea>
               </div>
-              
+
               <div class="form-actions">
-                <button @click="hideForm" class="btn secondary">取消</button>
+                <button @click="hideForm" class="btn secondary">{{ $t('bookmarkManager.form.cancel') }}</button>
                 <button @click="saveBookmark" class="btn primary" :disabled="!canSave">
-                  {{ editingBookmark ? '更新' : '添加' }}
+                  {{ editingBookmark ? $t('bookmarkManager.form.save') : $t('bookmarkManager.form.save') }}
                 </button>
               </div>
             </div>
@@ -130,31 +130,31 @@
     <!-- 书签打开方式选择对话框 -->
     <div v-if="showBookmarkDialog" class="portal-dialog-overlay" @click="showBookmarkDialog = false">
       <div class="portal-dialog" @click.stop>
-        <h3>选择打开方式</h3>
+        <h3>{{ $t('bookmarkManager.dialog.selectOpenMethod') }}</h3>
         <div class="dialog-buttons">
           <button @click="copyBookmarkUrl" class="dialog-btn copy">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
             </svg>
-            复制到剪贴板
+            {{ $t('bookmarkManager.dialog.copyToClipboard') }}
           </button>
           <button @click="openBookmarkExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
             </svg>
-            在浏览器中打开
+            {{ $t('bookmarkManager.dialog.openInBrowser') }}
           </button>
           <button @click="openBookmarkInternal" class="dialog-btn internal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
             </svg>
-            内置浏览器打开
+            {{ $t('bookmarkManager.dialog.openInBuiltIn') }}
           </button>
           <button @click="showBookmarkDialog = false" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            取消
+            {{ $t('bookmarkManager.dialog.cancel') }}
           </button>
         </div>
       </div>
@@ -165,9 +165,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 
 // Emits
 const emit = defineEmits(['close'])
+
+// i18n
+const { t } = useI18n()
 
 // Reactive data
 const allBookmarks = ref([])
@@ -256,10 +260,10 @@ const saveBookmark = async () => {
         id: editingBookmark.value.id,
         ...bookmarkData
       })
-      showStatus('书签更新成功!', 'success')
+      showStatus(t('bookmarkManager.messages.updateSuccess'), 'success')
     } else {
       await invoke('add_bookmark', bookmarkData)
-      showStatus('书签添加成功!', 'success')
+      showStatus(t('bookmarkManager.messages.addSuccess'), 'success')
     }
 
     await loadBookmarks()
@@ -275,9 +279,9 @@ const deleteBookmark = async (id) => {
   try {
     await invoke('delete_bookmark', { id })
     await loadBookmarks()
-    showStatus('书签删除成功!', 'success')
+    showStatus(t('bookmarkManager.messages.deleteSuccess'), 'success')
   } catch (error) {
-    showStatus(`删除书签失败: ${error}`, 'error')
+    showStatus(`${t('bookmarkManager.messages.deleteSuccess')}: ${error}`, 'error')
   }
 }
 
@@ -331,7 +335,7 @@ const openDataFolder = async () => {
     await invoke('open_data_folder')
     // 静默执行，不显示状态提示
   } catch (error) {
-    showStatus(`打开文件夹失败: ${error}`, 'error')
+    showStatus(`${t('bookmarkManager.messages.openFolderFailed')}: ${error}`, 'error')
   }
 }
 
@@ -349,7 +353,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 /* 隐藏表单弹窗的滚动条 */

@@ -10,13 +10,13 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
             </svg>
-            App主页
+            {{ $t('app.appHome') }}
           </button>
           <button @click="showPluginHomeDialog = true" class="btn plugin-home-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-2 .9-2 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/>
             </svg>
-            插件主页
+            {{ $t('app.pluginHome') }}
           </button>
         </div>
       </div>
@@ -26,44 +26,22 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
           </svg>
-          书签管理
+          {{ $t('app.bookmarkManager') }}
         </button>
         <button @click="showOutlookManager = true" class="btn warning">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
           </svg>
-          邮箱管理
+          {{ $t('app.outlookManager') }}
         </button>
 
         <button @click="showTokenList = true" class="btn primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
-          已保存Token
+          {{ $t('app.viewTokens') }}
         </button>
-        <button
-          type="button"
-          class="btn ghost theme-toggle"
-          @click="toggleTheme"
-          :aria-pressed="isDarkTheme"
-          :aria-label="themeToggleLabel"
-          :title="themeToggleLabel"
-        >
-          <svg v-if="isDarkTheme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <path d="m12 1 0 2"/>
-            <path d="m12 21 0 2"/>
-            <path d="m4.22 4.22 1.42 1.42"/>
-            <path d="m18.36 18.36 1.42 1.42"/>
-            <path d="m1 12 2 0"/>
-            <path d="m21 12 2 0"/>
-            <path d="m4.22 19.78 1.42-1.42"/>
-            <path d="m18.36 5.64 1.42-1.42"/>
-          </svg>
-        </button>
+
       </div>
     </header>
 
@@ -73,8 +51,8 @@
         <div class="generator-header">
           <div class="header-content">
             <div class="title-section">
-              <h2>生成Augment Token</h2>
-              <p>按照以下步骤获取你的Augment访问令牌</p>
+              <h2>{{ $t('tokenGenerator.title') }}</h2>
+              <p>{{ $t('tokenGenerator.description') }}</p>
             </div>
 
           </div>
@@ -83,26 +61,26 @@
         <div class="generator-body">
           <!-- Step 1: Generate Authorization URL -->
           <div class="section">
-            <h3>步骤 1: 生成Augment授权URL</h3>
+            <h3>{{ $t('tokenGenerator.step1') }}</h3>
             <button
               @click="generateAuthUrl"
               :class="['btn', 'primary', { loading: isGenerating }]"
               :disabled="isGenerating"
             >
-              生成Augment授权URL
+              {{ $t('tokenGenerator.generateUrl') }}
             </button>
 
             <div v-if="authUrl" class="url-section">
-              <label>授权URL:</label>
+              <label>{{ $t('tokenGenerator.authUrlLabel') }}</label>
               <div class="input-with-copy">
                 <input
                   type="text"
                   :value="authUrl"
                   readonly
                   ref="authUrlInput"
-                  placeholder="点击上方按钮生成授权URL"
+                  :placeholder="$t('tokenGenerator.authUrlPlaceholder')"
                 >
-                <button @click="copyAuthUrl" class="copy-icon-btn" title="复制URL">
+                <button @click="copyAuthUrl" class="copy-icon-btn" :title="$t('tokenGenerator.copyUrl')">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                   </svg>
@@ -113,7 +91,7 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
                   </svg>
-                  打开授权URL
+                  {{ $t('tokenGenerator.openAuthUrl') }}
                 </button>
               </div>
             </div>
@@ -121,10 +99,10 @@
 
           <!-- Step 2: Enter Authorization Code -->
           <div class="section">
-            <h3>步骤 2: 输入授权码</h3>
+            <h3>{{ $t('tokenGenerator.step2') }}</h3>
             <textarea
               v-model="authCode"
-              placeholder="在此粘贴授权码JSON..."
+              :placeholder="$t('tokenGenerator.authCodePlaceholder')"
               rows="4"
             ></textarea>
             <div class="button-container">
@@ -133,17 +111,17 @@
                 :class="['btn', 'primary', { loading: isGettingToken }]"
                 :disabled="!canGetToken || isGettingToken"
               >
-                获取访问令牌
+                {{ $t('tokenGenerator.getToken') }}
               </button>
             </div>
           </div>
 
           <!-- Step 3: Access Token -->
           <div class="section" v-if="tokenResult">
-            <h3>步骤 3: Augment访问令牌</h3>
+            <h3>{{ $t('tokenGenerator.step3') }}</h3>
             <div class="token-section">
               <div class="result-container">
-                <label>访问令牌:</label>
+                <label>{{ $t('tokenGenerator.accessTokenLabel') }}</label>
                 <div class="token-container">
                   <input
                     type="text"
@@ -151,11 +129,11 @@
                     readonly
                     ref="accessTokenInput"
                   >
-                  <button @click="copyAccessToken" class="btn secondary">复制</button>
+                  <button @click="copyAccessToken" class="btn secondary">{{ $t('tokenGenerator.copy') }}</button>
                 </div>
               </div>
               <div class="result-container">
-                <label>租户URL:</label>
+                <label>{{ $t('tokenGenerator.tenantUrlLabel') }}</label>
                 <div class="token-container">
                   <input
                     type="text"
@@ -163,34 +141,34 @@
                     readonly
                     ref="tenantUrlInput"
                   >
-                  <button @click="copyTenantUrl" class="btn secondary">复制</button>
+                  <button @click="copyTenantUrl" class="btn secondary">{{ $t('tokenGenerator.copy') }}</button>
                 </div>
               </div>
 
               <!-- Additional Fields -->
               <div class="additional-fields">
                 <div class="field-container">
-                  <label>Portal URL:</label>
+                  <label>{{ $t('tokenGenerator.portalUrl') }}:</label>
                   <input
                     type="text"
                     v-model="portalUrl"
-                    placeholder="请输入 Portal 地址（可选）"
+                    :placeholder="$t('tokenGenerator.portalUrlPlaceholder')"
                     class="field-input"
                   >
                 </div>
                 <div class="field-container">
-                  <label>邮箱备注:</label>
+                  <label>{{ $t('tokenGenerator.emailNote') }}:</label>
                   <input
                     type="text"
                     v-model="emailNote"
-                    placeholder="请输入邮箱相关备注（可选）"
+                    :placeholder="$t('tokenGenerator.emailNotePlaceholder')"
                     class="field-input"
                   >
                 </div>
               </div>
 
               <div class="button-container">
-                <button @click="saveToken" class="btn success">保存Token</button>
+                <button @click="saveToken" class="btn success">{{ $t('tokenGenerator.saveToken') }}</button>
               </div>
             </div>
           </div>
@@ -233,31 +211,31 @@
     <!-- Portal打开方式选择对话框 -->
     <div v-if="showPortalDialog" class="portal-dialog-overlay" @click="showPortalDialog = false">
       <div class="portal-dialog" @click.stop>
-        <h3>选择打开方式</h3>
+        <h3>{{ $t('dialogs.selectOpenMethod') }}</h3>
         <div class="dialog-buttons">
           <button @click="copyPortalUrl" class="dialog-btn copy">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
             </svg>
-            复制链接
+            {{ $t('dialogs.copyLink') }}
           </button>
           <button @click="openPortalExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
             </svg>
-            外部打开
+            {{ $t('dialogs.openExternal') }}
           </button>
           <button @click="openPortalInternal" class="dialog-btn internal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            内置打开
+            {{ $t('dialogs.openInternal') }}
           </button>
           <button @click="showPortalDialog = false" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            不打开
+            {{ $t('dialogs.dontOpen') }}
           </button>
         </div>
       </div>
@@ -265,20 +243,20 @@
     <!-- 删除确认对话框 -->
     <div v-if="showDeleteConfirm" class="portal-dialog-overlay" @click="cancelDelete">
       <div class="portal-dialog delete-confirm" @click.stop>
-        <h3>确认删除</h3>
-        <p>确定要删除这个Token吗？此操作无法撤销。</p>
+        <h3>{{ $t('dialogs.confirmDelete') }}</h3>
+        <p>{{ $t('dialogs.confirmDeleteMessage') }}</p>
         <div class="dialog-buttons">
           <button @click="cancelDelete" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            取消
+            {{ $t('dialogs.cancel') }}
           </button>
           <button @click="confirmDelete" class="dialog-btn delete">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            删除
+            {{ $t('dialogs.delete') }}
           </button>
         </div>
       </div>
@@ -314,25 +292,25 @@
     <!-- 授权URL打开方式选择对话框 -->
     <div v-if="showAuthUrlDialog" class="portal-dialog-overlay" @click="showAuthUrlDialog = false">
       <div class="portal-dialog" @click.stop>
-        <h3>选择打开方式</h3>
+        <h3>{{ $t('dialogs.selectOpenMethod') }}</h3>
         <div class="dialog-buttons">
           <button @click="openAuthUrlExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
             </svg>
-            外部打开
+            {{ $t('dialogs.openExternal') }}
           </button>
           <button @click="openAuthUrlInternal" class="dialog-btn internal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            内置打开
+            {{ $t('dialogs.openInternal') }}
           </button>
           <button @click="showAuthUrlDialog = false" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            取消
+            {{ $t('dialogs.cancel') }}
           </button>
         </div>
       </div>
@@ -341,25 +319,25 @@
     <!-- App主页打开方式选择对话框 -->
     <div v-if="showAppHomeDialog" class="portal-dialog-overlay" @click="showAppHomeDialog = false">
       <div class="portal-dialog" @click.stop>
-        <h3>App主页 - 选择打开方式</h3>
+        <h3>{{ $t('dialogs.appHomeTitle') }}</h3>
         <div class="dialog-buttons">
           <button @click="openAppHomeExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
             </svg>
-            外部打开
+            {{ $t('dialogs.openExternal') }}
           </button>
           <button @click="openAppHomeInternal" class="dialog-btn internal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            内置打开
+            {{ $t('dialogs.openInternal') }}
           </button>
           <button @click="showAppHomeDialog = false" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            取消
+            {{ $t('dialogs.cancel') }}
           </button>
         </div>
       </div>
@@ -368,28 +346,83 @@
     <!-- 插件主页打开方式选择对话框 -->
     <div v-if="showPluginHomeDialog" class="portal-dialog-overlay" @click="showPluginHomeDialog = false">
       <div class="portal-dialog" @click.stop>
-        <h3>插件主页 - 选择打开方式</h3>
+        <h3>{{ $t('dialogs.pluginHomeTitle') }}</h3>
         <div class="dialog-buttons">
           <button @click="openPluginHomeExternal" class="dialog-btn external">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
             </svg>
-            外部打开
+            {{ $t('dialogs.openExternal') }}
           </button>
           <button @click="openPluginHomeInternal" class="dialog-btn internal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            内置打开
+            {{ $t('dialogs.openInternal') }}
           </button>
           <button @click="showPluginHomeDialog = false" class="dialog-btn cancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            取消
+            {{ $t('dialogs.cancel') }}
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- 固定在右下角的控制按钮 -->
+    <div class="fixed-controls">
+      <!-- 弹出的设置选项 -->
+      <div v-if="showSettingsMenu" class="settings-menu">
+        <!-- 语言切换按钮 -->
+        <button
+          type="button"
+          class="control-btn language-toggle"
+          @click="toggleLanguage"
+          :aria-label="languageToggleLabel"
+          :title="languageToggleLabel"
+        >
+          {{ currentLocale === 'zh-CN' ? 'EN' : '中' }}
+        </button>
+        <!-- 主题切换按钮 -->
+        <button
+          type="button"
+          class="control-btn theme-toggle"
+          @click="toggleTheme"
+          :aria-pressed="isDarkTheme"
+          :aria-label="themeToggleLabel"
+          :title="themeToggleLabel"
+        >
+          <svg v-if="isDarkTheme" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="m12 1 0 2"/>
+            <path d="m12 21 0 2"/>
+            <path d="m4.22 4.22 1.42 1.42"/>
+            <path d="m18.36 18.36 1.42 1.42"/>
+            <path d="m1 12 2 0"/>
+            <path d="m21 12 2 0"/>
+            <path d="m4.22 19.78 1.42-1.42"/>
+            <path d="m18.36 5.64 1.42-1.42"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 设置按钮 -->
+      <button
+        type="button"
+        class="control-btn settings-toggle"
+        @click="toggleSettingsMenu"
+        :aria-label="$t('app.settings')"
+        :title="$t('app.settings')"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -397,11 +430,45 @@
 <script setup>
 import { ref, onMounted, computed, inject, onBeforeUnmount } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
 import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 import OutlookManager from './components/OutlookManager.vue'
+
+const { t, locale } = useI18n()
+
+// 当前语言
+const currentLocale = ref(locale.value)
+
+// 切换语言
+const changeLanguage = () => {
+  locale.value = currentLocale.value
+  // 可以在这里添加保存语言偏好到本地存储的逻辑
+  localStorage.setItem('preferred-language', currentLocale.value)
+}
+
+// 语言切换按钮
+const toggleLanguage = () => {
+  currentLocale.value = currentLocale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
+  changeLanguage()
+}
+
+const languageToggleLabel = computed(() => (currentLocale.value === 'zh-CN' ? t('app.switchToEnglish') : t('app.switchToChinese')))
+
+// 设置菜单切换
+const toggleSettingsMenu = () => {
+  showSettingsMenu.value = !showSettingsMenu.value
+}
+
+// 点击外部区域关闭设置菜单
+const handleClickOutside = (event) => {
+  const fixedControls = document.querySelector('.fixed-controls')
+  if (fixedControls && !fixedControls.contains(event.target)) {
+    showSettingsMenu.value = false
+  }
+}
 
 // 简化的状态管理
 const tokens = ref([])
@@ -499,7 +566,7 @@ const toggleTheme = () => {
   setTheme(isDarkTheme.value ? 'light' : 'dark')
 }
 
-const themeToggleLabel = computed(() => (isDarkTheme.value ? '切换到白天模式' : '切换到夜间模式'))
+const themeToggleLabel = computed(() => (isDarkTheme.value ? t('app.switchToLight') : t('app.switchToDark')))
 
 let cleanupSystemThemeListener
 
@@ -525,11 +592,7 @@ onMounted(() => {
   setTheme(currentTheme.value, { persist: hasManualThemePreference.value })
 })
 
-onBeforeUnmount(() => {
-  if (typeof cleanupSystemThemeListener === 'function') {
-    cleanupSystemThemeListener()
-  }
-})
+
 
 // Delete confirmation dialog
 const showDeleteConfirm = ref(false)
@@ -541,6 +604,9 @@ const showAuthUrlDialog = ref(false)
 // External links dialogs
 const showAppHomeDialog = ref(false)
 const showPluginHomeDialog = ref(false)
+
+// Settings menu
+const showSettingsMenu = ref(false)
 
 // Token form dialog
 const showTokenFormModal = ref(false)
@@ -569,10 +635,10 @@ const loadTokens = async (showSuccessMessage = false) => {
     tokens.value = JSON.parse(jsonString)
     hasUnsavedChanges.value = false
     if (showSuccessMessage) {
-      showStatus('Token加载成功', 'success')
+      showStatus(t('messages.tokenLoadSuccess'), 'success')
     }
   } catch (error) {
-    showStatus(`加载Token失败: ${error}`, 'error')
+    showStatus(`${t('messages.tokenLoadFailed')}: ${error}`, 'error')
     tokens.value = []
     hasUnsavedChanges.value = false
   } finally {
@@ -586,9 +652,9 @@ const saveTokensToFile = async () => {
     const jsonString = JSON.stringify(tokens.value, null, 2)
     await invoke('save_tokens_json', { jsonString })
     hasUnsavedChanges.value = false
-    showStatus('Token保存成功', 'success')
+    showStatus(t('messages.tokenSaved'), 'success')
   } catch (error) {
-    showStatus(`保存Token失败: ${error}`, 'error')
+    showStatus(`${t('messages.tokenSaveFailed')}: ${error}`, 'error')
     throw error
   }
 }
@@ -607,7 +673,7 @@ const confirmDelete = async () => {
     // 先从内存中删除 token
     const tokenIndex = tokens.value.findIndex(token => token.id === tokenToDelete.value)
     if (tokenIndex === -1) {
-      showStatus('Token不存在', 'error')
+      showStatus(t('messages.tokenNotFound'), 'error')
       showDeleteConfirm.value = false
       tokenToDelete.value = null
       return
@@ -624,10 +690,10 @@ const confirmDelete = async () => {
       console.log('Backend delete failed (token may not be saved):', error)
     }
 
-    showStatus('Token已删除', 'success')
+    showStatus(t('messages.tokenDeleted'), 'success')
     hasUnsavedChanges.value = true // 标记有未保存的更改
   } catch (error) {
-    showStatus(`删除Token失败: ${error}`, 'error')
+    showStatus(`${t('messages.deleteFailed')}: ${error}`, 'error')
   }
 
   showDeleteConfirm.value = false
@@ -644,7 +710,7 @@ const cancelDelete = () => {
 
 const onTokenSaved = () => {
   loadTokens()
-  showStatus('新Token已保存!', 'success')
+  showStatus(t('messages.newTokenSaved'), 'success')
 }
 
 // Token generator methods
@@ -665,7 +731,7 @@ const generateAuthUrl = async () => {
     const url = await invoke('generate_augment_auth_url')
     authUrl.value = url
   } catch (error) {
-    showStatus(`错误: ${error}`, 'error')
+    showStatus(`${t('messages.error')}: ${error}`, 'error')
   } finally {
     isGenerating.value = false
   }
@@ -674,7 +740,7 @@ const generateAuthUrl = async () => {
 const copyAuthUrl = async () => {
   const success = await copyToClipboard(authUrl.value)
   showStatus(
-    success ? 'URL已复制到剪贴板!' : '复制URL失败',
+    success ? t('messages.copySuccess') : t('messages.copyFailed'),
     success ? 'success' : 'error'
   )
 }
@@ -683,14 +749,14 @@ const copyAuthUrl = async () => {
 
 const getAccessToken = async () => {
   isGettingToken.value = true
-  showStatus('正在获取访问令牌...', 'info')
+  showStatus(t('messages.gettingToken'), 'info')
 
   try {
     const result = await invoke('get_augment_token', { code: authCode.value })
     tokenResult.value = result
-    showStatus('访问令牌获取成功!', 'success')
+    showStatus(t('messages.tokenGetSuccess'), 'success')
   } catch (error) {
-    showStatus(`错误: ${error}`, 'error')
+    showStatus(`${t('messages.error')}: ${error}`, 'error')
   } finally {
     isGettingToken.value = false
   }
@@ -699,7 +765,7 @@ const getAccessToken = async () => {
 const copyAccessToken = async () => {
   const success = await copyToClipboard(tokenResult.value.access_token)
   showStatus(
-    success ? '访问令牌已复制到剪贴板!' : '复制访问令牌失败',
+    success ? t('messages.accessTokenCopied') : t('messages.copyFailed'),
     success ? 'success' : 'error'
   )
 }
@@ -707,7 +773,7 @@ const copyAccessToken = async () => {
 const copyTenantUrl = async () => {
   const success = await copyToClipboard(tokenResult.value.tenant_url)
   showStatus(
-    success ? '租户URL已复制到剪贴板!' : '复制租户URL失败',
+    success ? t('messages.tenantUrlCopied') : t('messages.copyFailed'),
     success ? 'success' : 'error'
   )
 }
@@ -727,7 +793,7 @@ const saveToken = async () => {
     tokens.value.push(newToken)
     hasUnsavedChanges.value = true
 
-    showStatus('Token已添加到内存，请手动保存', 'success')
+    showStatus(t('messages.tokenAddedToMemory'), 'success')
 
     // Reset form
     authUrl.value = ''
@@ -736,7 +802,7 @@ const saveToken = async () => {
     portalUrl.value = ''
     emailNote.value = ''
   } catch (error) {
-    showStatus(`添加Token失败: ${error}`, 'error')
+    showStatus(`${t('messages.tokenSaveFailed')}: ${error}`, 'error')
   }
 }
 
@@ -803,10 +869,10 @@ const saveTokenManually = async (tenantUrl, accessToken, portalUrl, emailNote) =
     tokens.value.push(newToken)
     hasUnsavedChanges.value = true
 
-    showStatus('Token已添加到内存，请手动保存', 'success')
+    showStatus(t('messages.tokenAddedToMemory'), 'success')
     return { success: true }
   } catch (error) {
-    showStatus(`添加Token失败: ${error}`, 'error')
+    showStatus(`${t('messages.tokenSaveFailed')}: ${error}`, 'error')
     return { success: false, error }
   }
 }
@@ -823,7 +889,7 @@ const copyPortalUrl = async () => {
 
   const success = await copyToClipboard(currentPortalToken.value.portal_url)
   showStatus(
-    success ? 'Portal链接已复制到剪贴板!' : '复制Portal链接失败',
+    success ? t('messages.portalLinkCopied') : t('messages.copyPortalLinkFailed'),
     success ? 'success' : 'error'
   )
 }
@@ -836,7 +902,7 @@ const openPortalExternal = async () => {
     await invoke('open_url', { url: currentPortalToken.value.portal_url })
   } catch (error) {
     console.error('Failed to open portal externally:', error)
-    showStatus('打开Portal失败', 'error')
+    showStatus(t('messages.openPortalFailed'), 'error')
   }
 }
 
@@ -852,7 +918,7 @@ const openPortalInternal = async () => {
     })
   } catch (error) {
     console.error('Failed to open portal internally:', error)
-    showStatus('打开Portal失败', 'error')
+    showStatus(t('messages.openPortalFailed'), 'error')
   }
 }
 
@@ -867,7 +933,7 @@ const openAuthUrlExternal = async () => {
     await invoke('open_url', { url: authUrl.value })
   } catch (error) {
     console.error('Failed to open auth URL externally:', error)
-    showStatus('打开授权URL失败', 'error')
+    showStatus(t('messages.openAuthUrlFailed'), 'error')
   }
 }
 
@@ -878,11 +944,11 @@ const openAuthUrlInternal = async () => {
   try {
     await invoke('open_internal_browser', {
       url: authUrl.value,
-      title: 'Augment OAuth 授权'
+      title: t('messages.oauthTitle')
     })
   } catch (error) {
     console.error('Failed to open auth URL internally:', error)
-    showStatus('打开授权URL失败', 'error')
+    showStatus(t('messages.openAuthUrlFailed'), 'error')
   }
 }
 
@@ -895,7 +961,7 @@ const openAppHomeExternal = async () => {
     await invoke('open_url', { url })
   } catch (error) {
     console.error('Failed to open App主页 externally:', error)
-    showStatus('打开App主页失败', 'error')
+    showStatus(t('messages.openAppHomeFailed'), 'error')
   }
 }
 
@@ -906,11 +972,11 @@ const openAppHomeInternal = async () => {
   try {
     await invoke('open_internal_browser', {
       url,
-      title: 'App主页 - Augment Token Manager'
+      title: t('messages.appHomeTitle')
     })
   } catch (error) {
     console.error('Failed to open App主页 internally:', error)
-    showStatus('打开App主页失败', 'error')
+    showStatus(t('messages.openAppHomeFailed'), 'error')
   }
 }
 
@@ -922,7 +988,7 @@ const openPluginHomeExternal = async () => {
     await invoke('open_url', { url })
   } catch (error) {
     console.error('Failed to open 插件主页 externally:', error)
-    showStatus('打开插件主页失败', 'error')
+    showStatus(t('messages.openPluginHomeFailed'), 'error')
   }
 }
 
@@ -933,11 +999,11 @@ const openPluginHomeInternal = async () => {
   try {
     await invoke('open_internal_browser', {
       url,
-      title: '插件主页 - Augment Code Auto'
+      title: t('messages.pluginHomeTitle')
     })
   } catch (error) {
     console.error('Failed to open 插件主页 internally:', error)
-    showStatus('打开插件主页失败', 'error')
+    showStatus(t('messages.openPluginHomeFailed'), 'error')
   }
 }
 
@@ -961,10 +1027,28 @@ const handleStorageConfigChanged = async () => {
 
 // Initialize
 onMounted(async () => {
+  // 读取保存的语言偏好
+  const savedLanguage = localStorage.getItem('preferred-language')
+  if (savedLanguage && (savedLanguage === 'zh-CN' || savedLanguage === 'en-US')) {
+    currentLocale.value = savedLanguage
+    locale.value = savedLanguage
+  }
+
   // 首先获取存储状态
   await getInitialStorageStatus()
   // 然后加载tokens
   await loadTokens()
+
+  // 添加点击外部区域关闭设置菜单的事件监听器
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  if (typeof cleanupSystemThemeListener === 'function') {
+    cleanupSystemThemeListener()
+  }
+  // 移除事件监听器
+  document.removeEventListener('click', handleClickOutside)
 })
 
 
@@ -1029,6 +1113,114 @@ html, body {
   white-space: nowrap;
 }
 
+/* 固定控制按钮组 */
+.fixed-controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #374151);
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.control-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.control-btn:active {
+  transform: translateY(0);
+}
+
+/* 语言切换按钮样式 */
+.control-btn.language-toggle {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* 设置按钮样式 */
+.control-btn.settings-toggle {
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.control-btn.settings-toggle:hover {
+  background: var(--color-accent-hover, #2563eb);
+  border-color: var(--color-accent-hover, #2563eb);
+}
+
+.control-btn svg {
+  transition: all 0.3s ease;
+}
+
+.control-btn:hover svg {
+  transform: scale(1.1);
+}
+
+/* 黑暗模式下的固定控制按钮样式 */
+[data-theme='dark'] .control-btn {
+  background: var(--color-surface, #1e293b);
+  color: var(--color-text-primary, #cbd5e1);
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .control-btn:hover {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .control-btn.settings-toggle {
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-text-inverse, #ffffff);
+  border-color: var(--color-accent, #3b82f6);
+}
+
+[data-theme='dark'] .control-btn.settings-toggle:hover {
+  background: var(--color-accent-hover, #2563eb);
+  border-color: var(--color-accent-hover, #2563eb);
+}
+
 
 
 
@@ -1043,57 +1235,7 @@ html, body {
   justify-content: flex-end;
 }
 
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  color: var(--color-text-primary, #374151);
-  border: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-surface, #ffffff);
-  border-radius: 8px;
-  min-width: 36px;
-  min-height: 36px;
-  transition: all 0.2s ease;
-}
 
-.theme-toggle:hover {
-  background: var(--color-surface-hover, #f3f4f6);
-  border-color: var(--color-border-strong, #d1d5db);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.theme-toggle[aria-pressed="true"] {
-  background: var(--color-surface-alt, #f9fafb);
-  border-color: var(--color-accent, #3b82f6);
-}
-
-.theme-toggle svg {
-  transition: all 0.3s ease;
-}
-
-.theme-toggle:hover svg {
-  transform: scale(1.1);
-}
-
-/* 黑暗模式下的主题切换按钮样式 */
-[data-theme='dark'] .theme-toggle {
-  background: var(--color-surface, #1e293b);
-  border-color: rgba(148, 163, 184, 0.35);
-  color: var(--color-text-primary, #cbd5e1);
-}
-
-[data-theme='dark'] .theme-toggle:hover {
-  background: rgba(148, 163, 184, 0.16);
-  border-color: rgba(148, 163, 184, 0.55);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme='dark'] .theme-toggle[aria-pressed="true"] {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.6);
-}
 
 .external-links-group {
   display: flex;
@@ -1332,17 +1474,18 @@ input[type="text"]:read-only {
     font-size: 12px;
   }
 
-  .theme-toggle {
-    min-width: 32px;
-    min-height: 32px;
-    padding: 6px;
+  .fixed-controls {
+    bottom: 16px;
+    right: 16px;
   }
 
-  .theme-toggle svg {
-    width: 18px;
-    height: 18px;
+  .control-btn {
+    width: 36px;
+    height: 36px;
   }
 }
+
+
 
 /* Modal styles */
 .modal-overlay {
@@ -1355,7 +1498,7 @@ input[type="text"]:read-only {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-content {
@@ -1423,21 +1566,19 @@ input[type="text"]:read-only {
     width: 100%;
   }
 
-  .theme-toggle {
-    min-width: 30px;
-    min-height: 30px;
-    padding: 5px;
+  .fixed-controls {
+    bottom: 12px;
+    right: 12px;
+    gap: 6px;
   }
 
-  .theme-toggle svg {
-    width: 16px;
-    height: 16px;
+  .control-btn {
+    width: 32px;
+    height: 32px;
   }
 
-  .user-controls {
-    margin-left: auto;
-    padding-left: 8px;
-    border-left: 1px solid var(--color-divider, #e1e5e9);
+  .control-btn.language-toggle {
+    font-size: 10px;
   }
 }
 
@@ -1513,7 +1654,7 @@ input[type="text"]:read-only {
   font-size: 14px;
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 2500;
   animation: slideIn 0.3s ease;
 }
 
@@ -1727,69 +1868,6 @@ input[type="text"]:read-only {
 
 /* 移除了重复的状态指示器样式，现在在 TokenList.vue 中 */
 
-@media (max-width: 768px) {
-  .app-header {
-    padding: 16px 20px;
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
-  }
 
-  .header-left {
-    gap: 12px;
-    align-items: center;
-  }
-
-  .header-buttons {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .external-links-group {
-    gap: 6px;
-  }
-
-  .external-links-group .btn {
-    flex: 1;
-    min-width: 0;
-    font-size: 11px;
-    padding: 5px 10px;
-  }
-
-  .header-buttons .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .main-content {
-    padding: 20px 16px;
-  }
-
-  .header-content {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .title-section h2 {
-    font-size: 24px;
-  }
-
-  .title-section p {
-    font-size: 14px;
-  }
-
-  .list-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .status-toast {
-    left: 20px;
-    right: 20px;
-    top: auto;
-    bottom: 20px;
-  }
-}
 </style>
 

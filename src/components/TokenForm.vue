@@ -3,14 +3,14 @@
     <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>{{ isEditing ? '编辑Token' : '添加Token' }}</h2>
+          <h2>{{ isEditing ? $t('tokenForm.editTitle') : $t('tokenForm.addTitle') }}</h2>
           <button class="close-btn" @click="handleCancel">×</button>
         </div>
         
         <div class="modal-body">
           <form @submit.prevent="handleSubmit">
             <div class="form-group">
-              <label for="tenantUrl">租户URL *</label>
+              <label for="tenantUrl">{{ $t('tokenForm.tenantUrl') }} *</label>
               <input
                 id="tenantUrl"
                 v-model="formData.tenantUrl"
@@ -23,11 +23,11 @@
             </div>
 
             <div class="form-group">
-              <label for="accessToken">访问令牌 *</label>
+              <label for="accessToken">{{ $t('tokenForm.accessToken') }} *</label>
               <textarea
                 id="accessToken"
                 v-model="formData.accessToken"
-                placeholder="请输入访问令牌..."
+                :placeholder="$t('tokenForm.accessTokenPlaceholder')"
                 rows="3"
                 required
                 :disabled="isLoading"
@@ -36,7 +36,7 @@
             </div>
 
             <div class="form-group">
-              <label for="portalUrl">Portal URL (可选)</label>
+              <label for="portalUrl">{{ $t('tokenForm.portalUrl') }} ({{ $t('tokenForm.optional') }})</label>
               <input
                 id="portalUrl"
                 v-model="formData.portalUrl"
@@ -44,30 +44,30 @@
                 placeholder="https://portal.withorb.com/view?token=xxx"
                 :disabled="isLoading"
               >
-              <div class="help-text">用于查看账户余额和过期时间</div>
+              <div class="help-text">{{ $t('tokenForm.portalUrlHelp') }}</div>
               <div v-if="errors.portalUrl" class="error-message">{{ errors.portalUrl }}</div>
             </div>
 
             <div class="form-group">
-              <label for="emailNote">邮箱备注 (可选)</label>
+              <label for="emailNote">{{ $t('tokenForm.emailNote') }} ({{ $t('tokenForm.optional') }})</label>
               <input
                 id="emailNote"
                 v-model="formData.emailNote"
                 type="text"
-                placeholder="请输入邮箱相关备注"
+                :placeholder="$t('tokenForm.emailNotePlaceholder')"
                 :disabled="isLoading"
               >
-              <div class="help-text">用于记录与此Token相关的邮箱信息</div>
+              <div class="help-text">{{ $t('tokenForm.emailNoteHelp') }}</div>
               <div v-if="errors.emailNote" class="error-message">{{ errors.emailNote }}</div>
             </div>
 
             <div class="form-actions">
               <button type="button" @click="handleCancel" class="btn secondary" :disabled="isLoading">
-                取消
+                {{ $t('tokenForm.cancel') }}
               </button>
               <button type="submit" class="btn primary" :disabled="isLoading || !isFormValid">
                 <span v-if="isLoading" class="loading-spinner"></span>
-                {{ isLoading ? '保存中...' : (isEditing ? '更新' : '保存') }}
+                {{ isLoading ? $t('loading.saving') : (isEditing ? $t('tokenForm.update') : $t('tokenForm.save')) }}
               </button>
             </div>
           </form>
@@ -82,6 +82,9 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // Props
 const props = defineProps({
@@ -164,18 +167,18 @@ const validateForm = () => {
 
   // Validate tenant URL
   if (!formData.value.tenantUrl.trim()) {
-    errors.value.tenantUrl = '租户URL不能为空'
+    errors.value.tenantUrl = t('validation.tenantUrlRequired')
   } else {
     try {
       new URL(formData.value.tenantUrl)
     } catch {
-      errors.value.tenantUrl = '请输入有效的URL格式'
+      errors.value.tenantUrl = t('validation.invalidUrl')
     }
   }
 
   // Validate access token
   if (!formData.value.accessToken.trim()) {
-    errors.value.accessToken = '访问令牌不能为空'
+    errors.value.accessToken = t('validation.accessTokenRequired')
   }
 
   // Validate portal URL (optional)
@@ -183,7 +186,7 @@ const validateForm = () => {
     try {
       new URL(formData.value.portalUrl)
     } catch {
-      errors.value.portalUrl = '请输入有效的URL格式'
+      errors.value.portalUrl = t('validation.invalidUrl')
     }
   }
 
@@ -196,7 +199,7 @@ const handleSubmit = async () => {
   }
 
   isLoading.value = true
-  showStatus(isEditing.value ? '正在更新Token...' : '正在保存Token...', 'info')
+  showStatus(isEditing.value ? t('messages.updatingToken') : t('messages.savingToken'), 'info')
 
   try {
     const tokenData = {
@@ -212,17 +215,17 @@ const handleSubmit = async () => {
         id: props.token.id,
         ...tokenData
       })
-      showStatus('Token已更新到内存，请手动保存', 'success')
+      showStatus(t('messages.tokenUpdatedToMemory'), 'success')
     } else {
       // Add new token - 通知父组件添加到内存中的数据
       emit('add-token', tokenData)
-      showStatus('Token已添加到内存，请手动保存', 'success')
+      showStatus(t('messages.tokenAddedToMemory'), 'success')
     }
 
     emit('success')
     emit('close')
   } catch (error) {
-    showStatus(`${isEditing.value ? '更新' : '保存'}Token失败: ${error}`, 'error')
+    showStatus(`${isEditing.value ? t('messages.updateFailed') : t('messages.saveFailed')}: ${error}`, 'error')
   } finally {
     isLoading.value = false
   }
@@ -240,7 +243,7 @@ const handleCancel = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1100;
+  z-index: 2000;
 }
 
 .modal-overlay {

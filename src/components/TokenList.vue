@@ -4,7 +4,7 @@
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <div class="header-title">
-            <h2>已保存Token</h2>
+            <h2>{{ $t('tokenList.title') }}</h2>
             <div :class="['status-badge', storageStatusClass]">
               <span :class="['status-dot', storageStatusClass]"></span>
               <span class="status-text">{{ storageStatusText }}</span>
@@ -16,26 +16,26 @@
               <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
               </svg>
-              {{ isSaving ? '保存中...' : '保存' }}
+              {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
             </button>
             <!-- 数据库配置按钮 -->
             <button @click="showDatabaseConfig = true" class="btn info small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
               </svg>
-              数据库配置
+              {{ $t('tokenList.databaseConfig') }}
             </button>
             <button @click="$emit('add-token')" class="btn primary small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
-              添加
+              {{ $t('tokenList.addToken') }}
             </button>
             <button @click="handleRefresh" class="btn secondary small" :disabled="isRefreshing">
               <svg v-if="!isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
               </svg>
-              {{ isRefreshing ? '刷新中...' : '刷新' }}
+              {{ isRefreshing ? $t('loading.refreshing') : $t('tokenList.refresh') }}
             </button>
             <button class="close-btn" @click="handleClose">×</button>
           </div>
@@ -49,20 +49,20 @@
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
-            <h3>还没有保存的Token</h3>
-            <p>关闭此窗口，在主页面生成你的第一个Token</p>
+            <h3>{{ $t('tokenList.empty') }}</h3>
+            <p>{{ $t('tokenList.emptyDescription') }}</p>
           </div>
 
           <!-- Loading State -->
           <div v-if="isLoading" class="loading-state">
             <div class="spinner"></div>
-            <p>正在加载Token...</p>
+            <p>{{ $t('tokenList.loading') }}</p>
           </div>
 
           <!-- Token List -->
           <div v-if="tokens.length > 0" class="token-list">
             <div class="list-header">
-              <h3>Token列表 ({{ tokens.length }})</h3>
+              <h3>{{ $t('tokenList.listTitle', { count: tokens.length }) }}</h3>
             </div>
 
             <div class="token-grid">
@@ -99,8 +99,11 @@
 <script setup>
 import { ref, nextTick, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 import TokenCard from './TokenCard.vue'
 import DatabaseConfig from './DatabaseConfig.vue'
+
+const { t } = useI18n()
 
 // Props
 const props = defineProps({
@@ -135,8 +138,8 @@ const tokenCardRefs = ref({})
 
 // Computed properties for storage status display
 const storageStatusText = computed(() => {
-  const baseText = props.isDatabaseAvailable ? '双向存储' : '本地存储'
-  return props.hasUnsavedChanges ? `${baseText}-未保存` : baseText
+  const baseText = props.isDatabaseAvailable ? t('storage.dualStorage') : t('storage.localStorage')
+  return props.hasUnsavedChanges ? `${baseText}-${t('storage.unsaved')}` : baseText
 })
 
 const storageStatusClass = computed(() => {
@@ -168,7 +171,7 @@ const checkAllAccountStatus = async () => {
   })
 
   if (allTokens.length === 0) {
-    return { success: true, message: '没有可检查的 Token' }
+    return { success: true, message: t('messages.noTokensToCheck') }
   }
 
   try {
@@ -200,23 +203,23 @@ const checkAllAccountStatus = async () => {
     if (failureCount === 0) {
       return {
         success: true,
-        message: `账号状态检查完成 (${successCount}/${allTokens.length})`
+        message: t('messages.accountStatusCheckComplete', { success: successCount, total: allTokens.length })
       }
     } else if (successCount === 0) {
       return {
         success: false,
-        message: `账号状态检查失败 (${failureCount}/${allTokens.length})`
+        message: t('messages.accountStatusCheckFailed', { failed: failureCount, total: allTokens.length })
       }
     } else {
       return {
         success: true,
-        message: `账号状态部分检查成功 (${successCount}/${allTokens.length})`
+        message: t('messages.accountStatusCheckPartial', { success: successCount, total: allTokens.length })
       }
     }
   } catch (error) {
     return {
       success: false,
-      message: `检查账号状态时发生错误: ${error.message}`
+      message: `${t('messages.accountStatusCheckError')}: ${error.message}`
     }
   }
 }
@@ -225,7 +228,7 @@ const checkAllAccountStatus = async () => {
 const handleClose = () => {
   // 如果有未保存的更改，显示提示并阻止关闭
   if (props.hasUnsavedChanges) {
-    emit('copy-success', '检测到未保存的更改，请先保存后再关闭', 'error')
+    emit('copy-success', t('messages.unsavedChangesClose'), 'error')
     return
   }
 
@@ -237,7 +240,7 @@ const handleClose = () => {
 const handleRefresh = async () => {
   // 如果有未保存的更改，警告用户
   if (props.hasUnsavedChanges) {
-    emit('copy-success', '检测到未保存的更改，请先保存后再刷新', 'error')
+    emit('copy-success', t('messages.unsavedChangesRefresh'), 'error')
     return
   }
 
@@ -248,10 +251,10 @@ const handleRefresh = async () => {
   try {
     if (props.isDatabaseAvailable) {
       // 双向存储模式：执行双向同步
-      emit('copy-success', '正在执行双向同步...', 'info')
+      emit('copy-success', t('messages.bidirectionalSyncing'), 'info')
 
       const result = await invoke('bidirectional_sync_tokens')
-      emit('copy-success', '双向同步完成', 'success')
+      emit('copy-success', t('messages.bidirectionalSyncComplete'), 'success')
 
       // 刷新本地token列表显示
       emit('refresh', false) // 不显示成功消息，因为已经有同步完成的消息
@@ -265,14 +268,14 @@ const handleRefresh = async () => {
       // 处理检查结果
       if (statusResult[0].status === 'fulfilled') {
         if (!statusResult[0].value.success) {
-          emit('copy-success', `同步完成，但账号状态检查失败: ${statusResult[0].value.message}`, 'error')
+          emit('copy-success', `${t('messages.syncCompleteButStatusFailed')}: ${statusResult[0].value.message}`, 'error')
         }
       } else {
-        emit('copy-success', `同步完成，但账号状态检查失败: ${statusResult[0].reason}`, 'error')
+        emit('copy-success', `${t('messages.syncCompleteButStatusFailed')}: ${statusResult[0].reason}`, 'error')
       }
     } else {
       // 本地存储模式：使用原有逻辑
-      emit('copy-success', '正在刷新 Token 状态和 Portal 信息...', 'info')
+      emit('copy-success', t('messages.refreshingTokenStatus'), 'info')
 
       // 先刷新token列表
       emit('refresh')
@@ -288,14 +291,14 @@ const handleRefresh = async () => {
         const result = statusResult[0].value
         emit('copy-success', result.message, result.success ? 'success' : 'error')
       } else {
-        emit('copy-success', `账号状态检查失败: ${statusResult[0].reason}`, 'error')
+        emit('copy-success', `${t('messages.accountStatusCheckError')}: ${statusResult[0].reason}`, 'error')
       }
 
       emit('save')
     }
   } catch (error) {
     // 显示错误通知
-    emit('copy-success', `刷新失败: ${error.message}`, 'error')
+    emit('copy-success', `${t('messages.refreshFailed')}: ${error.message}`, 'error')
   } finally {
     isRefreshing.value = false
   }
@@ -309,7 +312,7 @@ const handleShowStatus = (message, type = 'info') => {
 }
 
 const handleDatabaseConfigSaved = async () => {
-  emit('copy-success', '数据库配置已保存，存储功能已更新', 'success')
+  emit('copy-success', t('messages.databaseConfigSaved'), 'success')
   // 通知父组件重新获取存储状态
   emit('storage-config-changed')
   // 自动执行刷新操作
@@ -317,7 +320,7 @@ const handleDatabaseConfigSaved = async () => {
 }
 
 const handleDatabaseConfigDeleted = () => {
-  emit('copy-success', '数据库配置已删除，已切换到仅本地存储', 'info')
+  emit('copy-success', t('messages.databaseConfigDeleted'), 'info')
   // 通知父组件重新获取存储状态
   emit('storage-config-changed')
 }
@@ -337,13 +340,13 @@ const handleSave = async () => {
 
       // 执行双向同步
       const result = await invoke('bidirectional_sync_tokens')
-      emit('copy-success', '双向同步保存完成', 'success')
+      emit('copy-success', t('messages.bidirectionalSyncSaveComplete'), 'success')
     } else {
       // 本地存储模式：只保存到本地文件
       emit('save')
     }
   } catch (error) {
-    emit('copy-success', `保存失败: ${error}`, 'error')
+    emit('copy-success', `${t('messages.saveFailed')}: ${error}`, 'error')
   } finally {
     isSaving.value = false
   }
@@ -370,7 +373,7 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-overlay {
@@ -391,10 +394,11 @@ defineExpose({
   border-radius: 12px;
   width: 100%;
   max-width: 900px;
-  height: 90vh; /* 固定高度，更大 */
+  height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  margin-top: -60px; /* 向上移动到红框位置 */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 移除旧的 modal-header 样式，使用新的样式 */
@@ -423,7 +427,7 @@ defineExpose({
 
 .modal-body {
   padding: 24px;
-  height: calc(90vh - 80px); /* 固定高度 */
+  flex: 1;
   overflow-y: auto;
 }
 

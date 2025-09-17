@@ -7,7 +7,7 @@
   >
     <div class="status-header">
       <div class="header-content">
-        <h3>存储状态</h3>
+        <h3>{{ $t('storage.status') }}</h3>
       </div>
     </div>
 
@@ -28,6 +28,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // Emits
 const emit = defineEmits(['show-status', 'storage-status-changed'])
@@ -40,17 +43,17 @@ const isSyncing = ref(false)
 
 // Computed properties
 const simpleStorageText = computed(() => {
-  if (!storageStatus.value) return '加载中...'
+  if (!storageStatus.value) return t('loading.loading')
 
   switch (storageStatus.value.storage_type) {
     case 'dual_storage':
-      return '双重存储'
+      return t('storage.dual')
     case 'local_only':
-      return '本地存储'
+      return t('storage.local')
     case 'postgresql':
-      return '数据库存储'
+      return t('storage.database')
     default:
-      return '未知'
+      return t('storage.unknown')
   }
 })
 
@@ -70,20 +73,20 @@ const storageTypeClass = computed(() => {
 })
 
 const syncHintText = computed(() => {
-  if (!storageStatus.value) return '加载中...'
+  if (!storageStatus.value) return t('loading.loading')
 
   if (storageStatus.value.is_database_available) {
-    return '点击同步数据'
+    return t('storage.syncData')
   } else {
-    return '点击检测数据库'
+    return t('storage.detectDatabase')
   }
 })
 
 const syncTooltip = computed(() => {
   if (!storageStatus.value?.is_database_available) {
-    return '点击检测数据库连接'
+    return t('storage.clickToDetect')
   }
-  return '点击执行双向同步'
+  return t('storage.clickToSync')
 })
 
 const canSync = computed(() => {
@@ -113,7 +116,7 @@ const refreshStatus = async () => {
     }
   } catch (error) {
     console.error('Failed to get storage status:', error)
-    emit('show-status', `获取存储状态失败: ${error}`, 'error')
+    emit('show-status', `${t('messages.getStorageStatusFailed')}: ${error}`, 'error')
   } finally {
     isRefreshing.value = false
   }
@@ -132,9 +135,9 @@ const handleSync = async () => {
     try {
       const result = await invoke('bidirectional_sync_tokens')
       lastSyncStatus.value = result
-      emit('show-status', '双向同步完成', 'success')
+      emit('show-status', t('messages.bidirectionalSyncComplete'), 'success')
     } catch (error) {
-      emit('show-status', `同步失败: ${error}`, 'error')
+      emit('show-status', `${t('messages.syncFailed')}: ${error}`, 'error')
     } finally {
       isSyncing.value = false
     }
@@ -142,9 +145,9 @@ const handleSync = async () => {
     // 本地存储模式：刷新存储状态
     await refreshStatus()
     if (storageStatus.value?.is_database_available) {
-      emit('show-status', '数据库连接检测成功，已切换到双重存储模式', 'success')
+      emit('show-status', t('messages.databaseDetected'), 'success')
     } else {
-      emit('show-status', '未检测到数据库连接，仍为本地存储模式', 'info')
+      emit('show-status', t('messages.databaseNotDetected'), 'info')
     }
   }
 }

@@ -3,76 +3,76 @@
     <div class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>数据库配置</h2>
+          <h2>{{ $t('databaseConfig.title') }}</h2>
           <button class="close-btn" @click="$emit('close')">×</button>
         </div>
         
         <div class="modal-body">
           <div class="config-form">
             <div class="form-group">
-              <label for="host">主机地址:</label>
+              <label for="host">{{ $t('databaseConfig.host') }}:</label>
               <input
                 id="host"
                 v-model="config.host"
                 type="text"
-                placeholder="localhost"
+                :placeholder="$t('databaseConfig.placeholders.host')"
                 :disabled="isLoading"
               >
             </div>
 
             <div class="form-group">
-              <label for="port">端口:</label>
+              <label for="port">{{ $t('databaseConfig.port') }}:</label>
               <input
                 id="port"
                 v-model.number="config.port"
                 type="number"
-                placeholder="5432"
+                :placeholder="$t('databaseConfig.placeholders.port')"
                 :disabled="isLoading"
               >
             </div>
 
             <div class="form-group">
-              <label for="database">数据库名:</label>
+              <label for="database">{{ $t('databaseConfig.database') }}:</label>
               <input
                 id="database"
                 v-model="config.database"
                 type="text"
-                placeholder="augment_tokens"
+                :placeholder="$t('databaseConfig.placeholders.database')"
                 :disabled="isLoading"
               >
             </div>
 
             <div class="form-group">
-              <label for="username">用户名:</label>
+              <label for="username">{{ $t('databaseConfig.username') }}:</label>
               <input
                 id="username"
                 v-model="config.username"
                 type="text"
-                placeholder="postgres"
+                :placeholder="$t('databaseConfig.placeholders.username')"
                 :disabled="isLoading"
               >
             </div>
 
             <div class="form-group">
-              <label for="password">密码:</label>
+              <label for="password">{{ $t('databaseConfig.password') }}:</label>
               <input
                 id="password"
                 v-model="config.password"
                 type="password"
-                placeholder="请输入数据库密码"
+                :placeholder="$t('databaseConfig.placeholders.password')"
                 :disabled="isLoading"
               >
             </div>
 
             <div class="form-group">
-              <label for="sslMode">SSL模式:</label>
+              <label for="sslMode">{{ $t('databaseConfig.sslMode') }}:</label>
               <select
                 id="sslMode"
                 v-model="config.sslMode"
                 :disabled="isLoading"
               >
-                <option value="require">Require (强制SSL)</option>
-                <option value="disable">Disable (禁用SSL)</option>
+                <option value="require">{{ $t('databaseConfig.sslModes.require') }}</option>
+                <option value="disable">{{ $t('databaseConfig.sslModes.disable') }}</option>
               </select>
             </div>
 
@@ -88,9 +88,9 @@
             <svg v-if="!isTesting" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            测试连接
+            {{ $t('databaseConfig.testConnection') }}
           </button>
-          
+
           <button
             @click="saveConfig"
             :class="['btn', 'primary', { loading: isSaving }]"
@@ -99,7 +99,7 @@
             <svg v-if="!isSaving" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
             </svg>
-            保存配置
+            {{ $t('databaseConfig.saveConfig') }}
           </button>
 
           <button
@@ -111,7 +111,7 @@
             <svg v-if="!isDeleting" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            删除配置
+            {{ $t('databaseConfig.deleteConfig') }}
           </button>
         </div>
       </div>
@@ -122,6 +122,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 
 // Props
 const props = defineProps({
@@ -133,6 +134,9 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['close', 'config-saved', 'config-deleted', 'show-status'])
+
+// i18n
+const { t } = useI18n()
 
 // Reactive data
 const config = ref({
@@ -204,11 +208,11 @@ const testConnection = async () => {
     })
 
     // 连接成功时发送toast通知
-    emit('show-status', '数据库连接测试成功！', 'success')
+    emit('show-status', t('databaseConfig.messages.testSuccess'), 'success')
     isConnectionTested.value = true
   } catch (error) {
     // 连接失败时发送toast通知
-    emit('show-status', `数据库连接测试失败: ${error}`, 'error')
+    emit('show-status', `${t('databaseConfig.messages.testFailed')}: ${error}`, 'error')
     isConnectionTested.value = false
   } finally {
     isTesting.value = false
@@ -228,18 +232,18 @@ const saveConfig = async () => {
       ssl_mode: config.value.sslMode
     })
     
-    emit('show-status', '数据库配置保存成功！', 'success')
+    emit('show-status', t('databaseConfig.messages.saveSuccess'), 'success')
     emit('config-saved')
     emit('close')
   } catch (error) {
-    emit('show-status', `保存配置失败: ${error}`, 'error')
+    emit('show-status', `${t('databaseConfig.messages.saveFailed')}: ${error}`, 'error')
   } finally {
     isSaving.value = false
   }
 }
 
 const deleteConfig = async () => {
-  if (!confirm('确定要删除数据库配置吗？这将禁用数据库存储功能。')) {
+  if (!confirm(t('databaseConfig.messages.confirmDelete'))) {
     return
   }
   
@@ -248,11 +252,11 @@ const deleteConfig = async () => {
   try {
     await invoke('delete_database_config')
     
-    emit('show-status', '数据库配置已删除', 'success')
+    emit('show-status', t('databaseConfig.messages.deleteSuccess'), 'success')
     emit('config-deleted')
     emit('close')
   } catch (error) {
-    emit('show-status', `删除配置失败: ${error}`, 'error')
+    emit('show-status', `${t('databaseConfig.messages.deleteFailed')}: ${error}`, 'error')
   } finally {
     isDeleting.value = false
   }
@@ -289,7 +293,7 @@ onMounted(() => {
   background: var(--color-surface, #ffffff);
   border-radius: 12px;
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
@@ -407,7 +411,7 @@ onMounted(() => {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 16px;
   padding: 20px 24px;
   border-top: 1px solid var(--color-border, #e5e7eb);
   background: var(--color-surface-alt, #f9fafb);
@@ -416,7 +420,7 @@ onMounted(() => {
 }
 
 .btn {
-  padding: 10px 16px;
+  padding: 10px 20px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -465,16 +469,17 @@ onMounted(() => {
   pointer-events: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .modal-content {
     width: 95%;
     margin: 20px;
   }
-  
+
   .modal-footer {
     flex-direction: column;
+    gap: 12px;
   }
-  
+
   .btn {
     width: 100%;
     justify-content: center;

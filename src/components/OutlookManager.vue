@@ -2,28 +2,28 @@
   <div class="modal-overlay">
     <div class="modal-content outlook-manager" @click.stop>
       <div class="modal-header">
-        <h3>Outlook 邮箱管理</h3>
+        <h3>{{ $t('outlookManager.title') }}</h3>
         <button @click="$emit('close')" class="close-btn">×</button>
       </div>
 
       <div class="modal-body">
         <!-- 添加邮箱表单 -->
         <div class="add-account-section">
-          <h4>添加邮箱账户</h4>
+          <h4>{{ $t('outlookManager.addAccount') }}</h4>
           <div class="session-notice">
             <span class="notice-icon">ℹ️</span>
-            账户信息仅在当前会话中有效，关闭应用后需要重新添加
+            {{ $t('outlookManager.sessionNotice') }}
           </div>
           <div class="form-group">
-            <label>账户信息:</label>
+            <label>{{ $t('outlookManager.accountInfo') }}:</label>
             <input
               v-model="accountInput"
               type="text"
-              placeholder="邮箱地址----密码----Refresh Token----Client ID"
+              :placeholder="$t('outlookManager.placeholder')"
               class="form-input"
             >
             <div class="input-hint">
-              请按格式输入：邮箱地址----密码----Refresh Token----Client ID
+              {{ $t('outlookManager.inputHint') }}
             </div>
           </div>
           <div class="form-actions">
@@ -32,7 +32,7 @@
               :disabled="!canAddAccount || isAdding"
               :class="['btn', 'primary', { loading: isAdding }]"
             >
-              {{ isAdding ? '添加中...' : '添加账户' }}
+              {{ isAdding ? $t('outlookManager.status.checking') : $t('outlookManager.addAccountBtn') }}
             </button>
           </div>
         </div>
@@ -40,25 +40,25 @@
         <!-- 账户列表 -->
         <div class="accounts-section">
           <div class="section-header">
-            <h4>当前会话账户 ({{ accounts.length }})</h4>
+            <h4>{{ $t('outlookManager.accountList') }} ({{ accounts.length }})</h4>
             <button
               @click="refreshAccounts"
               :disabled="isLoading"
               class="btn secondary small"
             >
-              刷新
+              {{ $t('outlookManager.checkStatus') }}
             </button>
 
           </div>
 
           <div v-if="isLoading" class="loading-state">
             <div class="spinner"></div>
-            <p>加载账户中...</p>
+            <p>{{ $t('outlookManager.status.checking') }}</p>
           </div>
 
           <div v-else-if="accounts.length === 0" class="empty-state">
-            <p>当前会话中暂无邮箱账户</p>
-            <p class="empty-hint">添加账户后即可开始使用邮件功能</p>
+            <p>{{ $t('outlookManager.emptyState') }}</p>
+            <p class="empty-hint">{{ $t('outlookManager.emptyDescription') }}</p>
           </div>
 
           <div v-else class="accounts-list">
@@ -83,20 +83,20 @@
                   @click="viewEmails(account.email)"
                   class="btn primary small"
                 >
-                  查看邮件
+                  {{ $t('outlookManager.viewEmails') }}
                 </button>
                 <button
                   @click="checkStatus(account.email)"
                   :disabled="isCheckingStatus"
                   class="btn secondary small"
                 >
-                  检查状态
+                  {{ $t('outlookManager.checkStatus') }}
                 </button>
                 <button
                   @click="deleteAccount(account.email)"
                   class="btn danger small"
                 >
-                  移除
+                  {{ $t('outlookManager.deleteAccount') }}
                 </button>
               </div>
             </div>
@@ -117,9 +117,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
 import EmailViewer from './EmailViewer.vue'
 
 const emit = defineEmits(['close', 'show-status'])
+
+// i18n
+const { t } = useI18n()
 
 // 响应式数据
 const accounts = ref([])
@@ -167,7 +171,7 @@ const addAccount = async () => {
     const [email, password, refreshToken, clientId] = parts.map(part => part.trim())
 
     if (!email || !password || !refreshToken || !clientId) {
-      throw new Error('邮箱、密码、Refresh Token 和 Client ID 都不能为空')
+      throw new Error(t('outlookManager.messages.invalidFormat'))
     }
 
     // 回退到IMAP版本（Graph API需要不同的权限）
@@ -182,9 +186,9 @@ const addAccount = async () => {
 
     // 刷新账户列表
     await refreshAccounts()
-    showStatus('账户添加成功', 'success')
+    showStatus(t('outlookManager.messages.addSuccess'), 'success')
   } catch (error) {
-    showStatus(`添加失败: ${error}`, 'error')
+    showStatus(`${t('outlookManager.messages.addSuccess')}: ${error}`, 'error')
   } finally {
     isAdding.value = false
   }
@@ -200,12 +204,12 @@ const deleteAccount = async (email) => {
     if (deleted) {
       await refreshAccounts()
       delete accountStatuses.value[email]
-      showStatus('账户已从当前会话中移除', 'success')
+      showStatus(t('outlookManager.messages.deleteSuccess'), 'success')
     } else {
-      showStatus('账户不存在', 'warning')
+      showStatus(t('outlookManager.messages.invalidFormat'), 'warning')
     }
   } catch (error) {
-    showStatus(`移除失败: ${error}`, 'error')
+    showStatus(`${t('outlookManager.messages.deleteSuccess')}: ${error}`, 'error')
   }
 }
 
@@ -217,7 +221,7 @@ const checkStatus = async (email) => {
     showStatus(`${email} 状态: ${status.status}`, 'info')
   } catch (error) {
     accountStatuses.value[email] = 'error'
-    showStatus(`状态检查失败: ${error}`, 'error')
+    showStatus(`${t('outlookManager.messages.statusCheckFailed')}: ${error}`, 'error')
   } finally {
     isCheckingStatus.value = false
   }
@@ -243,10 +247,10 @@ const getStatusClass = (email) => {
 const getStatusText = (email) => {
   const status = accountStatuses.value[email]
   switch (status) {
-    case 'active': return '活跃'
-    case 'inactive': return '非活跃'
-    case 'error': return '错误'
-    default: return '未知'
+    case 'active': return t('outlookManager.status.online')
+    case 'inactive': return t('outlookManager.status.offline')
+    case 'error': return t('outlookManager.status.error')
+    default: return t('outlookManager.status.checking')
   }
 }
 
@@ -279,7 +283,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-content {

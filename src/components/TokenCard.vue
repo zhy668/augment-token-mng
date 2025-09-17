@@ -8,7 +8,7 @@
       </span>
       <!-- Portal状态作为备选 -->
       <span v-else-if="token.portal_url && portalInfo.data" :class="['status-badge', portalInfo.data.is_active ? 'active' : 'inactive']">
-        {{ portalInfo.data.is_active ? '正常' : '失效' }}
+        {{ portalInfo.data.is_active ? $t('tokenCard.active') : $t('tokenCard.inactive') }}
       </span>
     </div>
 
@@ -31,7 +31,7 @@
                 </svg>
                 {{ isEmailHovered ? token.email_note : maskedEmail }}
               </span>
-              <button @click="copyEmailNote" class="copy-email-btn" title="复制邮箱备注">
+              <button @click="copyEmailNote" class="copy-email-btn" :title="$t('tokenCard.copyEmailNote')">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                 </svg>
@@ -43,23 +43,23 @@
             <div class="meta-row portal-row">
               <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
-                <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">过期: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
+                <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">{{ $t('tokenCard.expiry') }}: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
                 <span :class="['portal-meta', 'balance', { 'exhausted': portalInfo.data.credits_balance === 0 && !hasUnlimitedUsage }]">
                   <template v-if="portalInfo.data.credits_balance === 0">
                     <template v-if="hasUnlimitedUsage">
-                      还能使用
+                      {{ $t('tokenCard.canUse') }}
                     </template>
                     <template v-else>
-                      使用次数耗尽
+                      {{ $t('tokenCard.exhausted') }}
                     </template>
                   </template>
                   <template v-else>
-                    剩余: {{ portalInfo.data.credits_balance }}
+                    {{ $t('tokenCard.balance') }}: {{ portalInfo.data.credits_balance }}
                   </template>
                 </span>
               </template>
               <!-- 如果没有数据且正在加载，显示加载状态 -->
-              <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">加载中...</span>
+              <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">{{ $t('loading.loading') }}</span>
               <!-- 不显示错误信息，静默处理所有错误 -->
             </div>
           </template>
@@ -67,36 +67,36 @@
       </div>
 
       <div class="actions">
-        <button @click="openEditorModal" class="btn-action vscode" title="选择编辑器">
-          <img :src="editorIcons.vscode" alt="选择编辑器" width="18" height="18" />
+        <button @click="openEditorModal" class="btn-action vscode" :title="$t('tokenCard.selectEditor')">
+          <img :src="editorIcons.vscode" :alt="$t('tokenCard.selectEditor')" width="18" height="18" />
         </button>
-        <button @click="copyToken" class="btn-action" title="复制Token">
+        <button @click="copyToken" class="btn-action" :title="$t('tokenCard.copyToken')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
           </svg>
         </button>
-        <button @click="copyTenantUrl" class="btn-action" title="复制租户URL">
+        <button @click="copyTenantUrl" class="btn-action" :title="$t('tokenCard.copyTenantUrl')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
         </button>
-        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" title="检测账号状态">
+        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" :title="$t('tokenCard.checkAccountStatus')">
           <svg v-if="!isCheckingStatus" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
           <div v-else class="loading-spinner"></div>
         </button>
-        <button v-if="token.portal_url" @click="$emit('open-portal', token)" class="btn-action portal" title="打开Portal">
+        <button v-if="token.portal_url" @click="$emit('open-portal', token)" class="btn-action portal" :title="$t('tokenCard.openPortal')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
           </svg>
         </button>
-        <button @click="$emit('edit', token)" class="btn-action edit" title="编辑Token">
+        <button @click="$emit('edit', token)" class="btn-action edit" :title="$t('tokenCard.editToken')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
           </svg>
         </button>
-        <button @click="deleteToken" class="btn-action delete" title="删除Token">
+        <button @click="deleteToken" class="btn-action delete" :title="$t('tokenCard.deleteToken')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
           </svg>
@@ -111,7 +111,7 @@
       <div v-if="showEditorModal" class="editor-modal-overlay">
         <div class="editor-modal" @click.stop>
           <div class="modal-header">
-            <h3>选择编辑器</h3>
+            <h3>{{ $t('tokenCard.selectEditor') }}</h3>
             <button @click.stop="showEditorModal = false" class="modal-close">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -300,6 +300,9 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 防抖函数
 function debounce(func, wait) {
@@ -419,13 +422,13 @@ const getStatusClass = (status) => {
 const getStatusText = (status) => {
   switch (status) {
     case 'SUSPENDED':
-      return '已封禁'
+      return t('tokenCard.banned')
     case 'INVALID_TOKEN':
-      return 'Token失效'
+      return t('tokenCard.tokenInvalid')
     case 'ACTIVE':
-      return '正常'
+      return t('tokenCard.active')
     default:
-      return '正常'
+      return t('tokenCard.active')
   }
 }
 
@@ -475,9 +478,9 @@ const copyToClipboard = async (text) => {
 const copyToken = async () => {
   const success = await copyToClipboard(props.token.access_token)
   if (success) {
-    emit('copy-success', 'Token已复制到剪贴板!', 'success')
+    emit('copy-success', t('messages.tokenCopied'), 'success')
   } else {
-    emit('copy-success', '复制Token失败', 'error')
+    emit('copy-success', t('messages.copyTokenFailed'), 'error')
   }
 }
 
@@ -485,9 +488,9 @@ const copyToken = async () => {
 const copyTenantUrl = async () => {
   const success = await copyToClipboard(props.token.tenant_url)
   if (success) {
-    emit('copy-success', '租户URL已复制到剪贴板!', 'success')
+    emit('copy-success', t('messages.tenantUrlCopied'), 'success')
   } else {
-    emit('copy-success', '复制租户URL失败', 'error')
+    emit('copy-success', t('messages.copyTenantUrlFailed'), 'error')
   }
 }
 
@@ -495,9 +498,9 @@ const copyTenantUrl = async () => {
 const copyEmailNote = async () => {
   const success = await copyToClipboard(props.token.email_note)
   if (success) {
-    emit('copy-success', '邮箱备注已复制到剪贴板!', 'success')
+    emit('copy-success', t('messages.emailNoteCopied'), 'success')
   } else {
-    emit('copy-success', '复制邮箱备注失败', 'error')
+    emit('copy-success', t('messages.copyEmailNoteFailed'), 'error')
   }
 }
 
@@ -715,9 +718,9 @@ const handleEditorClick = async (editorType) => {
       const result = await createJetBrainsTokenFile(editorType)
 
       if (result.success) {
-        emit('copy-success', `${editorName} Token 文件已创建`, 'success')
+        emit('copy-success', t('messages.editorTokenFileCreated', { editor: editorName }), 'success')
       } else {
-        emit('copy-success', `创建 ${editorName} Token 文件失败: ${result.error}`, 'error')
+        emit('copy-success', t('messages.createEditorTokenFileFailed', { editor: editorName, error: result.error }), 'error')
       }
     } else {
       // VSCode 系编辑器使用原有的协议 URL 方式
@@ -754,11 +757,11 @@ const handleEditorClick = async (editorType) => {
 
       // 使用 Tauri 命令打开编辑器
       await invoke('open_editor_with_protocol', { protocolUrl })
-      emit('copy-success', `正在打开 ${editorName}...`, 'success')
+      emit('copy-success', t('messages.openingEditor', { editor: editorName }), 'success')
     }
   } catch (error) {
     console.error('Failed to handle editor click:', error)
-    emit('copy-success', '操作失败', 'error')
+    emit('copy-success', t('messages.operationFailed'), 'error')
     showEditorModal.value = false
     isModalClosing.value = false
   }
@@ -997,24 +1000,24 @@ const checkAccountStatus = async () => {
       // 根据具体状态设置消息
       switch (banStatus) {
         case 'SUSPENDED':
-          statusMessage = '账号已封禁'
+          statusMessage = t('messages.accountBanned')
           statusType = 'error'
           break
         case 'INVALID_TOKEN':
-          statusMessage = 'Token失效'
+          statusMessage = t('messages.tokenInvalid')
           statusType = 'warning'
           break
         case 'ACTIVE':
-          statusMessage = '账号状态正常'
+          statusMessage = t('messages.accountStatusNormal')
           statusType = 'success'
           break
         default:
-          statusMessage = `账号状态: ${banStatus}`
+          statusMessage = `${t('messages.accountStatus')}: ${banStatus}`
           statusType = 'info'
       }
     } else {
       console.error('Account status check failed:', statusResult.reason)
-      statusMessage = `状态检测失败: ${statusResult.reason}`
+      statusMessage = `${t('messages.statusCheckFailed')}: ${statusResult.reason}`
       statusType = 'error'
     }
 
@@ -1029,12 +1032,12 @@ const checkAccountStatus = async () => {
     }
 
     // 发送账号状态消息（不包含次数信息）
-    const finalMessage = `检测完成：${statusMessage}`
+    const finalMessage = `${t('messages.checkComplete')}: ${statusMessage}`
     emit('copy-success', finalMessage, statusType)
 
   } catch (error) {
     console.error('Account status check failed:', error)
-    emit('copy-success', `检测失败: ${error}`, 'error')
+    emit('copy-success', `${t('messages.checkFailed')}: ${error}`, 'error')
   } finally {
     isCheckingStatus.value = false
     isLoadingPortalInfo.value = false
@@ -1432,7 +1435,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 2100;
   backdrop-filter: blur(2px);
   pointer-events: auto;
 }

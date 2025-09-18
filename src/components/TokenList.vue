@@ -356,7 +356,8 @@ const handleSave = async () => {
 onMounted(async () => {
   // 如果有未保存的更改，不要重新加载文件数据，避免覆盖内存中的新token
   if (!props.hasUnsavedChanges) {
-    emit('refresh', true) // 传递 true 表示显示成功消息
+    // emit('refresh', true) // 传递 true 表示显示成功消息
+    await handleRefresh()
   }
 })
 

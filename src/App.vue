@@ -669,35 +669,36 @@ const deleteToken = (tokenId) => {
 const confirmDelete = async () => {
   if (!tokenToDelete.value) return
 
+  const tokenIdToDelete = tokenToDelete.value
+
+  // 立即关闭对话框，提升用户体验
+  showDeleteConfirm.value = false
+  tokenToDelete.value = null
+
   try {
     // 先从内存中删除 token
-    const tokenIndex = tokens.value.findIndex(token => token.id === tokenToDelete.value)
+    const tokenIndex = tokens.value.findIndex(token => token.id === tokenIdToDelete)
     if (tokenIndex === -1) {
       showStatus(t('messages.tokenNotFound'), 'error')
-      showDeleteConfirm.value = false
-      tokenToDelete.value = null
       return
     }
 
     // 从内存中删除
-    tokens.value = tokens.value.filter(token => token.id !== tokenToDelete.value)
+    tokens.value = tokens.value.filter(token => token.id !== tokenIdToDelete)
 
-    // 尝试从后端存储删除（如果Token已保存的话）
-    try {
-      await invoke('delete_token', { tokenId: tokenToDelete.value })
-    } catch (error) {
-      // 如果后端删除失败（比如Token未保存），不影响前端删除操作
-      console.log('Backend delete failed (token may not be saved):', error)
-    }
-
+    // 立即显示删除成功消息
     showStatus(t('messages.tokenDeleted'), 'success')
     hasUnsavedChanges.value = true // 标记有未保存的更改
+
+    // 异步执行后端删除操作（不阻塞UI）
+    invoke('delete_token', { tokenId: tokenIdToDelete }).catch(error => {
+      // 如果后端删除失败，记录错误但不影响前端删除操作
+      console.log('Backend delete failed (token may not be saved):', error)
+    })
+
   } catch (error) {
     showStatus(`${t('messages.deleteFailed')}: ${error}`, 'error')
   }
-
-  showDeleteConfirm.value = false
-  tokenToDelete.value = null
 }
 
 
@@ -1037,7 +1038,7 @@ onMounted(async () => {
   // 首先获取存储状态
   await getInitialStorageStatus()
   // 然后加载tokens
-  await loadTokens()
+  // await loadTokens()
 
   // 添加点击外部区域关闭设置菜单的事件监听器
   document.addEventListener('click', handleClickOutside)

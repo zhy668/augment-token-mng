@@ -11,48 +11,40 @@
             </div>
           </div>
           <div class="header-actions">
-            <!-- 主要操作按钮组 -->
-            <div class="action-group primary-actions">
-              <button @click="$emit('add-token')" class="btn primary small">
+            <!-- 紧凑按钮组 -->
+            <div class="compact-actions">
+              <button @click="$emit('add-token')" class="btn primary compact">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                 </svg>
                 {{ $t('tokenList.addToken') }}
               </button>
-              <button @click="handleSave" class="btn success small" :disabled="isSaving">
+              <button @click="handleSave" class="btn success compact" :disabled="isSaving">
                 <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
                 </svg>
                 {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
               </button>
-            </div>
-
-            <!-- 工具按钮组 -->
-            <div class="action-group tool-actions">
-              <button @click="exportTokens" :disabled="tokens.length === 0" class="btn export small">
+              <button @click="exportTokens" :disabled="tokens.length === 0" class="btn export compact">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                 </svg>
                 {{ $t('tokenList.exportTokens') }}
               </button>
-              <button @click="handleRefresh" class="btn secondary small" :disabled="isRefreshing">
+              <button @click="handleRefresh" class="btn secondary compact" :disabled="isRefreshing">
                 <svg v-if="!isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                 </svg>
                 {{ isRefreshing ? $t('loading.refreshing') : $t('tokenList.refresh') }}
               </button>
-            </div>
-
-            <!-- 配置按钮组 -->
-            <div class="action-group config-actions">
-              <button @click="showDatabaseConfig = true" class="btn info small">
+              <button @click="showDatabaseConfig = true" class="btn info compact">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
                 </svg>
                 {{ $t('tokenList.databaseConfig') }}
               </button>
-              <button class="close-btn" @click="handleClose">×</button>
             </div>
+            <button class="close-btn" @click="handleClose">×</button>
           </div>
         </div>
         
@@ -552,13 +544,14 @@ defineExpose({
   }
 
   .header-actions {
-    gap: 8px;
-    flex-direction: column;
-    align-items: stretch;
+    gap: 6px;
+    justify-content: center;
   }
 
-  .action-group {
-    gap: 6px;
+  .compact-actions {
+    gap: 3px;
+    padding: 3px;
+    flex-wrap: wrap;
   }
 
   .header-title {
@@ -715,6 +708,20 @@ defineExpose({
   height: 32px;
 }
 
+.btn.compact {
+  padding: 4px 8px;
+  font-size: 11px;
+  height: 28px;
+  border-radius: 4px;
+  font-weight: 500;
+  min-width: auto;
+}
+
+.btn.compact svg {
+  width: 12px;
+  height: 12px;
+}
+
 /* Header layout */
 .modal-header {
   display: flex;
@@ -731,7 +738,7 @@ defineExpose({
   align-items: center;
   gap: 16px;
   flex: 1;
-  margin-right: 20px;
+  margin-right: 8px;
 }
 
 .header-title h2 {
@@ -745,27 +752,20 @@ defineExpose({
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 8px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
-.action-group {
+.compact-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.action-group.primary-actions {
-  gap: 10px;
-}
-
-.action-group.tool-actions {
-  gap: 8px;
-}
-
-.action-group.config-actions {
-  gap: 12px;
+  gap: 4px;
+  background: var(--color-surface-hover, #f8f9fa);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid var(--color-border, #e5e7eb);
 }
 
 

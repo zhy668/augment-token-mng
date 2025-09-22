@@ -610,7 +610,39 @@ const createEmail = async () => {
 // 删除邮箱
 const deleteEmail = async (email) => {
   try {
-    // 从本地列表中移除
+    showStatus(t('emailHelper.deletingEmail'), 'info')
+
+    // 如果有Token，先尝试删除云端邮箱
+    if (config.value.token) {
+      try {
+        const response = await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(email)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': config.value.token
+          }
+        })
+
+        const result = await response.json()
+        if (result.code !== 200) {
+          // 云端删除失败，询问用户是否继续删除本地记录
+          const confirmDelete = confirm(`${t('emailHelper.cloudDeleteFailed')}: ${result.message}\n\n${t('emailHelper.confirmDeleteLocal')}`)
+          if (!confirmDelete) {
+            showStatus(t('emailHelper.deleteAborted'), 'info')
+            return
+          }
+        }
+      } catch (error) {
+        // 网络错误或其他异常，询问用户是否继续删除本地记录
+        const confirmDelete = confirm(`${t('emailHelper.cloudDeleteError')}: ${error.message}\n\n${t('emailHelper.confirmDeleteLocal')}`)
+        if (!confirmDelete) {
+          showStatus(t('emailHelper.deleteAborted'), 'info')
+          return
+        }
+      }
+    }
+
+    // 云端删除成功或用户确认删除本地记录，从本地列表中移除
     const originalLength = emails.value.length
     emails.value = emails.value.filter(emailInfo => emailInfo.email !== email)
 
@@ -622,29 +654,13 @@ const deleteEmail = async (email) => {
         stopMonitoring()
       }
 
-      // 同时通过API删除云端用户
       if (config.value.token) {
-        try {
-          const response = await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(email)}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': config.value.token
-            }
-          })
-
-          const result = await response.json()
-          if (result.code === 200) {
-            showStatus(t('emailHelper.deleteSuccess'), 'success')
-          } else {
-            showStatus(`${t('emailHelper.deleteLocalSuccess')}: ${result.message}`, 'warning')
-          }
-        } catch (error) {
-          showStatus(t('emailHelper.deleteLocalSuccess'), 'warning')
-        }
+        showStatus(t('emailHelper.deleteSuccess'), 'success')
       } else {
         showStatus(t('emailHelper.deleteLocalSuccess'), 'success')
       }
+    } else {
+      showStatus(t('emailHelper.emailNotFound'), 'warning')
     }
   } catch (error) {
     showStatus(`${t('emailHelper.deleteFailed')}: ${error.message}`, 'error')
@@ -663,21 +679,40 @@ const clearAllEmails = async () => {
     // 停止监控
     stopMonitoring()
 
+    let cloudDeleteErrors = []
+
     // 如果有Token，批量删除云端用户
     if (config.value.token) {
       showStatus(`${t('emailHelper.deletingEmails')}: ${totalEmails}`, 'info')
 
       for (const emailInfo of emails.value) {
         try {
-          await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(emailInfo.email)}`, {
+          const response = await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(emailInfo.email)}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': config.value.token
             }
           })
+
+          const result = await response.json()
+          if (result.code !== 200) {
+            cloudDeleteErrors.push(`${emailInfo.email}: ${result.message}`)
+            console.error('Failed to delete email from server:', emailInfo.email, result.message)
+          }
         } catch (error) {
+          cloudDeleteErrors.push(`${emailInfo.email}: ${error.message}`)
           console.error('Failed to delete email from server:', emailInfo.email, error)
+        }
+      }
+
+      // 如果有云端删除失败的邮箱，询问用户是否继续
+      if (cloudDeleteErrors.length > 0) {
+        const errorMessage = `${t('emailHelper.someCloudDeletesFailed')}:\n${cloudDeleteErrors.slice(0, 3).join('\n')}${cloudDeleteErrors.length > 3 ? `\n...${t('emailHelper.andMore', { count: cloudDeleteErrors.length - 3 })}` : ''}\n\n${t('emailHelper.confirmClearLocal')}`
+
+        if (!confirm(errorMessage)) {
+          showStatus(t('emailHelper.clearAllAborted'), 'info')
+          return
         }
       }
     }
@@ -686,7 +721,11 @@ const clearAllEmails = async () => {
     emails.value = []
     saveEmailsList()
 
-    showStatus(t('emailHelper.clearAllSuccess'), 'success')
+    if (cloudDeleteErrors.length > 0) {
+      showStatus(`${t('emailHelper.clearAllPartialSuccess')} (${cloudDeleteErrors.length}/${totalEmails} ${t('emailHelper.cloudDeletesFailed')})`, 'warning')
+    } else {
+      showStatus(t('emailHelper.clearAllSuccess'), 'success')
+    }
   } catch (error) {
     showStatus(`${t('emailHelper.clearAllFailed')}: ${error.message}`, 'error')
   }

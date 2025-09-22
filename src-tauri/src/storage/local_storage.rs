@@ -23,6 +23,7 @@ impl LocalFileStorage {
         })
     }
 
+    #[allow(dead_code)]
     pub fn new_with_path(storage_path: PathBuf) -> Self {
         Self {
             storage_path,

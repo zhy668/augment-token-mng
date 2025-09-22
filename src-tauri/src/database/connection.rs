@@ -1,5 +1,5 @@
 use deadpool_postgres::{Config, Pool, Runtime};
-use tokio_postgres::{NoTls, Error as PgError};
+use tokio_postgres::NoTls;
 use tokio_postgres_rustls::MakeRustlsConnect;
 use rustls::{ClientConfig, RootCertStore};
 use std::sync::Arc;
@@ -83,6 +83,7 @@ impl DatabaseManager {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn close(&mut self) {
         if let Some(pool) = self.pool.take() {
             // deadpool会自动处理连接的关闭

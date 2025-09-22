@@ -21,6 +21,7 @@ impl DualStorage {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_prefer_database(&mut self, prefer: bool) {
         self.prefer_database = prefer;
     }

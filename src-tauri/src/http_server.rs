@@ -5,16 +5,20 @@ use warp::Filter;
 
 #[derive(Debug, Clone)]
 pub struct CallbackResult {
+    #[allow(dead_code)]
     pub code: String,
+    #[allow(dead_code)]
     pub state: String,
 }
 
 pub struct HttpServer {
     shutdown_tx: Option<oneshot::Sender<()>>,
+    #[allow(dead_code)]
     result_receiver: Arc<Mutex<Option<oneshot::Receiver<Result<CallbackResult, String>>>>>,
 }
 
 impl HttpServer {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             shutdown_tx: None,
@@ -22,6 +26,7 @@ impl HttpServer {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn start_and_wait_for_callback(&mut self) -> Result<CallbackResult, String> {
         let (result_tx, result_rx) = oneshot::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();

@@ -301,7 +301,7 @@ const handleRefresh = async () => {
         emit('copy-success', `${t('messages.accountStatusCheckError')}: ${statusResult[0].reason}`, 'error')
       }
 
-      emit('save')
+      // 刷新操作不应该触发保存，移除 emit('save')
     }
   } catch (error) {
     // 显示错误通知

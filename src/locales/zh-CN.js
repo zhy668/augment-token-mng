@@ -343,7 +343,7 @@ export default {
     unsavedChangesClose: '检测到未保存的更改，请先保存后再关闭',
     unsavedChangesRefresh: '检测到未保存的更改，请先保存后再刷新',
     bidirectionalSyncing: '正在执行双向同步...',
-    bidirectionalSyncComplete: '双向同步完成',
+    bidirectionalSyncComplete: '双向同步刷新完成',
     syncCompleteButStatusFailed: '同步完成，但账号状态检查失败',
     refreshingTokenStatus: '正在刷新 Token 状态和 Portal 信息...',
     refreshFailed: '刷新失败',

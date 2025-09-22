@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::Utc;
 use imap::Session;
 use native_tls::TlsStream;
 use std::net::TcpStream;
@@ -80,7 +79,9 @@ pub struct AccountInfo {
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
+    #[allow(dead_code)]
     token_type: String,
+    #[allow(dead_code)]
     expires_in: i64,
 }
 
@@ -164,6 +165,7 @@ impl OutlookManager {
     }
 
     // 验证账户状态
+    #[allow(dead_code)]
     pub async fn check_account_status(&self, email: &str) -> Result<AccountStatus, String> {
         let credentials = self.get_credentials(email)?;
         self.check_account_status_with_credentials(&credentials).await
@@ -212,6 +214,7 @@ impl OutlookManager {
     }
 
     // 获取邮件详情
+    #[allow(dead_code)]
     pub async fn get_email_details(&self, email: &str, message_id: &str) -> Result<EmailDetailsResponse, String> {
         let credentials = self.get_credentials(email)?;
         self.get_email_details_with_credentials(&credentials, message_id).await
@@ -293,6 +296,7 @@ impl OutlookManager {
     }
 
     // 获取邮件列表
+    #[allow(dead_code)]
     pub async fn get_emails(&self, email: &str, folder: &str, page: i32, page_size: i32) -> Result<EmailListResponse, String> {
         let credentials = self.get_credentials(email)?;
         self.get_emails_with_credentials(&credentials, folder, page, page_size).await
@@ -524,7 +528,7 @@ impl OutlookManager {
     fn extract_part_content(part: &str) -> Option<String> {
         let lines: Vec<&str> = part.lines().collect();
         let mut content_start = 0;
-        let mut in_headers = true;
+        let in_headers = true;
 
         // 找到空行，表示头部结束
         for (i, line) in lines.iter().enumerate() {

@@ -343,7 +343,7 @@ export default {
     unsavedChangesClose: 'Unsaved changes detected, please save before closing',
     unsavedChangesRefresh: 'Unsaved changes detected, please save before refreshing',
     bidirectionalSyncing: 'Performing bidirectional sync...',
-    bidirectionalSyncComplete: 'Bidirectional sync complete',
+    bidirectionalSyncComplete: 'Bidirectional sync refresh complete',
     syncCompleteButStatusFailed: 'Sync complete, but account status check failed',
     refreshingTokenStatus: 'Refreshing token status and portal information...',
     refreshFailed: 'Refresh failed',

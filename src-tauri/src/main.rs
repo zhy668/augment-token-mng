@@ -22,6 +22,7 @@ use chrono;
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
+    #[allow(dead_code)]
     http_server: Mutex<Option<HttpServer>>,
     outlook_manager: Mutex<OutlookManager>,
     storage_manager: Arc<Mutex<Option<Arc<DualStorage>>>>,

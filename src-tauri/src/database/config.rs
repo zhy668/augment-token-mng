@@ -50,6 +50,7 @@ impl Default for DatabaseConfig {
 }
 
 impl DatabaseConfig {
+    #[allow(dead_code)]
     pub fn new(host: String, port: u16, database: String, username: String, password: String) -> Self {
         let mut config = Self {
             host,
@@ -88,6 +89,7 @@ impl DatabaseConfig {
         config
     }
 
+    #[allow(dead_code)]
     pub fn connection_string(&self) -> String {
         let ssl_mode_str = match self.ssl_mode {
             SslMode::Disable => "disable",
@@ -108,6 +110,7 @@ impl DatabaseConfig {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn test_connection(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // 这里实现连接测试逻辑
         // 暂时返回Ok，后续在connection.rs中实现

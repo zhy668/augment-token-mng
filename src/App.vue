@@ -1038,7 +1038,7 @@ onMounted(async () => {
   // 首先获取存储状态
   await getInitialStorageStatus()
   // 然后加载tokens
-  // await loadTokens()
+  await loadTokens()
 
   // 添加点击外部区域关闭设置菜单的事件监听器
   document.addEventListener('click', handleClickOutside)

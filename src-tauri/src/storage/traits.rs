@@ -15,6 +15,7 @@ pub struct TokenData {
 }
 
 impl TokenData {
+    #[allow(dead_code)]
     pub fn new(
         id: String,
         tenant_url: String,
@@ -36,6 +37,7 @@ impl TokenData {
         }
     }
 
+    #[allow(dead_code)]
     pub fn update_timestamp(&mut self) {
         self.updated_at = Utc::now();
     }
@@ -56,6 +58,7 @@ pub trait TokenStorage: Send + Sync {
     
     async fn load_tokens(&self) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>>;
     
+    #[allow(dead_code)]
     async fn update_token(&self, token: &TokenData) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     
     async fn delete_token(&self, token_id: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;

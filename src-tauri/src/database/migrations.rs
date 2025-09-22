@@ -101,6 +101,7 @@ pub async fn create_tables(client: &Client) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn drop_tables(client: &Client) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     client.execute("DROP TABLE IF EXISTS sync_status CASCADE", &[]).await?;
     client.execute("DROP TABLE IF EXISTS tokens CASCADE", &[]).await?;

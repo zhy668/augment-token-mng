@@ -25,7 +25,7 @@
                 </svg>
                 {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
               </button>
-              <button @click="exportTokens" :disabled="tokens.value.length === 0" class="btn export compact">
+              <button @click="exportTokens" :disabled="props.tokens.length === 0" class="btn export compact">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                 </svg>
@@ -361,14 +361,14 @@ const handleSave = async () => {
 
 // 导出Token到TXT文件（只导出Portal URL、租户URL和Token）
 const exportTokens = () => {
-  if (tokens.value.length === 0) {
+  if (props.tokens.length === 0) {
     emit('copy-success', t('tokenList.noTokensToExport'), 'error')
     return
   }
 
   try {
-    const exportData = tokens.value.map(token => {
-      return `Portal URL: ${token.portalUrl || ''} | Tenant URL: ${token.tenantUrl || ''} | Token: ${token.accessToken || ''}`
+    const exportData = props.tokens.map(token => {
+      return `Portal URL: ${token.portal_url || ''} | Tenant URL: ${token.tenant_url || ''} | Token: ${token.access_token || ''}`
     }).join('\n')
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)

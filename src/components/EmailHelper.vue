@@ -541,14 +541,106 @@ const getToken = async () => {
       config.value.token = result.data.token
       saveConfig()
       showStatus(t('emailHelper.tokenSuccess'), 'success')
+      return result.data.token
     } else {
       throw new Error(result.message || 'Login failed')
     }
   } catch (error) {
     showStatus(`${t('emailHelper.tokenFailed')}: ${error.message}`, 'error')
+    throw error
   } finally {
     isGettingToken.value = false
   }
+}
+
+// 通用认证请求函数 - 自动处理token失效和重新获取
+const makeAuthenticatedRequest = async (url, options = {}) => {
+  // 检查是否有token
+  if (!config.value.token) {
+    throw new Error(t('emailHelper.tokenRequired'))
+  }
+
+  // 设置默认headers
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': config.value.token,
+    ...options.headers
+  }
+
+  // 第一次尝试请求
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers
+    })
+
+    const result = await response.json()
+
+    // 检查是否是token失效错误
+    if (isTokenExpiredError(response, result)) {
+      console.log('🔄 Token失效，尝试重新获取token...')
+
+      // 重新获取token
+      try {
+        await getToken()
+
+        // 使用新token重试请求
+        const retryHeaders = {
+          ...headers,
+          'Authorization': config.value.token
+        }
+
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers: retryHeaders
+        })
+
+        const retryResult = await retryResponse.json()
+
+        // 如果重试后仍然失败，抛出错误
+        if (isTokenExpiredError(retryResponse, retryResult)) {
+          throw new Error('Token重新获取后仍然失效')
+        }
+
+        return { response: retryResponse, result: retryResult }
+      } catch (tokenError) {
+        console.error('❌ 重新获取token失败:', tokenError)
+        throw new Error(`重新获取token失败: ${tokenError.message}`)
+      }
+    }
+
+    return { response, result }
+  } catch (error) {
+    // 网络错误或其他异常
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('网络连接失败，请检查网络设置')
+    }
+    throw error
+  }
+}
+
+// 检查是否是token失效错误
+const isTokenExpiredError = (response, result) => {
+  // 检查HTTP状态码
+  if (response.status === 401) {
+    return true
+  }
+
+  // 检查响应结果中的错误码和消息
+  if (result && (
+    result.code === 401 ||
+    result.code === 403 ||
+    (result.message && (
+      result.message.includes('token') ||
+      result.message.includes('unauthorized') ||
+      result.message.includes('expired') ||
+      result.message.includes('invalid')
+    ))
+  )) {
+    return true
+  }
+
+  return false
 }
 
 // 创建邮箱
@@ -568,16 +660,11 @@ const createEmail = async () => {
       }]
     }
 
-    const response = await fetch(`${config.value.serverUrl}/api/public/addUser`, {
+    const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/public/addUser`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': config.value.token
-      },
       body: JSON.stringify(userData)
     })
 
-    const result = await response.json()
     if (result.code === 200) {
       const emailInfo = {
         email: email,
@@ -615,15 +702,10 @@ const deleteEmail = async (email) => {
     // 如果有Token，先尝试删除云端邮箱
     if (config.value.token) {
       try {
-        const response = await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(email)}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': config.value.token
-          }
+        const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(email)}`, {
+          method: 'DELETE'
         })
 
-        const result = await response.json()
         if (result.code !== 200) {
           // 云端删除失败，询问用户是否继续删除本地记录
           const confirmDelete = confirm(`${t('emailHelper.cloudDeleteFailed')}: ${result.message}\n\n${t('emailHelper.confirmDeleteLocal')}`)
@@ -687,15 +769,10 @@ const clearAllEmails = async () => {
 
       for (const emailInfo of emails.value) {
         try {
-          const response = await fetch(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(emailInfo.email)}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': config.value.token
-            }
+          const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/user/delete?email=${encodeURIComponent(emailInfo.email)}`, {
+            method: 'DELETE'
           })
 
-          const result = await response.json()
           if (result.code !== 200) {
             cloudDeleteErrors.push(`${emailInfo.email}: ${result.message}`)
             console.error('Failed to delete email from server:', emailInfo.email, result.message)
@@ -782,12 +859,8 @@ const stopMonitoring = () => {
 // 检查验证码
 const checkForVerificationCode = async (email, password) => {
   try {
-    const response = await fetch(`${config.value.serverUrl}/api/public/emailList`, {
+    const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/public/emailList`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': config.value.token
-      },
       body: JSON.stringify({
         toEmail: email,
         fromEmail: 'support@augmentcode.com',
@@ -797,7 +870,6 @@ const checkForVerificationCode = async (email, password) => {
       })
     })
 
-    const result = await response.json()
     if (result.code === 200 && result.data && result.data.length > 0) {
       console.log('📧 收到邮件数据:', result.data.length, '封邮件')
 
@@ -968,12 +1040,8 @@ const viewEmails = async (email, password) => {
   emailList.value = []
 
   try {
-    const response = await fetch(`${config.value.serverUrl}/api/public/emailList`, {
+    const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/public/emailList`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': config.value.token
-      },
       body: JSON.stringify({
         toEmail: email,
         fromEmail: '', // 获取所有发件人的邮件
@@ -983,7 +1051,6 @@ const viewEmails = async (email, password) => {
       })
     })
 
-    const result = await response.json()
     if (result.code === 200 && result.data && result.data.length > 0) {
       console.log('📧 收到邮件数据:', result.data.length, '封邮件')
       console.log('📧 第一封邮件数据结构:', result.data[0])
@@ -1028,19 +1095,13 @@ const viewEmailContent = async (email) => {
     }
 
     // 如果没有内容，尝试通过API获取
-    const response = await fetch(`${config.value.serverUrl}/api/public/emailContent`, {
+    const { result } = await makeAuthenticatedRequest(`${config.value.serverUrl}/api/public/emailContent`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': config.value.token
-      },
       body: JSON.stringify({
         toEmail: currentViewingEmail.value,
         messageId: email.id
       })
     })
-
-    const result = await response.json()
     if (result.code === 200 && result.data) {
       currentEmailContent.value = {
         from: email.from,

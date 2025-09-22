@@ -11,33 +11,48 @@
             </div>
           </div>
           <div class="header-actions">
+            <!-- 主要操作按钮组 -->
+            <div class="action-group primary-actions">
+              <button @click="$emit('add-token')" class="btn primary small">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                {{ $t('tokenList.addToken') }}
+              </button>
+              <button @click="handleSave" class="btn success small" :disabled="isSaving">
+                <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                </svg>
+                {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
+              </button>
+            </div>
 
-            <button @click="handleSave" class="btn success small" :disabled="isSaving">
-              <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-              </svg>
-              {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
-            </button>
-            <!-- 数据库配置按钮 -->
-            <button @click="showDatabaseConfig = true" class="btn info small">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
-              </svg>
-              {{ $t('tokenList.databaseConfig') }}
-            </button>
-            <button @click="$emit('add-token')" class="btn primary small">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              {{ $t('tokenList.addToken') }}
-            </button>
-            <button @click="handleRefresh" class="btn secondary small" :disabled="isRefreshing">
-              <svg v-if="!isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-              </svg>
-              {{ isRefreshing ? $t('loading.refreshing') : $t('tokenList.refresh') }}
-            </button>
-            <button class="close-btn" @click="handleClose">×</button>
+            <!-- 工具按钮组 -->
+            <div class="action-group tool-actions">
+              <button @click="exportTokens" :disabled="tokens.length === 0" class="btn export small">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
+                {{ $t('tokenList.exportTokens') }}
+              </button>
+              <button @click="handleRefresh" class="btn secondary small" :disabled="isRefreshing">
+                <svg v-if="!isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                </svg>
+                {{ isRefreshing ? $t('loading.refreshing') : $t('tokenList.refresh') }}
+              </button>
+            </div>
+
+            <!-- 配置按钮组 -->
+            <div class="action-group config-actions">
+              <button @click="showDatabaseConfig = true" class="btn info small">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
+                </svg>
+                {{ $t('tokenList.databaseConfig') }}
+              </button>
+              <button class="close-btn" @click="handleClose">×</button>
+            </div>
           </div>
         </div>
         
@@ -352,6 +367,38 @@ const handleSave = async () => {
   }
 }
 
+// 导出Token到TXT文件（只导出Portal URL、租户URL和Token）
+const exportTokens = () => {
+  if (tokens.length === 0) {
+    emit('copy-success', t('tokenList.noTokensToExport'), 'error')
+    return
+  }
+
+  try {
+    const exportData = tokens.map(token => {
+      return `Portal URL: ${token.portalUrl || ''} | Tenant URL: ${token.tenantUrl || ''} | Token: ${token.accessToken || ''}`
+    }).join('\n')
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const filename = `tokens_export_${timestamp}.txt`
+
+    const blob = new Blob([exportData], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    emit('copy-success', t('tokenList.exportSuccess'), 'success')
+  } catch (error) {
+    emit('copy-success', `${t('tokenList.exportFailed')}: ${error.message}`, 'error')
+  }
+}
+
 // 组件挂载时只在没有未保存更改时才刷新
 onMounted(async () => {
   // 如果有未保存的更改，不要重新加载文件数据，避免覆盖内存中的新token
@@ -505,7 +552,18 @@ defineExpose({
   }
 
   .header-actions {
+    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-group {
     gap: 6px;
+  }
+
+  .header-title {
+    margin-right: 0;
+    margin-bottom: 8px;
   }
 
   .token-grid {
@@ -629,6 +687,28 @@ defineExpose({
   box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
 }
 
+.btn.export {
+  background: var(--color-purple-bg, #8b5cf6);
+  color: var(--color-text-inverse, #ffffff);
+  border: 1px solid var(--color-purple-bg, #8b5cf6);
+}
+
+.btn.export:hover:not(:disabled) {
+  background: var(--color-purple-bg-hover, #7c3aed);
+  border-color: var(--color-purple-bg-hover, #7c3aed);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.btn.export:disabled {
+  background: var(--color-border-strong, #d1d5db);
+  color: var(--color-text-soft, #9ca3af);
+  border-color: var(--color-border-strong, #d1d5db);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn.small {
   padding: 6px 12px;
   font-size: 12px;
@@ -649,8 +729,9 @@ defineExpose({
 .header-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex: 1;
+  margin-right: 20px;
 }
 
 .header-title h2 {
@@ -664,9 +745,27 @@ defineExpose({
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-group.primary-actions {
+  gap: 10px;
+}
+
+.action-group.tool-actions {
+  gap: 8px;
+}
+
+.action-group.config-actions {
+  gap: 12px;
 }
 
 

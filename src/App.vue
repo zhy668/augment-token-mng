@@ -28,11 +28,11 @@
           </svg>
           {{ $t('app.bookmarkManager') }}
         </button>
-        <button @click="showOutlookManager = true" class="btn warning">
+        <button @click="showEmailHelper = true" class="btn warning">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
           </svg>
-          {{ $t('app.outlookManager') }}
+          {{ $t('app.emailHelper') }}
         </button>
 
         <button @click="showTokenList = true" class="btn primary">
@@ -272,10 +272,10 @@
       @close="showBookmarkManager = false"
     />
 
-    <!-- Outlook Manager Modal -->
-    <OutlookManager
-      v-if="showOutlookManager"
-      @close="showOutlookManager = false"
+    <!-- Email Helper Modal -->
+    <EmailHelper
+      v-if="showEmailHelper"
+      @close="showEmailHelper = false"
       @show-status="showStatus"
     />
 
@@ -435,7 +435,7 @@ import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
 import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
-import OutlookManager from './components/OutlookManager.vue'
+import EmailHelper from './components/EmailHelper.vue'
 
 const { t, locale } = useI18n()
 
@@ -475,7 +475,7 @@ const tokens = ref([])
 const isLoading = ref(false)
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
-const showOutlookManager = ref(false)
+const showEmailHelper = ref(false)
 const statusMessage = ref('')
 const statusType = ref('info')
 const hasUnsavedChanges = ref(false)

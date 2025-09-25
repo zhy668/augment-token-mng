@@ -76,7 +76,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'show-status'])
+const emit = defineEmits(['close'])
 
 // 响应式数据
 const emailDetails = ref(null)
@@ -85,7 +85,7 @@ const error = ref('')
 
 // 方法
 const showStatus = (message, type = 'info') => {
-  emit('show-status', message, type)
+  window.$notify[type](message)
 }
 
 const loadEmailDetails = async () => {

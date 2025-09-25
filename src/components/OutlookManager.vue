@@ -283,15 +283,17 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
   z-index: 2000;
 }
 
 .modal-content {
   background: var(--color-surface, #ffffff);
   border-radius: 12px;
-  max-width: 90vw;
-  max-height: 95vh;
-  overflow-y: auto;
+  width: 100%;
+  max-width: 900px;
+  height: 90vh;
+  overflow: hidden;
   position: relative;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
@@ -335,9 +337,9 @@ onMounted(() => {
 }
 
 .outlook-manager {
-  width: 90vw;
-  max-width: 800px;
-  max-height: 90vh;
+  width: 100%;
+  max-width: 900px;
+  height: 90vh;
 }
 
 .modal-body {
@@ -609,5 +611,20 @@ onMounted(() => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modal-content {
+    margin: 10px;
+    max-width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    max-height: 95vh;
+  }
 }
 </style>

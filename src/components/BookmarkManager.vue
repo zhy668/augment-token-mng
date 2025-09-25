@@ -117,48 +117,17 @@
           </div>
         </div>
 
-        <!-- Status Messages -->
-        <div
-          v-if="statusMessage"
-          :class="['status', statusType]"
-        >
-          {{ statusMessage }}
-        </div>
       </div>
     </div>
 
-    <!-- 书签打开方式选择对话框 -->
-    <div v-if="showBookmarkDialog" class="portal-dialog-overlay" @click="showBookmarkDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>{{ $t('bookmarkManager.dialog.selectOpenMethod') }}</h3>
-        <div class="dialog-buttons">
-          <button @click="copyBookmarkUrl" class="dialog-btn copy">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            {{ $t('bookmarkManager.dialog.copyToClipboard') }}
-          </button>
-          <button @click="openBookmarkExternal" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            {{ $t('bookmarkManager.dialog.openInBrowser') }}
-          </button>
-          <button @click="openBookmarkInternal" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H5V8h9v10z"/>
-            </svg>
-            {{ $t('bookmarkManager.dialog.openInBuiltIn') }}
-          </button>
-          <button @click="showBookmarkDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            {{ $t('bookmarkManager.dialog.cancel') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- 书签链接对话框 -->
+    <ExternalLinkDialog
+      :show="showBookmarkDialog"
+      :title="$t('bookmarkManager.dialog.selectOpenMethod')"
+      :url="currentBookmark?.url || ''"
+      :browser-title="currentBookmark?.name || ''"
+      @close="showBookmarkDialog = false"
+    />
   </div>
 </template>
 
@@ -166,6 +135,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
+import ExternalLinkDialog from './ExternalLinkDialog.vue'
 
 // Emits
 const emit = defineEmits(['close'])
@@ -177,8 +147,6 @@ const { t } = useI18n()
 const allBookmarks = ref([])
 const showForm = ref(false)
 const editingBookmark = ref(null)
-const statusMessage = ref('')
-const statusType = ref('info')
 
 // Bookmark dialog
 const showBookmarkDialog = ref(false)
@@ -197,12 +165,7 @@ const canSave = computed(() => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  statusMessage.value = message
-  statusType.value = type
-  
-  setTimeout(() => {
-    statusMessage.value = ''
-  }, 3000)
+  window.$notify[type](message)
 }
 
 const loadBookmarks = async () => {
@@ -291,44 +254,6 @@ const handleBookmarkAction = (bookmark) => {
   showBookmarkDialog.value = true
 }
 
-const copyBookmarkUrl = async () => {
-  showBookmarkDialog.value = false
-  if (!currentBookmark.value) return
-
-  try {
-    await navigator.clipboard.writeText(currentBookmark.value.url)
-    showStatus('URL已复制到剪贴板!', 'success')
-  } catch (error) {
-    showStatus('复制URL失败', 'error')
-  }
-}
-
-const openBookmarkExternal = async () => {
-  showBookmarkDialog.value = false
-  if (!currentBookmark.value) return
-
-  try {
-    await invoke('open_url', { url: currentBookmark.value.url })
-    showStatus('正在浏览器中打开...', 'info')
-  } catch (error) {
-    showStatus(`打开网址失败: ${error}`, 'error')
-  }
-}
-
-const openBookmarkInternal = async () => {
-  showBookmarkDialog.value = false
-  if (!currentBookmark.value) return
-
-  try {
-    await invoke('open_internal_browser', {
-      url: currentBookmark.value.url,
-      title: currentBookmark.value.name || '内置浏览器'
-    })
-    showStatus('已在内置浏览器中打开', 'info')
-  } catch (error) {
-    showStatus(`打开内置浏览器失败: ${error}`, 'error')
-  }
-}
 
 const openDataFolder = async () => {
   try {

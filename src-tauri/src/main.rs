@@ -8,7 +8,7 @@ mod outlook_manager;
 mod database;
 mod storage;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus, AccountInfo};
@@ -85,6 +85,13 @@ async fn check_account_status(token: String, tenant_url: String) -> Result<Accou
     check_account_ban_status(&token, &tenant_url)
         .await
         .map_err(|e| format!("Failed to check account status: {}", e))
+}
+
+#[tauri::command]
+async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenStatusResult>, String> {
+    batch_check_account_status(tokens)
+        .await
+        .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
 
 #[tauri::command]
@@ -1176,6 +1183,7 @@ fn main() {
             get_token,
             get_augment_token,
             check_account_status,
+            batch_check_tokens_status,
             open_url,
             // 新的简化命令
             save_tokens_json,

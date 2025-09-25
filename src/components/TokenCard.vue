@@ -2,13 +2,8 @@
   <div class="token-card">
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
-      <!-- 账号状态优先显示 -->
-      <span v-if="token.ban_status" :class="['status-badge', getStatusClass(token.ban_status)]">
+      <span :class="['status-badge', getStatusClass(token.ban_status)]">
         {{ getStatusText(token.ban_status) }}
-      </span>
-      <!-- Portal状态作为备选 -->
-      <span v-else-if="token.portal_url && portalInfo.data" :class="['status-badge', portalInfo.data.is_active ? 'active' : 'inactive']">
-        {{ portalInfo.data.is_active ? $t('tokenCard.active') : $t('tokenCard.inactive') }}
       </span>
     </div>
 
@@ -41,26 +36,12 @@
           <!-- 第二行：Portal信息 -->
           <template v-if="token.portal_url">
             <div class="meta-row portal-row">
-              <!-- 优先显示Portal数据，无论是来自本地缓存还是网络请求 -->
               <template v-if="portalInfo.data">
                 <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">{{ $t('tokenCard.expiry') }}: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
-                <span :class="['portal-meta', 'balance', { 'exhausted': portalInfo.data.credits_balance === 0 && !hasUnlimitedUsage }]">
-                  <template v-if="portalInfo.data.credits_balance === 0">
-                    <template v-if="hasUnlimitedUsage">
-                      {{ $t('tokenCard.canUse') }}
-                    </template>
-                    <template v-else>
-                      {{ $t('tokenCard.exhausted') }}
-                    </template>
-                  </template>
-                  <template v-else>
-                    {{ $t('tokenCard.balance') }}: {{ portalInfo.data.credits_balance }}
-                  </template>
+                <span :class="balanceClasses">
+                  {{ balanceDisplay }}
                 </span>
               </template>
-              <!-- 如果没有数据且正在加载，显示加载状态 -->
-              <span v-else-if="isLoadingPortalInfo" class="portal-meta loading">{{ $t('loading.loading') }}</span>
-              <!-- 不显示错误信息，静默处理所有错误 -->
             </div>
           </template>
         </div>
@@ -86,7 +67,7 @@
           </svg>
           <div v-else class="loading-spinner"></div>
         </button>
-        <button v-if="token.portal_url" @click="$emit('open-portal', token)" class="btn-action portal" :title="$t('tokenCard.openPortal')">
+        <button v-if="token.portal_url" @click="showPortalDialog = true" class="btn-action portal" :title="$t('tokenCard.openPortal')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
           </svg>
@@ -105,7 +86,6 @@
     </div>
   </div>
 
-  <!-- 编辑器选择模态框 - 移到组件外部，使用 Teleport -->
   <Teleport to="body">
     <Transition name="modal" appear>
       <div v-if="showEditorModal" class="editor-modal-overlay">
@@ -295,27 +275,24 @@
       </div>
     </Transition>
   </Teleport>
+
+  <ExternalLinkDialog
+    :show="showPortalDialog"
+    :title="$t('dialogs.selectOpenMethod')"
+    :url="token.portal_url || ''"
+    :browser-title="getPortalBrowserTitle()"
+    @close="showPortalDialog = false"
+  />
 </template>
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
+import ExternalLinkDialog from './ExternalLinkDialog.vue'
 
 const { t } = useI18n()
 
-// 防抖函数
-function debounce(func, wait) {
-  let timeout
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout)
-      func(...args)
-    }
-    clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
-  }
-}
 
 // Props
 const props = defineProps({
@@ -326,7 +303,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['delete', 'copy-success', 'open-portal', 'edit', 'token-updated'])
+const emit = defineEmits(['delete', 'edit', 'token-updated'])
 
 // Reactive data
 const isLoadingPortalInfo = ref(false)
@@ -336,6 +313,7 @@ const isEmailHovered = ref(false)
 const showEditorModal = ref(false)
 const isModalClosing = ref(false)
 const hasUnlimitedUsage = ref(false)
+const showPortalDialog = ref(false)
 
 // 图标映射
 const editorIcons = {
@@ -371,11 +349,6 @@ const displayUrl = computed(() => {
   }
 })
 
-const maskedToken = computed(() => {
-  const token = props.token.access_token
-  if (token.length <= 20) return token
-  return token.substring(0, 10) + '...' + token.substring(token.length - 10)
-})
 
 const maskedEmail = computed(() => {
   const email = props.token.email_note
@@ -402,6 +375,24 @@ const maskedEmail = computed(() => {
   }
 
   return maskedUsername + '@' + domain
+})
+
+// Portal余额显示相关计算属性
+const balanceClasses = computed(() => {
+  if (!portalInfo.value || !portalInfo.value.data) {
+    return ['portal-meta', 'balance']
+  }
+  const exhausted = portalInfo.value.data.credits_balance === 0 && !hasUnlimitedUsage.value
+  return ['portal-meta', 'balance', { exhausted }]
+})
+
+const balanceDisplay = computed(() => {
+  if (!portalInfo.value || !portalInfo.value.data) return ''
+  const credits = portalInfo.value.data.credits_balance
+  if (credits === 0) {
+    return hasUnlimitedUsage.value ? t('tokenCard.canUse') : t('tokenCard.exhausted')
+  }
+  return `${t('tokenCard.balance')}: ${credits}`
 })
 
 // 获取状态样式类
@@ -431,9 +422,6 @@ const getStatusText = (status) => {
       return t('tokenCard.active')
   }
 }
-
-
-
 
 
 // Methods
@@ -474,35 +462,36 @@ const copyToClipboard = async (text) => {
   }
 }
 
-// 复制Token
-const copyToken = async () => {
-  const success = await copyToClipboard(props.token.access_token)
+// 通用复制方法
+const copyWithNotification = async (text, successMessage, errorMessage) => {
+  const success = await copyToClipboard(text)
   if (success) {
-    emit('copy-success', t('messages.tokenCopied'), 'success')
+    window.$notify.success(t(successMessage))
   } else {
-    emit('copy-success', t('messages.copyTokenFailed'), 'error')
+    window.$notify.error(t(errorMessage))
   }
 }
+
+// 复制Token
+const copyToken = () => copyWithNotification(
+  props.token.access_token,
+  'messages.tokenCopied',
+  'messages.copyTokenFailed'
+)
 
 // 复制租户URL
-const copyTenantUrl = async () => {
-  const success = await copyToClipboard(props.token.tenant_url)
-  if (success) {
-    emit('copy-success', t('messages.tenantUrlCopied'), 'success')
-  } else {
-    emit('copy-success', t('messages.copyTenantUrlFailed'), 'error')
-  }
-}
+const copyTenantUrl = () => copyWithNotification(
+  props.token.tenant_url,
+  'messages.tenantUrlCopied',
+  'messages.copyTenantUrlFailed'
+)
 
 // 复制邮箱备注
-const copyEmailNote = async () => {
-  const success = await copyToClipboard(props.token.email_note)
-  if (success) {
-    emit('copy-success', t('messages.emailNoteCopied'), 'success')
-  } else {
-    emit('copy-success', t('messages.copyEmailNoteFailed'), 'error')
-  }
-}
+const copyEmailNote = () => copyWithNotification(
+  props.token.email_note,
+  'messages.emailNoteCopied',
+  'messages.copyEmailNoteFailed'
+)
 
 // 键盘事件处理
 const handleKeydown = (event) => {
@@ -517,134 +506,64 @@ const openEditorModal = () => {
   showEditorModal.value = true
 }
 
-// 关闭模态框
-const closeModal = (event) => {
-  if (isModalClosing.value) return
 
-  // 如果事件来自模态框内部，不关闭
-  if (event && event.target.closest('.editor-modal')) {
-    return
-  }
-
-  showEditorModal.value = false
-  isModalClosing.value = false
+const editorNames = {
+  'cursor': 'Cursor',
+  'vscode': 'VS Code',
+  'kiro': 'Kiro',
+  'trae': 'Trae',
+  'windsurf': 'Windsurf',
+  'qoder': 'Qoder',
+  'vscodium': 'VSCodium',
+  'codebuddy': 'CodeBuddy',
+  'idea': 'IntelliJ IDEA',
+  'pycharm': 'PyCharm',
+  'goland': 'GoLand',
+  'rustrover': 'RustRover',
+  'webstorm': 'WebStorm',
+  'phpstorm': 'PhpStorm',
+  'androidstudio': 'Android Studio',
+  'clion': 'CLion',
+  'datagrip': 'DataGrip',
+  'rider': 'Rider',
+  'rubymine': 'RubyMine',
+  'aqua': 'Aqua'
 }
 
-// 生成 Cursor 协议 URL
-const getCursorProtocolUrl = () => {
+const vscodeSchemes = {
+  'cursor': 'cursor',
+  'vscode': 'vscode',
+  'kiro': 'kiro',
+  'trae': 'trae',
+  'windsurf': 'windsurf',
+  'qoder': 'qoder',
+  'vscodium': 'vscodium',
+  'codebuddy': 'codebuddy'
+}
+
+const createVSCodeProtocolUrl = (scheme, label) => {
   try {
     const token = encodeURIComponent(props.token.access_token)
     const url = encodeURIComponent(props.token.tenant_url)
     const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `cursor://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
+    return `${scheme}://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
   } catch (error) {
-    console.error('Failed to generate Cursor protocol URL:', error)
     return '#'
   }
 }
 
-// 生成 VS Code 协议 URL
-const getVSCodeProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `vscode://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate VS Code protocol URL:', error)
-    return '#'
-  }
-}
 
-// 生成 Kiro 协议 URL
-const getKiroProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `kiro://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate Kiro protocol URL:', error)
-    return '#'
-  }
-}
+const jetbrainsEditors = new Set([
+  'idea', 'pycharm', 'goland', 'rustrover', 'webstorm',
+  'phpstorm', 'androidstudio', 'clion', 'datagrip', 'rider', 'rubymine', 'aqua'
+])
 
-// 生成 Trae 协议 URL
-const getTraeProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `trae://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate Trae protocol URL:', error)
-    return '#'
-  }
-}
-
-// 生成 Windsurf 协议 URL
-const getWindsurfProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `windsurf://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate Windsurf protocol URL:', error)
-    return '#'
-  }
-}
-
-// 生成 Qoder 协议 URL
-const getQoderProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `qoder://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate Qoder protocol URL:', error)
-    return '#'
-  }
-}
-
-// 生成 VSCodium 协议 URL
-const getVSCodiumProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `vscodium://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate VSCodium protocol URL:', error)
-    return '#'
-  }
-}
-
-// 生成 CodeBuddy 协议 URL
-const getCodeBuddyProtocolUrl = () => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    const portalUrl = encodeURIComponent(props.token.portal_url || "")
-    return `codebuddy://Augment.vscode-augment/autoAuth?token=${token}&url=${url}&portal=${portalUrl}`
-  } catch (error) {
-    console.error('Failed to generate CodeBuddy protocol URL:', error)
-    return '#'
-  }
-}
-
-// 生成 JetBrains 编辑器协议 URL
-const getJetBrainsProtocolUrl = (editorType) => {
-  try {
-    const token = encodeURIComponent(props.token.access_token)
-    const url = encodeURIComponent(props.token.tenant_url)
-    return `jetbrains://${editorType}/plugin/Augment.jetbrains-augment/autoAuth?token=${token}&url=${url}`
-  } catch (error) {
-    console.error(`Failed to generate ${editorType} protocol URL:`, error)
-    return '#'
-  }
-}
+const vscodeProtocolResolvers = Object.fromEntries(
+  Object.entries(vscodeSchemes).map(([type, scheme]) => [
+    type,
+    () => createVSCodeProtocolUrl(scheme, editorNames[type] || type)
+  ])
+)
 
 // 为 JetBrains 编辑器创建 JSON 文件
 const createJetBrainsTokenFile = async (editorType) => {
@@ -665,7 +584,6 @@ const createJetBrainsTokenFile = async (editorType) => {
 
     return { success: true, filePath: result }
   } catch (error) {
-    console.error(`Failed to create ${editorType} token file:`, error)
     return { success: false, error: error.toString() }
   }
 }
@@ -673,48 +591,9 @@ const createJetBrainsTokenFile = async (editorType) => {
 // 处理编辑器链接点击事件
 const handleEditorClick = async (editorType) => {
   try {
-    // 关闭模态框
-    showEditorModal.value = false
-    isModalClosing.value = false
+    const editorName = editorNames[editorType] || editorType
 
-    // 定义 JetBrains 系编辑器列表
-    const jetbrainsEditors = [
-      'idea', 'pycharm', 'goland', 'rustrover', 'webstorm',
-      'phpstorm', 'androidstudio', 'clion', 'datagrip', 'rider', 'rubymine', 'aqua'
-    ]
-
-    // 获取编辑器名称
-    const getEditorName = (type) => {
-      const editorNames = {
-        'cursor': 'Cursor',
-        'vscode': 'VS Code',
-        'kiro': 'Kiro',
-        'trae': 'Trae',
-        'windsurf': 'Windsurf',
-        'qoder': 'Qoder',
-        'vscodium': 'VSCodium',
-        'codebuddy': 'CodeBuddy',
-        'idea': 'IntelliJ IDEA',
-        'pycharm': 'PyCharm',
-        'goland': 'GoLand',
-        'rustrover': 'RustRover',
-        'webstorm': 'WebStorm',
-        'phpstorm': 'PhpStorm',
-        'androidstudio': 'Android Studio',
-        'clion': 'CLion',
-        'datagrip': 'DataGrip',
-        'rider': 'Rider',
-        'rubymine': 'RubyMine',
-        'aqua': 'Aqua'
-      }
-      return editorNames[type] || type
-    }
-
-    const editorName = getEditorName(editorType)
-
-    // 检查是否为 JetBrains 系编辑器
-    if (jetbrainsEditors.includes(editorType)) {
-      // 为 JetBrains 编辑器创建 JSON 文件
+    if (jetbrainsEditors.has(editorType)) {
       const result = await createJetBrainsTokenFile(editorType)
 
       if (result.success) {
@@ -723,45 +602,20 @@ const handleEditorClick = async (editorType) => {
         emit('copy-success', t('messages.createEditorTokenFileFailed', { editor: editorName, error: result.error }), 'error')
       }
     } else {
-      // VSCode 系编辑器使用原有的协议 URL 方式
-      let protocolUrl
+      const resolver = vscodeProtocolResolvers[editorType]
 
-      switch (editorType) {
-        case 'cursor':
-          protocolUrl = getCursorProtocolUrl()
-          break
-        case 'vscode':
-          protocolUrl = getVSCodeProtocolUrl()
-          break
-        case 'kiro':
-          protocolUrl = getKiroProtocolUrl()
-          break
-        case 'trae':
-          protocolUrl = getTraeProtocolUrl()
-          break
-        case 'windsurf':
-          protocolUrl = getWindsurfProtocolUrl()
-          break
-        case 'qoder':
-          protocolUrl = getQoderProtocolUrl()
-          break
-        case 'vscodium':
-          protocolUrl = getVSCodiumProtocolUrl()
-          break
-        case 'codebuddy':
-          protocolUrl = getCodeBuddyProtocolUrl()
-          break
-        default:
-          throw new Error(`Unknown VSCode editor type: ${editorType}`)
+      if (!resolver) {
+        throw new Error(`Unknown VSCode editor type: ${editorType}`)
       }
 
-      // 使用 Tauri 命令打开编辑器
+      const protocolUrl = resolver()
+
       await invoke('open_editor_with_protocol', { protocolUrl })
-      emit('copy-success', t('messages.openingEditor', { editor: editorName }), 'success')
+      window.$notify.success(t('messages.openingEditor', { editor: editorName }))
     }
   } catch (error) {
-    console.error('Failed to handle editor click:', error)
-    emit('copy-success', t('messages.operationFailed'), 'error')
+    window.$notify.error(t('messages.operationFailed'))
+  } finally {
     showEditorModal.value = false
     isModalClosing.value = false
   }
@@ -776,147 +630,15 @@ const handleEmailMouseLeave = () => {
   isEmailHovered.value = false
 }
 
-
-
-const extractTokenFromPortalUrl = (portalUrl) => {
-  try {
-    const url = new URL(portalUrl)
-    return url.searchParams.get('token')
-  } catch {
-    return null
-  }
+// Portal相关方法
+const getPortalBrowserTitle = () => {
+  if (!props.token) return 'Portal'
+  const displayUrl = props.token.tenant_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  return `Portal - ${displayUrl}`
 }
 
-const loadPortalInfo = async (forceRefresh = false) => {
-  console.log('loadPortalInfo called with forceRefresh:', forceRefresh)
-  console.log('token.portal_url:', props.token.portal_url)
-  console.log('token.portal_info:', props.token.portal_info)
-
-  if (!props.token.portal_url) {
-    console.log('No portal_url, returning')
-    return
-  }
-
-  const token = extractTokenFromPortalUrl(props.token.portal_url)
-  console.log('Extracted token:', token ? 'found' : 'not found')
-  if (!token) return
-
-  // 优先显示本地存储的Portal信息
-  if (!forceRefresh && props.token.portal_info) {
-    console.log('Using cached portal info')
-    portalInfo.value = {
-      data: {
-        credits_balance: props.token.portal_info.credits_balance,
-        expiry_date: props.token.portal_info.expiry_date,
-        is_active: props.token.portal_info.is_active
-      },
-      error: null
-    }
-  } else if (!props.token.portal_info) {
-    // 如果没有本地数据，先清空错误状态
-    console.log('No cached data, clearing error state')
-    portalInfo.value = { data: null, error: null }
-  }
-
-  // 在后台获取最新信息
-  console.log('Starting background fetch')
-  isLoadingPortalInfo.value = true
-
-  try {
-    // 首先获取customer信息
-    console.log('Calling get_customer_info...')
-    const customerResponse = await invoke('get_customer_info', { token })
-    console.log('Customer response received:', customerResponse)
-    const customerData = JSON.parse(customerResponse)
-    console.log('Customer data parsed:', customerData)
-
-    if (customerData.customer && customerData.customer.ledger_pricing_units && customerData.customer.ledger_pricing_units.length > 0) {
-      const customerId = customerData.customer.id
-      const pricingUnitId = customerData.customer.ledger_pricing_units[0].id
-      console.log('Customer ID:', customerId, 'Pricing Unit ID:', pricingUnitId)
-
-      // 获取ledger summary
-      console.log('Calling get_ledger_summary...')
-      const ledgerResponse = await invoke('get_ledger_summary', {
-        customerId,
-        pricingUnitId,
-        token
-      })
-      console.log('Ledger response received:', ledgerResponse)
-      const ledgerData = JSON.parse(ledgerResponse)
-      console.log('Ledger data parsed:', ledgerData)
-
-      // 处理credits_balance数据，无论credit_blocks是否为空
-      if (ledgerData.credits_balance !== undefined) {
-        console.log('Credits balance found:', ledgerData.credits_balance)
-
-        // 构建Portal数据对象
-        const newPortalData = {
-          credits_balance: parseInt(ledgerData.credits_balance) || 0
-        }
-
-        // 如果有credit_blocks数据，添加过期时间和状态信息
-        if (ledgerData.credit_blocks && ledgerData.credit_blocks.length > 0) {
-          console.log('Credit blocks found:', ledgerData.credit_blocks.length)
-          newPortalData.expiry_date = ledgerData.credit_blocks[0].expiry_date
-          newPortalData.is_active = ledgerData.credit_blocks[0].is_active
-        } else {
-          console.log('No credit blocks, but credits_balance available')
-          // 当没有credit_blocks时，设置默认值
-          newPortalData.expiry_date = null
-          newPortalData.is_active = false
-        }
-
-        console.log('New portal data:', newPortalData)
-
-        // 更新UI显示
-        portalInfo.value = {
-          data: newPortalData,
-          error: null
-        }
-        console.log('UI updated with portal data')
 
 
-        // 更新本地token对象
-        props.token.portal_info = {
-          credits_balance: newPortalData.credits_balance,
-          expiry_date: newPortalData.expiry_date,
-          is_active: newPortalData.is_active
-        }
-        // 更新时间戳以确保双向同步时选择正确版本
-        props.token.updated_at = new Date().toISOString()
-        console.log('Updated token portal_info:', props.token.portal_info)
-
-        // 如果剩余次数为0，检查是否有无限制使用权限
-        if (newPortalData.credits_balance === 0) {
-          await checkSubscriptionInfo()
-        }
-      } else {
-        // 如果没有credits_balance数据且没有本地数据，静默处理
-        if (!props.token.portal_info) {
-          portalInfo.value = { data: null, error: null }
-        }
-      }
-    } else {
-      // 如果没有本地数据，静默处理，不显示错误信息
-      if (!props.token.portal_info) {
-        portalInfo.value = { data: null, error: null }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load portal info:', error)
-    // 无论是否有本地数据，都不显示错误信息，静默处理
-    if (!props.token.portal_info) {
-      portalInfo.value = { data: null, error: null }
-    }
-    // 如果是强制刷新，则抛出错误以便上层处理
-    if (forceRefresh) {
-      throw error
-    }
-  } finally {
-    isLoadingPortalInfo.value = false
-  }
-}
 
 const formatExpiryDate = (dateString) => {
   try {
@@ -935,65 +657,72 @@ const formatExpiryDate = (dateString) => {
 // 检查订阅信息
 const checkSubscriptionInfo = async () => {
   try {
-    console.log('Checking subscription info for unlimited usage...')
     const hasUnlimited = await invoke('check_subscription_info', {
       token: props.token.access_token,
       tenantUrl: props.token.tenant_url
     })
     hasUnlimitedUsage.value = hasUnlimited
-    console.log('Subscription check result:', hasUnlimited)
   } catch (error) {
-    console.error('Failed to check subscription info:', error)
     hasUnlimitedUsage.value = false
   }
 }
 
 // 检测账号状态
-const checkAccountStatus = async () => {
-  console.log('checkAccountStatus called')
+const checkAccountStatus = async (showNotification = true) => {
   if (isCheckingStatus.value) return
 
   isCheckingStatus.value = true
 
   try {
-    // 并行执行两个操作：账号状态检测和Portal信息获取
-    const promises = []
-
-    // 1. 账号状态检测
-    console.log('Adding account status check promise')
-    const statusCheckPromise = invoke('check_account_status', {
-      token: props.token.access_token,
-      tenantUrl: props.token.tenant_url
+    // 单次API调用同时获取账号状态和Portal信息
+    const batchResults = await invoke('batch_check_tokens_status', {
+      tokens: [{
+        id: props.token.id,
+        access_token: props.token.access_token,
+        tenant_url: props.token.tenant_url,
+        portal_url: props.token.portal_url || null
+      }]
     })
-    promises.push(statusCheckPromise)
 
-    // 2. Portal信息获取（如果有portal_url）
-    let portalInfoPromise = null
-    if (props.token.portal_url) {
-      console.log('Adding portal info promise')
-      portalInfoPromise = loadPortalInfo(true) // 强制刷新
-      promises.push(portalInfoPromise)
-    } else {
-      console.log('No portal_url, skipping portal info fetch')
-    }
-
-    // 等待所有操作完成
-    const results = await Promise.allSettled(promises)
-
-    // 处理账号状态检测结果
-    const statusResult = results[0]
+    // 处理结果
     let statusMessage = ''
     let statusType = 'info'
 
-    if (statusResult.status === 'fulfilled') {
-      const result = statusResult.value
-      console.log('Account status check result:', result)
+    if (batchResults && batchResults.length > 0) {
+      const result = batchResults[0] // 取第一个结果对象
+      const statusResult = result.status_result // 账号状态结果
+      
+      // 使用后端返回的具体状态
+      const banStatus = statusResult.status
 
-      // 使用后端返回的具体状态，而不是简单的is_banned判断
-      const banStatus = result.status || (result.is_banned ? 'SUSPENDED' : 'ACTIVE')
-
-      // 更新本地token对象
+      // 更新本地token对象 - 账号状态
       props.token.ban_status = banStatus
+      
+      // 更新Portal信息（如果有）
+      if (result.portal_info) {
+        props.token.portal_info = {
+          credits_balance: result.portal_info.credits_balance,
+          expiry_date: result.portal_info.expiry_date,
+          is_active: result.portal_info.is_active
+        }
+        
+        // 更新UI显示
+        portalInfo.value = {
+          data: props.token.portal_info,
+          error: null
+        }
+        
+        // 如果次数为0，则异步检查是否有无限使用权限
+        if (props.token.portal_info.credits_balance === 0) {
+          await checkSubscriptionInfo()
+        }
+      } else if (result.portal_error) {
+        portalInfo.value = {
+          data: null,
+          error: result.portal_error
+        }
+      }
+      
       // 更新时间戳以确保双向同步时选择正确版本
       props.token.updated_at = new Date().toISOString()
 
@@ -1011,33 +740,31 @@ const checkAccountStatus = async () => {
           statusMessage = t('messages.accountStatusNormal')
           statusType = 'success'
           break
+        case 'ERROR':
+          statusMessage = `${t('messages.statusCheckFailed')}: ${statusResult.error_message || 'Unknown error'}`
+          statusType = 'error'
+          break
         default:
           statusMessage = `${t('messages.accountStatus')}: ${banStatus}`
           statusType = 'info'
       }
     } else {
-      console.error('Account status check failed:', statusResult.reason)
-      statusMessage = `${t('messages.statusCheckFailed')}: ${statusResult.reason}`
+      statusMessage = t('messages.statusCheckFailed') + ': No results returned'
       statusType = 'error'
     }
 
-    // 处理Portal信息获取结果（静默更新，不在通知中显示）
-    if (portalInfoPromise && results.length > 1) {
-      const portalResult = results[1]
-      if (portalResult.status === 'rejected') {
-        console.error('Portal info fetch failed:', portalResult.reason)
-        // 如果有本地数据，继续显示本地数据，不显示错误
-      }
-      // loadPortalInfo方法已经处理了成功和失败的情况
-    }
+    // Portal信息现在已经包含在批量API结果中，无需单独处理
 
     // 发送账号状态消息（不包含次数信息）
-    const finalMessage = `${t('messages.checkComplete')}: ${statusMessage}`
-    emit('copy-success', finalMessage, statusType)
+    if (showNotification) {
+      const finalMessage = `${t('messages.checkComplete')}: ${statusMessage}`
+      window.$notify[statusType](finalMessage)
+    }
 
   } catch (error) {
-    console.error('Account status check failed:', error)
-    emit('copy-success', `${t('messages.checkFailed')}: ${error}`, 'error')
+    if (showNotification) {
+      window.$notify.error(`${t('messages.checkFailed')}: ${error}`)
+    }
   } finally {
     isCheckingStatus.value = false
     isLoadingPortalInfo.value = false
@@ -1045,15 +772,7 @@ const checkAccountStatus = async () => {
 }
 
 
-// 移除了防抖，直接调用状态检测方法
 
-// 暴露刷新Portal信息的方法
-const refreshPortalInfo = async () => {
-  if (props.token.portal_url) {
-    return await loadPortalInfo(true) // 强制刷新
-  }
-  return Promise.resolve()
-}
 
 // 组件挂载时加载Portal信息
 onMounted(async () => {
@@ -1073,8 +792,8 @@ onMounted(async () => {
         await checkSubscriptionInfo()
       }
     }
-    // 然后在后台刷新数据
-    loadPortalInfo(false)
+    // 然后在后台刷新数据（静默模式，不显示通知）
+    checkAccountStatus(false)
   }
 
   // 添加键盘事件监听器
@@ -1093,7 +812,6 @@ const refreshAccountStatus = async () => {
 
 // 暴露方法给父组件
 defineExpose({
-  refreshPortalInfo,
   refreshAccountStatus
 })
 </script>

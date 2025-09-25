@@ -116,6 +116,26 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认对话框 -->
+    <div v-if="showConfirmDelete" class="confirm-dialog-overlay">
+      <div class="confirm-dialog">
+        <div class="confirm-dialog-header">
+          <h3>{{ $t('databaseConfig.deleteConfig') }}</h3>
+        </div>
+        <div class="confirm-dialog-body">
+          <p>{{ $t('databaseConfig.messages.confirmDelete') }}</p>
+        </div>
+        <div class="confirm-dialog-footer">
+          <button @click="cancelDelete" class="btn secondary">
+            {{ $t('databaseConfig.cancel') }}
+          </button>
+          <button @click="confirmDeleteConfig" class="btn danger" :disabled="isDeleting">
+            {{ isDeleting ? $t('loading.deleting') : $t('databaseConfig.deleteConfig') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -155,6 +175,7 @@ const isSaving = ref(false)
 const isDeleting = ref(false)
 const hasExistingConfig = ref(false)
 const isConnectionTested = ref(false)
+const showConfirmDelete = ref(false)
 
 // Computed properties
 const canTest = computed(() => {
@@ -242,11 +263,12 @@ const saveConfig = async () => {
   }
 }
 
-const deleteConfig = async () => {
-  if (!confirm(t('databaseConfig.messages.confirmDelete'))) {
-    return
-  }
-  
+const deleteConfig = () => {
+  showConfirmDelete.value = true
+}
+
+const confirmDeleteConfig = async () => {
+  showConfirmDelete.value = false
   isDeleting.value = true
   
   try {
@@ -260,6 +282,10 @@ const deleteConfig = async () => {
   } finally {
     isDeleting.value = false
   }
+}
+
+const cancelDelete = () => {
+  showConfirmDelete.value = false
 }
 
 // Watch for config changes to reset connection test status
@@ -484,5 +510,57 @@ onMounted(() => {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* 确认对话框样式 */
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+}
+
+.confirm-dialog {
+  background: var(--color-surface, #ffffff);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.confirm-dialog-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.confirm-dialog-header h3 {
+  margin: 0;
+  color: var(--color-text-primary, #374151);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-dialog-body {
+  padding: 16px 24px 20px;
+}
+
+.confirm-dialog-body p {
+  margin: 0;
+  color: var(--color-text-secondary, #6b7280);
+  line-height: 1.5;
+}
+
+.confirm-dialog-footer {
+  padding: 16px 24px 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 </style>

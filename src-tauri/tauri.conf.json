@@ -13,7 +13,7 @@
       {
         "title": "ATM",
         "width": 850,
-        "height": 700,
+        "height": 750,
         "resizable": true,
         "fullscreen": false,
         "minWidth": 850,

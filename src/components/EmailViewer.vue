@@ -110,7 +110,6 @@
     :email="email"
     :message-id="selectedEmailForDetails"
     @close="showEmailDetails = false"
-    @show-status="showStatus"
   />
 </template>
 
@@ -127,7 +126,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'show-status'])
+const emit = defineEmits(['close'])
 
 // i18n
 const { t } = useI18n()
@@ -150,7 +149,7 @@ const totalPages = computed(() => {
 
 // 方法
 const showStatus = (message, type = 'info') => {
-  emit('show-status', message, type)
+  window.$notify[type](message)
 }
 
 const loadEmails = async () => {

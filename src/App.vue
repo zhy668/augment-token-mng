@@ -181,65 +181,11 @@
     <!-- Token List Modal -->
     <TokenList
       v-if="showTokenList"
-      :tokens="tokens"
-      :isLoading="isLoading"
-      :hasUnsavedChanges="hasUnsavedChanges"
-      :isDatabaseAvailable="isDatabaseAvailable"
+      ref="tokenListRef"
       @close="showTokenList = false"
-      @delete="deleteToken"
-      @copy-success="showStatus"
-      @add-token="showTokenForm"
-      @refresh="(showMessage) => loadTokens(showMessage)"
-      @open-portal="handleOpenPortal"
-      @edit="handleEditToken"
-      @save="saveTokensToFile"
-      @token-updated="hasUnsavedChanges = true"
-      @storage-config-changed="handleStorageConfigChanged"
     />
 
-    <!-- Token Form Modal -->
-    <TokenForm
-      v-if="showTokenFormModal"
-      :token="editingToken"
-      @close="closeTokenForm"
-      @success="handleTokenFormSuccess"
-      @show-status="showStatus"
-      @update-token="handleUpdateToken"
-      @add-token="handleAddTokenFromForm"
-    />
 
-    <!-- Portal打开方式选择对话框 -->
-    <div v-if="showPortalDialog" class="portal-dialog-overlay" @click="showPortalDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>{{ $t('dialogs.selectOpenMethod') }}</h3>
-        <div class="dialog-buttons">
-          <button @click="copyPortalUrl" class="dialog-btn copy">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            {{ $t('dialogs.copyLink') }}
-          </button>
-          <button @click="openPortalExternal" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            {{ $t('dialogs.openExternal') }}
-          </button>
-          <button @click="openPortalInternal" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            {{ $t('dialogs.openInternal') }}
-          </button>
-          <button @click="showPortalDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            {{ $t('dialogs.dontOpen') }}
-          </button>
-        </div>
-      </div>
-    </div>
     <!-- 删除确认对话框 -->
     <div v-if="showDeleteConfirm" class="portal-dialog-overlay" @click="cancelDelete">
       <div class="portal-dialog delete-confirm" @click.stop>
@@ -276,99 +222,39 @@
     <OutlookManager
       v-if="showOutlookManager"
       @close="showOutlookManager = false"
-      @show-status="showStatus"
     />
 
 
 
-    <!-- Status Messages -->
-    <div
-      v-if="statusMessage"
-      :class="['status-toast', statusType]"
-    >
-      {{ statusMessage }}
-    </div>
+    <!-- Notification Manager -->
+    <NotificationManager ref="notificationManager" />
 
-    <!-- 授权URL打开方式选择对话框 -->
-    <div v-if="showAuthUrlDialog" class="portal-dialog-overlay" @click="showAuthUrlDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>{{ $t('dialogs.selectOpenMethod') }}</h3>
-        <div class="dialog-buttons">
-          <button @click="openAuthUrlExternal" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            {{ $t('dialogs.openExternal') }}
-          </button>
-          <button @click="openAuthUrlInternal" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            {{ $t('dialogs.openInternal') }}
-          </button>
-          <button @click="showAuthUrlDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            {{ $t('dialogs.cancel') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- 授权URL链接对话框 -->
+    <ExternalLinkDialog
+      :show="showAuthUrlDialog"
+      :title="$t('dialogs.selectOpenMethod')"
+      :url="authUrl"
+      :browser-title="$t('messages.oauthTitle')"
+      @close="showAuthUrlDialog = false"
+    />
 
-    <!-- App主页打开方式选择对话框 -->
-    <div v-if="showAppHomeDialog" class="portal-dialog-overlay" @click="showAppHomeDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>{{ $t('dialogs.appHomeTitle') }}</h3>
-        <div class="dialog-buttons">
-          <button @click="openAppHomeExternal" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            {{ $t('dialogs.openExternal') }}
-          </button>
-          <button @click="openAppHomeInternal" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            {{ $t('dialogs.openInternal') }}
-          </button>
-          <button @click="showAppHomeDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            {{ $t('dialogs.cancel') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- App主页链接对话框 -->
+    <ExternalLinkDialog
+      :show="showAppHomeDialog"
+      :title="$t('dialogs.appHomeTitle')"
+      url="https://github.com/zhaochengcube/augment-token-mng"
+      :browser-title="$t('messages.appHomeTitle')"
+      @close="showAppHomeDialog = false"
+    />
 
-    <!-- 插件主页打开方式选择对话框 -->
-    <div v-if="showPluginHomeDialog" class="portal-dialog-overlay" @click="showPluginHomeDialog = false">
-      <div class="portal-dialog" @click.stop>
-        <h3>{{ $t('dialogs.pluginHomeTitle') }}</h3>
-        <div class="dialog-buttons">
-          <button @click="openPluginHomeExternal" class="dialog-btn external">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-            </svg>
-            {{ $t('dialogs.openExternal') }}
-          </button>
-          <button @click="openPluginHomeInternal" class="dialog-btn internal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            {{ $t('dialogs.openInternal') }}
-          </button>
-          <button @click="showPluginHomeDialog = false" class="dialog-btn cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            {{ $t('dialogs.cancel') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- 插件主页链接对话框 -->
+    <ExternalLinkDialog
+      :show="showPluginHomeDialog"
+      :title="$t('dialogs.pluginHomeTitle')"
+      url="https://github.com/zhaochengcube/augment-code-auto"
+      :browser-title="$t('messages.pluginHomeTitle')"
+      @close="showPluginHomeDialog = false"
+    />
 
     <!-- 固定在右下角的控制按钮 -->
     <div class="fixed-controls">
@@ -431,11 +317,11 @@
 import { ref, onMounted, computed, inject, onBeforeUnmount } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
-import TokenCard from './components/TokenCard.vue'
 import TokenList from './components/TokenList.vue'
-import TokenForm from './components/TokenForm.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 import OutlookManager from './components/OutlookManager.vue'
+import ExternalLinkDialog from './components/ExternalLinkDialog.vue'
+import NotificationManager from './components/NotificationManager.vue'
 
 const { t, locale } = useI18n()
 
@@ -470,34 +356,14 @@ const handleClickOutside = (event) => {
   }
 }
 
-// 简化的状态管理
-const tokens = ref([])
-const isLoading = ref(false)
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
 const showOutlookManager = ref(false)
-const statusMessage = ref('')
-const statusType = ref('info')
-const hasUnsavedChanges = ref(false)
 
-// 存储状态管理
-const isDatabaseAvailable = ref(false)
+// 组件引用
+const tokenListRef = ref(null)
+const notificationManager = ref(null)
 
-// 简化的工具函数
-const createNewToken = (tenantUrl, accessToken, portalUrl = null, emailNote = null) => {
-  return {
-    id: crypto.randomUUID(),
-    tenant_url: tenantUrl,
-    access_token: accessToken,
-    created_at: new Date().toISOString(),
-    portal_url: portalUrl,
-    ban_status: null,
-    portal_info: null,
-    email_note: emailNote
-  }
-}
-
-// 移除了复杂的自动保存、错误处理和回滚机制，保持简单
 
 // Token generator data
 const authUrl = ref('')
@@ -515,9 +381,6 @@ const tenantUrlInput = ref(null)
 
 
 
-// Portal dialog
-const showPortalDialog = ref(false)
-const currentPortalToken = ref(null)
 
 const themeManager = inject('themeManager', null)
 const themeStorageKey = themeManager?.storageKey ?? 'atm-theme'
@@ -608,10 +471,6 @@ const showPluginHomeDialog = ref(false)
 // Settings menu
 const showSettingsMenu = ref(false)
 
-// Token form dialog
-const showTokenFormModal = ref(false)
-const editingToken = ref(null)
-
 // Computed properties
 
 const canGetToken = computed(() => {
@@ -620,85 +479,8 @@ const canGetToken = computed(() => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  statusMessage.value = message
-  statusType.value = type
-
-  setTimeout(() => {
-    statusMessage.value = ''
-  }, 2000)
-}
-
-const loadTokens = async (showSuccessMessage = false) => {
-  isLoading.value = true
-  try {
-    const jsonString = await invoke('load_tokens_json')
-    tokens.value = JSON.parse(jsonString)
-    hasUnsavedChanges.value = false
-    if (showSuccessMessage) {
-      showStatus(t('messages.tokenLoadSuccess'), 'success')
-    }
-  } catch (error) {
-    showStatus(`${t('messages.tokenLoadFailed')}: ${error}`, 'error')
-    tokens.value = []
-    hasUnsavedChanges.value = false
-  } finally {
-    isLoading.value = false
-  }
-}
-
-
-const saveTokensToFile = async () => {
-  try {
-    const jsonString = JSON.stringify(tokens.value, null, 2)
-    await invoke('save_tokens_json', { jsonString })
-    hasUnsavedChanges.value = false
-    showStatus(t('messages.tokenSaved'), 'success')
-  } catch (error) {
-    showStatus(`${t('messages.tokenSaveFailed')}: ${error}`, 'error')
-    throw error
-  }
-}
-
-
-const deleteToken = (tokenId) => {
-  // 显示删除确认对话框
-  tokenToDelete.value = tokenId
-  showDeleteConfirm.value = true
-}
-
-const confirmDelete = async () => {
-  if (!tokenToDelete.value) return
-
-  const tokenIdToDelete = tokenToDelete.value
-
-  // 立即关闭对话框，提升用户体验
-  showDeleteConfirm.value = false
-  tokenToDelete.value = null
-
-  try {
-    // 先从内存中删除 token
-    const tokenIndex = tokens.value.findIndex(token => token.id === tokenIdToDelete)
-    if (tokenIndex === -1) {
-      showStatus(t('messages.tokenNotFound'), 'error')
-      return
-    }
-
-    // 从内存中删除
-    tokens.value = tokens.value.filter(token => token.id !== tokenIdToDelete)
-
-    // 立即显示删除成功消息
-    showStatus(t('messages.tokenDeleted'), 'success')
-    hasUnsavedChanges.value = true // 标记有未保存的更改
-
-    // 异步执行后端删除操作（不阻塞UI）
-    invoke('delete_token', { tokenId: tokenIdToDelete }).catch(error => {
-      // 如果后端删除失败，记录错误但不影响前端删除操作
-      console.log('Backend delete failed (token may not be saved):', error)
-    })
-
-  } catch (error) {
-    showStatus(`${t('messages.deleteFailed')}: ${error}`, 'error')
-  }
+  // 优先使用全局$notify
+  window.$notify[type](message)
 }
 
 
@@ -709,10 +491,6 @@ const cancelDelete = () => {
 
 
 
-const onTokenSaved = () => {
-  loadTokens()
-  showStatus(t('messages.newTokenSaved'), 'success')
-}
 
 // Token generator methods
 const copyToClipboard = async (text) => {
@@ -782,19 +560,19 @@ const copyTenantUrl = async () => {
 
 const saveToken = async () => {
   try {
-    // 创建新的 token 对象
-    const newToken = createNewToken(
-      tokenResult.value.tenant_url,
-      tokenResult.value.access_token,
-      portalUrl.value.trim() || null,
-      emailNote.value.trim() || null
-    )
+    // 创建新的 token 数据
+    const tokenData = {
+      tenantUrl: tokenResult.value.tenant_url,
+      accessToken: tokenResult.value.access_token,
+      portalUrl: portalUrl.value.trim() || null,
+      emailNote: emailNote.value.trim() || null
+    }
 
-    // 添加到内存中的 tokens 数组
-    tokens.value.push(newToken)
-    hasUnsavedChanges.value = true
-
-    showStatus(t('messages.tokenAddedToMemory'), 'success')
+    // 通过TokenList添加token
+    if (tokenListRef.value) {
+      tokenListRef.value.addToken(tokenData)
+      showStatus(t('messages.tokenAddedToMemory'), 'success')
+    }
 
     // Reset form
     authUrl.value = ''
@@ -807,226 +585,15 @@ const saveToken = async () => {
   }
 }
 
-// Token form methods
-const showTokenForm = () => {
-  editingToken.value = null
-  showTokenFormModal.value = true
-}
-
-const handleEditToken = (token) => {
-  editingToken.value = token
-  showTokenFormModal.value = true
-}
-
-const closeTokenForm = () => {
-  showTokenFormModal.value = false
-  editingToken.value = null
-}
-
-const handleTokenFormSuccess = () => {
-  // TokenForm 现在只更新内存，不需要重新加载
-  hasUnsavedChanges.value = true
-}
-
-const handleUpdateToken = (updatedTokenData) => {
-  // 在内存中更新 token
-  const index = tokens.value.findIndex(t => t.id === updatedTokenData.id)
-  if (index !== -1) {
-    tokens.value[index] = {
-      ...tokens.value[index],
-      tenant_url: updatedTokenData.tenantUrl,
-      access_token: updatedTokenData.accessToken,
-      portal_url: updatedTokenData.portalUrl,
-      email_note: updatedTokenData.emailNote,
-      updated_at: new Date().toISOString() // 更新时间戳
-    }
-    hasUnsavedChanges.value = true
-  }
-}
-
-const handleAddTokenFromForm = (tokenData) => {
-  // 从表单添加新 token 到内存
-  const newToken = createNewToken(
-    tokenData.tenantUrl,
-    tokenData.accessToken,
-    tokenData.portalUrl,
-    tokenData.emailNote
-  )
-  tokens.value.push(newToken)
-  hasUnsavedChanges.value = true
-}
-
-const saveTokenManually = async (tenantUrl, accessToken, portalUrl, emailNote) => {
-  try {
-    // 创建新的 token 对象
-    const newToken = createNewToken(
-      tenantUrl,
-      accessToken,
-      portalUrl || null,
-      emailNote || null
-    )
-
-    // 添加到内存中的 tokens 数组
-    tokens.value.push(newToken)
-    hasUnsavedChanges.value = true
-
-    showStatus(t('messages.tokenAddedToMemory'), 'success')
-    return { success: true }
-  } catch (error) {
-    showStatus(`${t('messages.tokenSaveFailed')}: ${error}`, 'error')
-    return { success: false, error }
-  }
-}
-
-// Portal dialog methods
-const handleOpenPortal = (token) => {
-  currentPortalToken.value = token
-  showPortalDialog.value = true
-}
-
-const copyPortalUrl = async () => {
-  showPortalDialog.value = false
-  if (!currentPortalToken.value?.portal_url) return
-
-  const success = await copyToClipboard(currentPortalToken.value.portal_url)
-  showStatus(
-    success ? t('messages.portalLinkCopied') : t('messages.copyPortalLinkFailed'),
-    success ? 'success' : 'error'
-  )
-}
-
-const openPortalExternal = async () => {
-  showPortalDialog.value = false
-  if (!currentPortalToken.value?.portal_url) return
-
-  try {
-    await invoke('open_url', { url: currentPortalToken.value.portal_url })
-  } catch (error) {
-    console.error('Failed to open portal externally:', error)
-    showStatus(t('messages.openPortalFailed'), 'error')
-  }
-}
-
-const openPortalInternal = async () => {
-  showPortalDialog.value = false
-  if (!currentPortalToken.value?.portal_url) return
-
-  try {
-    const displayUrl = currentPortalToken.value.tenant_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    await invoke('open_internal_browser', {
-      url: currentPortalToken.value.portal_url,
-      title: 'Portal - ' + displayUrl
-    })
-  } catch (error) {
-    console.error('Failed to open portal internally:', error)
-    showStatus(t('messages.openPortalFailed'), 'error')
-  }
-}
 
 
 
-// Auth URL dialog methods
-const openAuthUrlExternal = async () => {
-  showAuthUrlDialog.value = false
-  if (!authUrl.value) return
-
-  try {
-    await invoke('open_url', { url: authUrl.value })
-  } catch (error) {
-    console.error('Failed to open auth URL externally:', error)
-    showStatus(t('messages.openAuthUrlFailed'), 'error')
-  }
-}
-
-const openAuthUrlInternal = async () => {
-  showAuthUrlDialog.value = false
-  if (!authUrl.value) return
-
-  try {
-    await invoke('open_internal_browser', {
-      url: authUrl.value,
-      title: t('messages.oauthTitle')
-    })
-  } catch (error) {
-    console.error('Failed to open auth URL internally:', error)
-    showStatus(t('messages.openAuthUrlFailed'), 'error')
-  }
-}
-
-// External links dialog methods
-const openAppHomeExternal = async () => {
-  showAppHomeDialog.value = false
-  const url = 'https://github.com/zhaochengcube/augment-token-mng'
-
-  try {
-    await invoke('open_url', { url })
-  } catch (error) {
-    console.error('Failed to open App主页 externally:', error)
-    showStatus(t('messages.openAppHomeFailed'), 'error')
-  }
-}
-
-const openAppHomeInternal = async () => {
-  showAppHomeDialog.value = false
-  const url = 'https://github.com/zhaochengcube/augment-token-mng'
-
-  try {
-    await invoke('open_internal_browser', {
-      url,
-      title: t('messages.appHomeTitle')
-    })
-  } catch (error) {
-    console.error('Failed to open App主页 internally:', error)
-    showStatus(t('messages.openAppHomeFailed'), 'error')
-  }
-}
-
-const openPluginHomeExternal = async () => {
-  showPluginHomeDialog.value = false
-  const url = 'https://github.com/zhaochengcube/augment-code-auto'
-
-  try {
-    await invoke('open_url', { url })
-  } catch (error) {
-    console.error('Failed to open 插件主页 externally:', error)
-    showStatus(t('messages.openPluginHomeFailed'), 'error')
-  }
-}
-
-const openPluginHomeInternal = async () => {
-  showPluginHomeDialog.value = false
-  const url = 'https://github.com/zhaochengcube/augment-code-auto'
-
-  try {
-    await invoke('open_internal_browser', {
-      url,
-      title: t('messages.pluginHomeTitle')
-    })
-  } catch (error) {
-    console.error('Failed to open 插件主页 internally:', error)
-    showStatus(t('messages.openPluginHomeFailed'), 'error')
-  }
-}
 
 
 
-// 获取初始存储状态
-const getInitialStorageStatus = async () => {
-  try {
-    const status = await invoke('get_storage_status')
-    isDatabaseAvailable.value = status?.is_database_available || false
-  } catch (error) {
-    console.error('Failed to get initial storage status:', error)
-    isDatabaseAvailable.value = false
-  }
-}
 
-// 处理存储配置变更
-const handleStorageConfigChanged = async () => {
-  await getInitialStorageStatus()
-}
 
-// Initialize
+
 onMounted(async () => {
   // 读取保存的语言偏好
   const savedLanguage = localStorage.getItem('preferred-language')
@@ -1034,11 +601,6 @@ onMounted(async () => {
     currentLocale.value = savedLanguage
     locale.value = savedLanguage
   }
-
-  // 首先获取存储状态
-  await getInitialStorageStatus()
-  // 然后加载tokens
-  // await loadTokens()
 
   // 添加点击外部区域关闭设置菜单的事件监听器
   document.addEventListener('click', handleClickOutside)
@@ -1252,29 +814,33 @@ html, body {
   font-weight: 500;
   min-width: 80px;
   justify-content: center;
-  border: none;
+  border: 1px solid transparent;
 }
 
 .btn.app-home-btn {
-  background: var(--color-blue-primary, #007bff);
-  color: var(--color-text-inverse, #ffffff);
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  color: var(--color-blue-soft-text, #1976d2);
+  border: 1px solid var(--color-blue-soft-border, #90caf9);
 }
 
 .btn.app-home-btn:hover {
-  background: var(--color-blue-primary-hover, #0056b3);
+  background: var(--color-blue-soft-bg, #bbdefb);
+  border-color: var(--color-blue-soft-hover, #64b5f6);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
 }
 
 .btn.plugin-home-btn {
-  background: var(--color-success-bg, #28a745);
-  color: var(--color-text-inverse, #ffffff);
+  background: var(--color-success-surface, #d1fae5);
+  color: var(--color-success-text, #065f46);
+  border: 1px solid var(--color-success-border, #a7f3d0);
 }
 
 .btn.plugin-home-btn:hover {
-  background: var(--color-success-bg-hover, #1e7e34);
+  background: var(--color-success-surface, #a7f3d0);
+  border-color: var(--color-success-border, #6ee7b7);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 2px 4px rgba(6, 95, 70, 0.3);
 }
 
 
@@ -1332,43 +898,51 @@ html, body {
 }
 
 .btn.primary {
-  background: var(--color-blue-primary, #007bff);
-  color: var(--color-text-inverse, #ffffff);
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  color: var(--color-blue-soft-text, #1976d2);
+  border: 1px solid var(--color-blue-soft-border, #90caf9);
 }
 
 .btn.primary:hover {
-  background: var(--color-blue-primary-hover, #0056b3);
+  background: var(--color-blue-soft-bg, #bbdefb);
+  border-color: var(--color-blue-soft-hover, #64b5f6);
 }
 
 .btn.secondary {
-  background: var(--color-text-muted, #6c757d);
-  color: var(--color-text-inverse, #ffffff);
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+  border: 1px solid var(--color-border-strong, #d1d5db);
 }
 
 .btn.secondary:hover {
-  background: var(--color-btn-secondary-bg-active, #545b62);
+  background: var(--color-border, #e5e7eb);
+  border-color: var(--color-border-hover, #9ca3af);
 }
 
 .btn.warning {
-  background: var(--color-warning-bg, #f59e0b);
-  color: var(--color-text-inverse, #ffffff);
+  background: #faf5ff !important;
+  color: #7c3aed !important;
+  border: 1px solid #c4b5fd !important;
 }
 
 .btn.warning:hover {
-  background: var(--color-warning-bg-hover, #d97706);
+  background: #ede9fe !important;
+  border-color: #a78bfa !important;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.3);
 }
 
 .btn.info {
-  background: var(--color-info-bg, #0ea5e9);
-  color: var(--color-text-inverse, #ffffff);
+  background: var(--color-info-surface, #dbeafe);
+  color: var(--color-info-text, #1e40af);
+  border: 1px solid var(--color-info-border, #93c5fd);
 }
 
 .btn.info:hover {
-  background: var(--color-info-bg-hover, #0284c7);
+  background: var(--color-info-surface, #bfdbfe);
+  border-color: var(--color-info-border, #60a5fa);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 2px 4px rgba(30, 64, 175, 0.3);
 }
 
 .btn.small {
@@ -1402,8 +976,8 @@ input[type="text"] {
 
 input[type="text"]:focus {
   outline: none;
-  border-color: var(--color-blue-primary, #007bff);
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+  border-color: var(--color-blue-soft-text, #1976d2);
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
 input[type="text"]:read-only {
@@ -1617,7 +1191,7 @@ input[type="text"]:read-only {
   width: 40px;
   height: 40px;
   border: 4px solid var(--color-surface-hover, #f3f3f3);
-  border-top: 4px solid var(--color-blue-primary, #007bff);
+  border-top: 4px solid var(--color-blue-soft-text, #1976d2);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;
@@ -1646,70 +1220,73 @@ input[type="text"]:read-only {
   font-weight: 600;
 }
 
-.status-toast {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  padding: 12px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 2500;
-  animation: slideIn 0.3s ease;
+
+/* 黑暗主题下的按钮样式 */
+[data-theme='dark'] .btn.warning {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #c4b5fd !important;
+  border: 1px solid rgba(196, 181, 253, 0.4) !important;
 }
 
-[data-theme='dark'] .status-toast {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+[data-theme='dark'] .btn.warning:hover {
+  background: rgba(139, 92, 246, 0.3) !important;
+  border-color: rgba(168, 139, 250, 0.6) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.4);
 }
 
-[data-theme='dark'] .status-toast.info {
-  background: var(--color-info-surface, rgba(56, 189, 248, 0.8));
-  color: var(--color-info-text, #f0f9ff);
-  border: 2px solid var(--color-info-border, rgba(56, 189, 248, 0.9));
+[data-theme='dark'] .btn.primary {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.4);
 }
 
-[data-theme='dark'] .status-toast.success {
-  background: var(--color-success-surface, rgba(20, 184, 166, 0.8));
-  color: var(--color-success-text, #ecfdf5);
-  border: 2px solid var(--color-success-border, rgba(45, 212, 191, 0.9));
+[data-theme='dark'] .btn.primary:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: rgba(96, 165, 250, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
 }
 
-[data-theme='dark'] .status-toast.error {
-  background: var(--color-danger-surface, rgba(239, 68, 68, 0.8));
-  color: var(--color-danger-text, #fef2f2);
-  border: 2px solid var(--color-danger-border, rgba(239, 68, 68, 0.9));
+[data-theme='dark'] .btn.app-home-btn {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.4);
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+[data-theme='dark'] .btn.app-home-btn:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: rgba(96, 165, 250, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
 }
 
-.status-toast.info {
-  background: var(--color-info-surface, #d1ecf1);
-  color: var(--color-info-text, #0c5460);
-  border: 1px solid var(--color-info-border, #bee5eb);
+[data-theme='dark'] .btn.plugin-home-btn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.4);
 }
 
-.status-toast.success {
-  background: var(--color-success-surface, #d4edda);
-  color: var(--color-success-text, #155724);
-  border: 1px solid var(--color-success-border, #c3e6cb);
+[data-theme='dark'] .btn.plugin-home-btn:hover {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: rgba(110, 231, 183, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.4);
 }
 
-.status-toast.error {
-  background: var(--color-danger-surface, #f8d7da);
-  color: var(--color-danger-text, #721c24);
-  border: 1px solid var(--color-danger-border, #f5c6cb);
+[data-theme='dark'] .btn.info {
+  background: rgba(14, 165, 233, 0.2);
+  color: #7dd3fc;
+  border: 1px solid rgba(125, 211, 252, 0.4);
 }
+
+[data-theme='dark'] .btn.info:hover {
+  background: rgba(14, 165, 233, 0.3);
+  border-color: rgba(56, 189, 248, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.4);
+}
+
 
 /* Portal对话框样式 */
 .portal-dialog-overlay {

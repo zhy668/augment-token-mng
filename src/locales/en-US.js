@@ -1,4 +1,7 @@
 export default {
+  common: {
+    close: 'Close'
+  },
   app: {
     title: 'Augment Token Manager',
     appHome: 'App Home',
@@ -239,6 +242,7 @@ export default {
     tokenSaved: 'Token saved successfully',
     tokenAddedToMemory: 'Token added to memory, please save manually',
     tokenUpdatedToMemory: 'Token updated to memory, please save manually',
+    tokenUpdated: 'Token updated successfully',
     tokenLoadSuccess: 'Tokens loaded successfully',
     tokenLoadFailed: 'Failed to load tokens',
     tokenSaveFailed: 'Failed to save token',
@@ -311,6 +315,7 @@ export default {
     tokenNotFound: 'Token not found',
     tokenDeleted: 'Token deleted',
     tokenInvalid: 'Token invalid',
+    refreshFailedNoTokens: 'Refresh failed: No tokens loaded',
     accountStatus: 'Account Status'
   },
   validation: {
@@ -325,7 +330,8 @@ export default {
     loading: 'Loading...',
     saving: 'Saving...',
     syncing: 'Syncing...',
-    refreshing: 'Refreshing...'
+    refreshing: 'Refreshing...',
+    deleting: 'Deleting...'
   },
   dialogs: {
     selectOpenMethod: 'Select Open Method',

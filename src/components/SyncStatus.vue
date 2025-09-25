@@ -33,7 +33,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 // Emits
-const emit = defineEmits(['show-status', 'storage-status-changed'])
+const emit = defineEmits(['storage-status-changed'])
 
 // Reactive data
 const storageStatus = ref(null)
@@ -116,7 +116,7 @@ const refreshStatus = async () => {
     }
   } catch (error) {
     console.error('Failed to get storage status:', error)
-    emit('show-status', `${t('messages.getStorageStatusFailed')}: ${error}`, 'error')
+    window.$notify.error(`${t('messages.getStorageStatusFailed')}: ${error}`)
   } finally {
     isRefreshing.value = false
   }
@@ -135,9 +135,9 @@ const handleSync = async () => {
     try {
       const result = await invoke('bidirectional_sync_tokens')
       lastSyncStatus.value = result
-      emit('show-status', t('messages.bidirectionalSyncComplete'), 'success')
+      window.$notify.success(t('messages.bidirectionalSyncComplete'))
     } catch (error) {
-      emit('show-status', `${t('messages.syncFailed')}: ${error}`, 'error')
+      window.$notify.error(`${t('messages.syncFailed')}: ${error}`)
     } finally {
       isSyncing.value = false
     }
@@ -145,9 +145,9 @@ const handleSync = async () => {
     // 本地存储模式：刷新存储状态
     await refreshStatus()
     if (storageStatus.value?.is_database_available) {
-      emit('show-status', t('messages.databaseDetected'), 'success')
+      window.$notify.success(t('messages.databaseDetected'))
     } else {
-      emit('show-status', t('messages.databaseNotDetected'), 'info')
+      window.$notify.info(t('messages.databaseNotDetected'))
     }
   }
 }

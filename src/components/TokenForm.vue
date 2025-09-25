@@ -162,7 +162,8 @@ const validateForm = () => {
   errors.value = {
     tenantUrl: '',
     accessToken: '',
-    portalUrl: ''
+    portalUrl: '',
+    emailNote: ''
   }
 
   // Validate tenant URL

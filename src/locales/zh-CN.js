@@ -1,4 +1,7 @@
 export default {
+  common: {
+    close: '关闭'
+  },
   app: {
     title: 'Augment Token Manager',
     appHome: 'App主页',
@@ -239,6 +242,7 @@ export default {
     tokenSaved: 'Token保存成功',
     tokenAddedToMemory: 'Token已添加到内存，请手动保存',
     tokenUpdatedToMemory: 'Token已更新到内存，请手动保存',
+    tokenUpdated: 'Token更新成功',
     tokenLoadSuccess: 'Token加载成功',
     tokenLoadFailed: '加载Token失败',
     tokenSaveFailed: '保存Token失败',
@@ -311,6 +315,7 @@ export default {
     tokenNotFound: 'Token不存在',
     tokenDeleted: 'Token已删除',
     tokenInvalid: 'Token失效',
+    refreshFailedNoTokens: '刷新失败：没有加载到任何Token',
     accountStatus: '账号状态'
   },
   validation: {
@@ -325,7 +330,8 @@ export default {
     loading: '加载中...',
     saving: '保存中...',
     syncing: '同步中...',
-    refreshing: '刷新中...'
+    refreshing: '刷新中...',
+    deleting: '删除中...'
   },
   dialogs: {
     selectOpenMethod: '选择打开方式',

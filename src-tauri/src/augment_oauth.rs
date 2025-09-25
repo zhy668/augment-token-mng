@@ -52,6 +52,34 @@ pub struct DebugInfo {
     pub response_status_text: String,
 }
 
+// 批量检测相关结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenInfo {
+    pub access_token: String,
+    pub tenant_url: String,
+    pub id: Option<String>, // 用于前端识别是哪个token
+    pub portal_url: Option<String>, // Portal URL用于获取使用次数信息
+}
+
+// Portal信息结构体
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortalInfo {
+    pub credits_balance: i32,
+    pub expiry_date: Option<String>,
+    pub is_active: bool,
+    pub has_unlimited_usage: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenStatusResult {
+    pub token_id: Option<String>, // 对应输入的id
+    pub access_token: String, // 保留token用于前端更新
+    pub tenant_url: String,
+    pub status_result: AccountStatus,
+    pub portal_info: Option<PortalInfo>, // Portal信息（如果有）
+    pub portal_error: Option<String>, // Portal获取错误（如果有）
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub response_text: String,
@@ -175,7 +203,7 @@ pub async fn complete_augment_oauth_flow(
 pub async fn check_account_ban_status(
     token: &str,
     tenant_url: &str,
-) -> Result<AccountStatus, Box<dyn std::error::Error>> {
+) -> Result<AccountStatus, String> {
     let client = reqwest::Client::new();
 
 
@@ -212,7 +240,8 @@ pub async fn check_account_ban_status(
         .header("Authorization", &format!("Bearer {}", token))
         .json(&request_body)
         .send()
-        .await?;
+        .await
+        .map_err(|e| format!("HTTP request failed: {}", e))?;
 
     let status_code = response.status().as_u16();
     let status_text = response.status().to_string();
@@ -232,7 +261,8 @@ pub async fn check_account_ban_status(
     println!("Response Headers: {:#?}", response_headers);
 
     // Read response body
-    let response_body = response.text().await?;
+    let response_body = response.text().await
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
     println!("Response Body: {}", response_body);
     println!("===============================");
 
@@ -296,4 +326,219 @@ pub async fn check_account_ban_status(
             debug_info,
         })
     }
+}
+
+// 批量检测账号状态
+pub async fn batch_check_account_status(
+    tokens: Vec<TokenInfo>
+) -> Result<Vec<TokenStatusResult>, String> {
+
+    println!("=== Starting batch account status check for {} tokens ===", tokens.len());
+
+    // 创建并发任务并立即spawn
+    let mut handles = Vec::new();
+    
+    for token_info in tokens {
+        let token = token_info.access_token.clone();
+        let tenant_url = token_info.tenant_url.clone();
+        let token_id = token_info.id.clone();
+        let portal_url = token_info.portal_url.clone();
+        
+        let handle = tokio::spawn(async move {
+            println!("Checking status for token: {:?}", token_id);
+            
+            // 并发执行账号状态检测和Portal信息获取
+            let (status_result, portal_result) = if let Some(ref portal_url_ref) = portal_url {
+                // 如果有portal_url，并行执行两个任务
+                let (status_res, portal_res) = tokio::join!(
+                    check_account_ban_status(&token, &tenant_url),
+                    get_portal_info(portal_url_ref)
+                );
+                (status_res, Some(portal_res))
+            } else {
+                // 如果没有portal_url，只执行状态检测
+                let status_res = check_account_ban_status(&token, &tenant_url).await;
+                (status_res, None)
+            };
+            
+            // 处理账号状态检测结果
+            let status_result = match status_result {
+                Ok(status) => status,
+                Err(err) => {
+                    // 如果出错，创建一个错误状态
+                    AccountStatus {
+                        is_banned: false,
+                        status: "ERROR".to_string(),
+                        error_message: Some(format!("Failed to check status: {}", err)),
+                        response_code: None,
+                        response_body: None,
+                        debug_info: DebugInfo {
+                            request_url: format!("{}find-missing", tenant_url),
+                            request_headers: HashMap::new(),
+                            request_body: "{}".to_string(),
+                            response_headers: HashMap::new(),
+                            response_body: format!("Error: {}", err),
+                            response_status_text: "Error".to_string(),
+                        },
+                    }
+                }
+            };
+            
+            // 处理Portal信息获取结果
+            let (portal_info, portal_error) = match portal_result {
+                Some(Ok(info)) => (Some(info), None),
+                Some(Err(err)) => (None, Some(err)),
+                None => (None, None),
+            };
+
+            TokenStatusResult {
+                token_id,
+                access_token: token,
+                tenant_url,
+                status_result,
+                portal_info,
+                portal_error,
+            }
+        });
+        
+        handles.push(handle);
+    }
+
+    // 并发等待所有任务完成
+    let mut results = Vec::new();
+    for (index, handle) in handles.into_iter().enumerate() {
+        match handle.await {
+            Ok(result) => results.push(result),
+            Err(err) => {
+                eprintln!("Task {} failed: {}", index, err);
+                // 创建一个错误状态的结果
+                results.push(TokenStatusResult {
+                    token_id: Some(format!("task_{}", index)),
+                    access_token: "".to_string(),
+                    tenant_url: "".to_string(),
+                    status_result: AccountStatus {
+                        is_banned: false,
+                        status: "ERROR".to_string(),
+                        error_message: Some(format!("Task execution failed: {}", err)),
+                        response_code: None,
+                        response_body: None,
+                        debug_info: DebugInfo {
+                            request_url: "".to_string(),
+                            request_headers: HashMap::new(),
+                            request_body: "{}".to_string(),
+                            response_headers: HashMap::new(),
+                            response_body: format!("Task Error: {}", err),
+                            response_status_text: "Error".to_string(),
+                        },
+                    },
+                    portal_info: None,
+                    portal_error: Some(format!("Task failed: {}", err)),
+                });
+            }
+        }
+    }
+    
+    println!("=== Batch check completed. Results: {} ===", results.len());
+    
+    Ok(results)
+}
+
+// 从Portal URL提取token
+fn extract_token_from_portal_url(portal_url: &str) -> Option<String> {
+    if let Ok(url) = url::Url::parse(portal_url) {
+        url.query_pairs()
+            .find(|(key, _)| key == "token")
+            .map(|(_, value)| value.into_owned())
+    } else {
+        None
+    }
+}
+
+// 获取Portal信息
+async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
+    let token = extract_token_from_portal_url(portal_url)
+        .ok_or("Failed to extract token from portal URL")?;
+
+    // 获取customer信息
+    let customer_url = format!("https://portal.withorb.com/api/v1/customer_from_link?token={}", token);
+    
+    let client = reqwest::Client::new();
+    let customer_response = client
+        .get(&customer_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get customer info: {}", e))?;
+
+    if !customer_response.status().is_success() {
+        return Err(format!("Customer API request failed: {}", customer_response.status()));
+    }
+
+    let customer_text = customer_response.text().await
+        .map_err(|e| format!("Failed to read customer response: {}", e))?;
+    
+    let customer_data: serde_json::Value = serde_json::from_str(&customer_text)
+        .map_err(|e| format!("Failed to parse customer response: {}", e))?;
+
+    // 提取customer_id和pricing_unit_id
+    let customer_id = customer_data["customer"]["id"]
+        .as_str()
+        .ok_or("Customer ID not found")?;
+    
+    let pricing_unit_id = customer_data["customer"]["ledger_pricing_units"][0]["id"]
+        .as_str()
+        .ok_or("Pricing unit ID not found")?;
+    
+
+    // 获取ledger summary
+    let ledger_url = format!(
+        "https://portal.withorb.com/api/v1/customers/{}/ledger_summary?pricing_unit_id={}&token={}",
+        customer_id, pricing_unit_id, token
+    );
+
+    let ledger_response = client
+        .get(&ledger_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Accept", "application/json, text/plain, */*")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get ledger info: {}", e))?;
+
+    if !ledger_response.status().is_success() {
+        return Err(format!("Ledger API request failed: {}", ledger_response.status()));
+    }
+
+    let ledger_text = ledger_response.text().await
+        .map_err(|e| format!("Failed to read ledger response: {}", e))?;
+    
+    let ledger_data: serde_json::Value = serde_json::from_str(&ledger_text)
+        .map_err(|e| format!("Failed to parse ledger response: {}", e))?;
+
+
+    // 解析Portal信息（根据当前返回，credits_balance 为字符串，如 "9.00"）
+    let credits_balance: i32 = ledger_data["credits_balance"].as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .map(|v| v.floor() as i32)
+        .unwrap_or(0);
+    
+    // println removed by request: parsed credits balance
+
+    let mut expiry_date = None;
+    let mut is_active = false;
+
+    if let Some(credit_blocks) = ledger_data["credit_blocks"].as_array() {
+        if let Some(first_block) = credit_blocks.first() {
+            expiry_date = first_block["expiry_date"].as_str().map(|s| s.to_string());
+            is_active = first_block["is_active"].as_bool().unwrap_or(false);
+        }
+    }
+
+    Ok(PortalInfo {
+        credits_balance,
+        expiry_date,
+        is_active,
+    })
 }

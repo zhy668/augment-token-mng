@@ -23,6 +23,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           SENDER: ${{ github.event.sender.login }}
+          REPO_NAME: ${{ github.repository }}
         run: |
           # 选用正文：Issue 事件用 ISSUE_BODY，评论事件用 COMMENT_BODY
           if [ "$EVENT_NAME" = "issue_comment" ]; then
@@ -48,11 +49,14 @@ jobs:
 
           # 组装消息（Markdown），尽量避免特殊字符导致解析失败
           # 如果你遇到解析报错，可把 parse_mode 改为 HTML，或去掉 parse_mode。
-          MESSAGE="🔔 *GitHub ${WHAT} ${ACTION}* by \`${SENDER}\`
-          ${TITLE}
-          ${URL}
+          MESSAGE="
+          🔔 GitHub \`${REPO}\` ${WHAT} ${ACTION} by \`${SENDER}\`
+          
+          [Issue](${URL}): ${TITLE}
 
-          ${BODY}"
+          > ${BODY}
+          
+          "
 
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \

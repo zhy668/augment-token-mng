@@ -50,7 +50,7 @@ jobs:
           # 组装消息（Markdown），尽量避免特殊字符导致解析失败
           # 如果你遇到解析报错，可把 parse_mode 改为 HTML，或去掉 parse_mode。
           MESSAGE="
-          🔔 GitHub `${REPO_NAME}` ${WHAT} ${ACTION} by `${SENDER}`
+          🔔 GitHub \`${REPO_NAME}\` ${WHAT} ${ACTION} by \`${SENDER}\`
           
           [Issue](${URL}): ${TITLE}
 

@@ -1,0 +1,24 @@
+name: GitHub Issues to Telegram
+
+on:
+  issues:
+    types: [opened, edited, closed]
+
+jobs:
+  send_to_telegram:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Send Telegram Notification
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        ISSUE_TITLE: ${{ github.event.issue.title }}
+        ISSUE_URL: ${{ github.event.issue.html_url }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        ACTION: ${{ github.event.action }}
+      run: |
+        MESSAGE="🔔 *GitHub Issue Notification*\n*${ISSUE_TITLE}*\n${ISSUE_URL}\n\n${ISSUE_BODY}\n\n_Action_: ${ACTION}"
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+             -d chat_id="${TELEGRAM_CHAT_ID}" \
+             -d text="$MESSAGE" \
+             -d parse_mode="Markdown"

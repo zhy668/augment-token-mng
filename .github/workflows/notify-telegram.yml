@@ -9,7 +9,6 @@ on:
 jobs:
   send_to_telegram:
     runs-on: ubuntu-latest
-    environment: Telegram
     if: ${{ github.event.sender.type != 'Bot' && github.event.sender.login != 'github-actions[bot]' }}
 
     steps:

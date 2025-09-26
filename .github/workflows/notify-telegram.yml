@@ -50,12 +50,13 @@ jobs:
           # 组装消息（Markdown），尽量避免特殊字符导致解析失败
           # 如果你遇到解析报错，可把 parse_mode 改为 HTML，或去掉 parse_mode。
           MESSAGE="
-          🔔 GitHub \`${REPO_NAME}\` ${WHAT} ${ACTION} by \`${SENDER}\`
-          
-          [Issue](${URL}): ${TITLE}
+          🔔 GitHub ${WHAT}
+          \`${REPO_NAME}\`
+          [Issue](${URL}): *${TITLE}*
 
           > ${BODY}
-          
+
+          ${ACTION} by \`${SENDER}\`
           "
 
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \

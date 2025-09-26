@@ -55,7 +55,7 @@ jobs:
           [Issue](${URL}): *${TITLE}*
 
           > ${BODY}
-
+          
           ${ACTION} by \`${SENDER}\`
           "
 

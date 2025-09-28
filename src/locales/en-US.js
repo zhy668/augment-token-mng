@@ -141,7 +141,8 @@ export default {
     refresh: 'Refresh',
     addToken: 'Add Token',
     save: 'Save',
-    databaseConfig: 'Database Config'
+    databaseConfig: 'Database Config',
+    sortByTime: 'Sort by creation time'
   },
   tokenCard: {
     banned: 'Banned',
@@ -284,6 +285,7 @@ export default {
     bidirectionalSyncComplete: 'Bidirectional sync complete',
     syncCompleteButStatusFailed: 'Sync complete, but account status check failed',
     refreshingTokenStatus: 'Refreshing token status and portal information...',
+    refreshComplete: 'Refresh complete',
     refreshFailed: 'Refresh failed',
     databaseConfigSaved: 'Database configuration saved, storage functionality updated',
     databaseConfigDeleted: 'Database configuration deleted, switched to local storage only',

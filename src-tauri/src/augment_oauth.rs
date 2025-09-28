@@ -66,8 +66,7 @@ pub struct TokenInfo {
 pub struct PortalInfo {
     pub credits_balance: i32,
     pub expiry_date: Option<String>,
-    pub is_active: bool,
-    pub has_unlimited_usage: bool,
+    pub can_still_use: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -199,7 +198,6 @@ pub async fn complete_augment_oauth_flow(
     })
 }
 
-/// Check account ban status by testing chat-stream API
 pub async fn check_account_ban_status(
     token: &str,
     tenant_url: &str,
@@ -333,7 +331,6 @@ pub async fn batch_check_account_status(
     tokens: Vec<TokenInfo>
 ) -> Result<Vec<TokenStatusResult>, String> {
 
-    println!("=== Starting batch account status check for {} tokens ===", tokens.len());
 
     // 创建并发任务并立即spawn
     let mut handles = Vec::new();
@@ -346,27 +343,16 @@ pub async fn batch_check_account_status(
         
         let handle = tokio::spawn(async move {
             println!("Checking status for token: {:?}", token_id);
-            
-            // 并发执行账号状态检测和Portal信息获取
-            let (status_result, portal_result) = if let Some(ref portal_url_ref) = portal_url {
-                // 如果有portal_url，并行执行两个任务
-                let (status_res, portal_res) = tokio::join!(
-                    check_account_ban_status(&token, &tenant_url),
-                    get_portal_info(portal_url_ref)
-                );
-                (status_res, Some(portal_res))
-            } else {
-                // 如果没有portal_url，只执行状态检测
-                let status_res = check_account_ban_status(&token, &tenant_url).await;
-                (status_res, None)
-            };
-            
+
+            // 1. 先检测账号封禁状态
+            let status_result = check_account_ban_status(&token, &tenant_url).await;
+
             // 处理账号状态检测结果
             let status_result = match status_result {
                 Ok(status) => status,
                 Err(err) => {
-                    // 如果出错，创建一个错误状态
-                    AccountStatus {
+                    // 如果出错，创建一个错误状态并直接返回
+                    let error_status = AccountStatus {
                         is_banned: false,
                         status: "ERROR".to_string(),
                         error_message: Some(format!("Failed to check status: {}", err)),
@@ -380,16 +366,58 @@ pub async fn batch_check_account_status(
                             response_body: format!("Error: {}", err),
                             response_status_text: "Error".to_string(),
                         },
-                    }
+                    };
+
+                    return TokenStatusResult {
+                        token_id,
+                        access_token: token,
+                        tenant_url,
+                        status_result: error_status,
+                        portal_info: None,
+                        portal_error: Some(format!("Status check failed: {}", err)),
+                    };
                 }
             };
-            
-            // 处理Portal信息获取结果
-            let (portal_info, portal_error) = match portal_result {
-                Some(Ok(info)) => (Some(info), None),
-                Some(Err(err)) => (None, Some(err)),
-                None => (None, None),
+
+            // 2. 如果账号被封禁，直接返回
+            if status_result.is_banned {
+                return TokenStatusResult {
+                    token_id,
+                    access_token: token,
+                    tenant_url,
+                    status_result,
+                    portal_info: None,
+                    portal_error: None,
+                };
+            }
+
+            // 3. 如果账号未封禁且有Portal URL，获取Portal信息
+            let (portal_info, portal_error) = if let Some(ref portal_url_ref) = portal_url {
+                match get_portal_info(portal_url_ref).await {
+                    Ok(mut portal_info) => {
+                        // 4. 如果credits_balance为0，检查订阅状态
+                        if portal_info.credits_balance == 0 {
+                            match check_subscription_info(token.clone(), tenant_url.clone()).await {
+                                Ok(can_use) => {
+                                    portal_info.can_still_use = can_use;
+                                }
+                                Err(err) => {
+                                    println!("Failed to check subscription info: {}", err);
+                                    portal_info.can_still_use = false;
+                                }
+                            }
+                        } else {
+                            // 如果有余额，设置为可以使用
+                            portal_info.can_still_use = true;
+                        }
+                        (Some(portal_info), None)
+                    }
+                    Err(err) => (None, Some(err))
+                }
+            } else {
+                (None, None)
             };
+
 
             TokenStatusResult {
                 token_id,
@@ -404,7 +432,6 @@ pub async fn batch_check_account_status(
         handles.push(handle);
     }
 
-    // 并发等待所有任务完成
     let mut results = Vec::new();
     for (index, handle) in handles.into_iter().enumerate() {
         match handle.await {
@@ -438,7 +465,6 @@ pub async fn batch_check_account_status(
         }
     }
     
-    println!("=== Batch check completed. Results: {} ===", results.len());
     
     Ok(results)
 }
@@ -527,18 +553,45 @@ async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
     // println removed by request: parsed credits balance
 
     let mut expiry_date = None;
-    let mut is_active = false;
 
     if let Some(credit_blocks) = ledger_data["credit_blocks"].as_array() {
         if let Some(first_block) = credit_blocks.first() {
             expiry_date = first_block["expiry_date"].as_str().map(|s| s.to_string());
-            is_active = first_block["is_active"].as_bool().unwrap_or(false);
         }
     }
 
     Ok(PortalInfo {
         credits_balance,
         expiry_date,
-        is_active,
+        can_still_use: false, // 默认值，将在batch_check_account_status中更新
     })
+}
+
+pub async fn check_subscription_info(token: String, tenant_url: String) -> Result<bool, String> {
+    let url = format!("{}/subscription-info", tenant_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to make API request: {}", e))?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response: {}", e))?;
+
+        // 检查响应中是否包含 "out of user messages"
+        let has_usage_limit = response_text.contains("out of user messages");
+        Ok(!has_usage_limit) // 如果包含限制信息则返回false，否则返回true
+    } else {
+        Err(format!("API request failed with status {}: {}", status, response.status()))
+    }
 }

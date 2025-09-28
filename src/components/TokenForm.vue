@@ -95,7 +95,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'success', 'show-status', 'update-token', 'add-token'])
+const emit = defineEmits(['close', 'success', 'update-token', 'add-token'])
 
 // Reactive data
 const formData = ref({
@@ -155,7 +155,7 @@ watch(() => props.token, (newToken) => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  emit('show-status', message, type)
+  window.$notify[type](message)
 }
 
 const validateForm = () => {
@@ -200,7 +200,6 @@ const handleSubmit = async () => {
   }
 
   isLoading.value = true
-  showStatus(isEditing.value ? t('messages.updatingToken') : t('messages.savingToken'), 'info')
 
   try {
     const tokenData = {
@@ -216,11 +215,9 @@ const handleSubmit = async () => {
         id: props.token.id,
         ...tokenData
       })
-      showStatus(t('messages.tokenUpdatedToMemory'), 'success')
     } else {
       // Add new token - 通知父组件添加到内存中的数据
       emit('add-token', tokenData)
-      showStatus(t('messages.tokenAddedToMemory'), 'success')
     }
 
     emit('success')

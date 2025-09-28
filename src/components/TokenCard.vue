@@ -61,11 +61,11 @@
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
         </button>
-        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus }]" :disabled="isCheckingStatus" :title="$t('tokenCard.checkAccountStatus')">
-          <svg v-if="!isCheckingStatus" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus || isBatchChecking }]" :disabled="isCheckingStatus || isBatchChecking" :title="$t('tokenCard.checkAccountStatus')">
+          <svg v-if="!isCheckingStatus && !isBatchChecking" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
-          <div v-else class="loading-spinner"></div>
+          <div v-else-if="isCheckingStatus || isBatchChecking" class="loading-spinner"></div>
         </button>
         <button v-if="token.portal_url" @click="showPortalDialog = true" class="btn-action portal" :title="$t('tokenCard.openPortal')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -286,7 +286,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import ExternalLinkDialog from './ExternalLinkDialog.vue'
@@ -299,6 +299,10 @@ const props = defineProps({
   token: {
     type: Object,
     required: true
+  },
+  isBatchChecking: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -312,7 +316,7 @@ const isCheckingStatus = ref(false)
 const isEmailHovered = ref(false)
 const showEditorModal = ref(false)
 const isModalClosing = ref(false)
-const hasUnlimitedUsage = ref(false)
+const canStillUse = ref(false)
 const showPortalDialog = ref(false)
 
 // 图标映射
@@ -382,7 +386,7 @@ const balanceClasses = computed(() => {
   if (!portalInfo.value || !portalInfo.value.data) {
     return ['portal-meta', 'balance']
   }
-  const exhausted = portalInfo.value.data.credits_balance === 0 && !hasUnlimitedUsage.value
+  const exhausted = portalInfo.value.data.credits_balance === 0 && !canStillUse.value
   return ['portal-meta', 'balance', { exhausted }]
 })
 
@@ -390,7 +394,7 @@ const balanceDisplay = computed(() => {
   if (!portalInfo.value || !portalInfo.value.data) return ''
   const credits = portalInfo.value.data.credits_balance
   if (credits === 0) {
-    return hasUnlimitedUsage.value ? t('tokenCard.canUse') : t('tokenCard.exhausted')
+    return canStillUse.value ? t('tokenCard.canUse') : t('tokenCard.exhausted')
   }
   return `${t('tokenCard.balance')}: ${credits}`
 })
@@ -654,22 +658,11 @@ const formatExpiryDate = (dateString) => {
   }
 }
 
-// 检查订阅信息
-const checkSubscriptionInfo = async () => {
-  try {
-    const hasUnlimited = await invoke('check_subscription_info', {
-      token: props.token.access_token,
-      tenantUrl: props.token.tenant_url
-    })
-    hasUnlimitedUsage.value = hasUnlimited
-  } catch (error) {
-    hasUnlimitedUsage.value = false
-  }
-}
+
 
 // 检测账号状态
 const checkAccountStatus = async (showNotification = true) => {
-  if (isCheckingStatus.value) return
+  if (isCheckingStatus.value || props.isBatchChecking) return
 
   isCheckingStatus.value = true
 
@@ -703,19 +696,17 @@ const checkAccountStatus = async (showNotification = true) => {
         props.token.portal_info = {
           credits_balance: result.portal_info.credits_balance,
           expiry_date: result.portal_info.expiry_date,
-          is_active: result.portal_info.is_active
+          can_still_use: result.portal_info.can_still_use
         }
-        
+
         // 更新UI显示
         portalInfo.value = {
           data: props.token.portal_info,
           error: null
         }
-        
-        // 如果次数为0，则异步检查是否有无限使用权限
-        if (props.token.portal_info.credits_balance === 0) {
-          await checkSubscriptionInfo()
-        }
+
+        // 直接使用后端返回的can_still_use字段
+        canStillUse.value = result.portal_info.can_still_use
       } else if (result.portal_error) {
         portalInfo.value = {
           data: null,
@@ -774,6 +765,24 @@ const checkAccountStatus = async (showNotification = true) => {
 
 
 
+// 监听token变化，同步更新Portal信息显示
+watch(() => props.token.portal_info, (newPortalInfo) => {
+  if (newPortalInfo && props.token.portal_url) {
+    portalInfo.value = {
+      data: {
+        credits_balance: newPortalInfo.credits_balance,
+        expiry_date: newPortalInfo.expiry_date,
+        can_still_use: newPortalInfo.can_still_use
+      },
+      error: null
+    }
+    // 同步can_still_use状态
+    if (newPortalInfo.can_still_use !== undefined) {
+      canStillUse.value = newPortalInfo.can_still_use
+    }
+  }
+}, { deep: true })
+
 // 组件挂载时加载Portal信息
 onMounted(async () => {
   if (props.token.portal_url) {
@@ -783,13 +792,13 @@ onMounted(async () => {
         data: {
           credits_balance: props.token.portal_info.credits_balance,
           expiry_date: props.token.portal_info.expiry_date,
-          is_active: props.token.portal_info.is_active
+          can_still_use: props.token.portal_info.can_still_use
         },
         error: null
       }
-      // 如果本地数据显示剩余次数为0，检查订阅信息
-      if (props.token.portal_info.credits_balance === 0) {
-        await checkSubscriptionInfo()
+      // 设置本地的can_still_use状态
+      if (props.token.portal_info.can_still_use !== undefined) {
+        canStillUse.value = props.token.portal_info.can_still_use
       }
     }
     // 然后在后台刷新数据（静默模式，不显示通知）

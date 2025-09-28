@@ -153,7 +153,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'config-saved', 'config-deleted', 'show-status'])
+const emit = defineEmits(['close', 'config-saved', 'config-deleted'])
 
 // i18n
 const { t } = useI18n()
@@ -229,11 +229,11 @@ const testConnection = async () => {
     })
 
     // 连接成功时发送toast通知
-    emit('show-status', t('databaseConfig.messages.testSuccess'), 'success')
+    window.$notify.success(t('databaseConfig.messages.testSuccess'))
     isConnectionTested.value = true
   } catch (error) {
     // 连接失败时发送toast通知
-    emit('show-status', `${t('databaseConfig.messages.testFailed')}: ${error}`, 'error')
+    window.$notify.error(`${t('databaseConfig.messages.testFailed')}: ${error}`)
     isConnectionTested.value = false
   } finally {
     isTesting.value = false
@@ -253,11 +253,11 @@ const saveConfig = async () => {
       ssl_mode: config.value.sslMode
     })
     
-    emit('show-status', t('databaseConfig.messages.saveSuccess'), 'success')
+    window.$notify.success(t('databaseConfig.messages.saveSuccess'))
     emit('config-saved')
     emit('close')
   } catch (error) {
-    emit('show-status', `${t('databaseConfig.messages.saveFailed')}: ${error}`, 'error')
+    window.$notify.error(`${t('databaseConfig.messages.saveFailed')}: ${error}`)
   } finally {
     isSaving.value = false
   }
@@ -274,11 +274,11 @@ const confirmDeleteConfig = async () => {
   try {
     await invoke('delete_database_config')
     
-    emit('show-status', t('databaseConfig.messages.deleteSuccess'), 'success')
+    window.$notify.success(t('databaseConfig.messages.deleteSuccess'))
     emit('config-deleted')
     emit('close')
   } catch (error) {
-    emit('show-status', `${t('databaseConfig.messages.deleteFailed')}: ${error}`, 'error')
+    window.$notify.error(`${t('databaseConfig.messages.deleteFailed')}: ${error}`)
   } finally {
     isDeleting.value = false
   }

@@ -62,15 +62,36 @@
           <!-- Token List -->
           <div v-if="tokens.length > 0" class="token-list">
             <div class="list-header">
-              <h3>{{ $t('tokenList.listTitle', { count: tokens.length }) }}</h3>
+              <div class="list-title-section">
+                <h3>{{ $t('tokenList.listTitle', { count: tokens.length }) }}</h3>
+                <button
+                  class="sort-btn"
+                  @click="toggleSort"
+                  :title="$t('tokenList.sortByTime')"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="sort-icon">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                  </svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    :class="['arrow-icon', sortOrder === 'desc' ? 'arrow-down' : 'arrow-up']"
+                  >
+                    <path d="M7 14l5-5 5 5z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div class="token-grid">
               <TokenCard
-                v-for="token in tokens"
+                v-for="token in sortedTokens"
                 :key="token.id"
                 :ref="el => setTokenCardRef(el, token.id)"
                 :token="token"
+                :is-batch-checking="isRefreshing"
                 @delete="deleteToken"
                 @edit="handleEditToken"
                 @token-updated="hasUnsavedChanges = true"
@@ -123,6 +144,30 @@ const tokens = ref([])
 const isLoading = ref(false)
 const hasUnsavedChanges = ref(false)
 const isDatabaseAvailable = ref(false)
+
+// 排序状态管理
+const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
+
+// 排序后的tokens计算属性
+const sortedTokens = computed(() => {
+  if (tokens.value.length === 0) return []
+
+  return [...tokens.value].sort((a, b) => {
+    const dateA = new Date(a.created_at)
+    const dateB = new Date(b.created_at)
+
+    if (sortOrder.value === 'desc') {
+      return dateB - dateA // 最新优先
+    } else {
+      return dateA - dateB // 最旧优先
+    }
+  })
+})
+
+// 切换排序方式
+const toggleSort = () => {
+  sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+}
 
 const emit = defineEmits(['close'])
 
@@ -188,51 +233,19 @@ const checkAllAccountStatus = async () => {
       portal_url: token.portal_url || null
     }))
 
-    console.log('Starting batch token status check for', tokenInfos.length, 'tokens')
-
     // 单次批量API调用
     const results = await invoke('batch_check_tokens_status', {
       tokens: tokenInfos
     })
 
-    console.log('Batch check results:', results)
 
     // 批量更新tokens状态
     updateTokensFromResults(results)
 
-    // 统计成功和失败的数量
-    let successCount = 0
-    let failureCount = 0
-
-    results.forEach(result => {
-      const statusResult = result.status_result
-      if (statusResult.status === 'ERROR') {
-        failureCount++
-      } else {
-        successCount++
-      }
-    })
-
     // 等待DOM更新后保存tokens
     await nextTick()
-    await saveTokens()
+    await saveTokens(false)
 
-    if (failureCount === 0) {
-      return {
-        success: true,
-        message: t('messages.accountStatusCheckComplete', { success: successCount, total: tokenInfos.length })
-      }
-    } else if (successCount === 0) {
-      return {
-        success: false,
-        message: t('messages.accountStatusCheckFailed', { failed: failureCount, total: tokenInfos.length })
-      }
-    } else {
-      return {
-        success: true,
-        message: t('messages.accountStatusCheckPartial', { success: successCount, total: tokenInfos.length })
-      }
-    }
   } catch (error) {
     console.error('Batch check error:', error)
     return {
@@ -256,7 +269,7 @@ const updateTokensFromResults = (results) => {
         token.portal_info = {
           credits_balance: result.portal_info.credits_balance,
           expiry_date: result.portal_info.expiry_date,
-          is_active: result.portal_info.is_active
+          can_still_use: result.portal_info.can_still_use
         }
         console.log(`Updated token ${token.id} portal info:`, token.portal_info)
       } else if (result.portal_error) {
@@ -273,7 +286,6 @@ const updateTokensFromResults = (results) => {
   hasUnsavedChanges.value = true
 }
 
-// TokenList内部的数据管理方法
 const loadTokens = async (showSuccessMessage = false) => {
   isLoading.value = true
   try {
@@ -294,12 +306,14 @@ const loadTokens = async (showSuccessMessage = false) => {
   }
 }
 
-const saveTokens = async () => {
+const saveTokens = async (showSuccessMessage = false) => {
   try {
     const jsonString = JSON.stringify(tokens.value, null, 2)
     await invoke('save_tokens_json', { jsonString })
     hasUnsavedChanges.value = false
-    window.$notify.success(t('messages.tokenSaved'))
+    if (showSuccessMessage) {
+      window.$notify.success(t('messages.tokenSaved'))
+    }
   } catch (error) {
     window.$notify.error(`${t('messages.tokenSaveFailed')}: ${error}`)
     throw error
@@ -409,57 +423,31 @@ const handleRefresh = async () => {
   isRefreshing.value = true
 
   try {
+    // 统一开始通知
+    window.$notify.info(t('messages.refreshingTokenStatus'))
+
     if (isDatabaseAvailable.value) {
       // 双向存储模式：执行双向同步
-      window.$notify.info(t('messages.bidirectionalSyncing'))
-
-      const result = await invoke('bidirectional_sync_tokens')
-      window.$notify.success(t('messages.bidirectionalSyncComplete'))
-
-      // 刷新本地token列表显示
+      await invoke('bidirectional_sync_tokens')
       await loadTokens(false)
-      await nextTick() // 等待DOM更新
-
-      // 只执行账号状态检查
-      const statusResult = await Promise.allSettled([
-        checkAllAccountStatus()
-      ])
-
-      if (statusResult[0].status === 'fulfilled') {
-        if (!statusResult[0].value.success) {
-          window.$notify.error(`${t('messages.syncCompleteButStatusFailed')}: ${statusResult[0].value.message}`)
-        }
-      } else {
-        window.$notify.error(`${t('messages.syncCompleteButStatusFailed')}: ${statusResult[0].reason}`)
-      }
+      await nextTick()
+      await checkAllAccountStatus()
     } else {
       // 本地存储模式：直接刷新和保存
-      window.$notify.info(t('messages.refreshingTokenStatus'))
-
-      // 直接加载tokens
       await loadTokens()
-      await nextTick() // 等待DOM更新
+      await nextTick()
 
-      // 只有在有tokens时才执行后续操作和保存
       if (tokens.value.length > 0) {
-        const statusResult = await Promise.allSettled([
-          checkAllAccountStatus()
-        ])
-
-        if (statusResult[0].status === 'fulfilled') {
-          const result = statusResult[0].value
-          window.$notify[result.success ? 'success' : 'error'](result.message)
-        } else {
-          window.$notify.error(`${t('messages.accountStatusCheckError')}: ${statusResult[0].reason}`)
-        }
-
-        await saveTokens() // 直接调用内部方法
+        await checkAllAccountStatus()
       } else {
-        window.$notify.error(t('messages.refreshFailedNoTokens'))
+        throw new Error(t('messages.refreshFailedNoTokens'))
       }
     }
+
+    // 统一成功通知
+    window.$notify.success(t('messages.refreshComplete'))
   } catch (error) {
-    window.$notify.error(`${t('messages.refreshFailed')}: ${error.message}`)
+    window.$notify.error(`${t('messages.refreshFailed')}: ${error.message || error}`)
   } finally {
     isRefreshing.value = false
   }
@@ -497,12 +485,13 @@ const handleSave = async () => {
       window.$notify.info(t('messages.bidirectionalSyncing'))
       const result = await invoke('bidirectional_sync_tokens')
       window.$notify.success(t('messages.bidirectionalSyncSaveComplete'))
-      
+
       // 双向同步完成后刷新本地显示
       await loadTokens(false)
+      hasUnsavedChanges.value = false
     } else {
       // 本地存储模式：直接保存
-      await saveTokens()
+      await saveTokens(true)
     }
   } catch (error) {
     window.$notify.error(`${t('messages.saveFailed')}: ${error}`)
@@ -679,8 +668,26 @@ defineExpose({
     gap: 12px;
   }
 
+  .list-title-section {
+    gap: 8px;
+  }
+
   .list-header h3 {
     font-size: 1rem;
+  }
+
+  .sort-btn {
+    padding: 4px 6px;
+  }
+
+  .sort-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .arrow-icon {
+    width: 10px;
+    height: 10px;
   }
 }
 
@@ -728,11 +735,54 @@ defineExpose({
   border-bottom: 1px solid var(--color-border, #e5e7eb);
 }
 
+.list-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .list-header h3 {
   margin: 0;
   color: var(--color-text-primary, #374151);
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--color-surface-muted, #f8f9fa);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0;
+}
+
+.sort-btn:hover {
+  background: var(--color-surface-hover, #e9ecef);
+  color: var(--color-text-primary, #374151);
+  border-color: var(--color-border-hover, #d1d5db);
+}
+
+.sort-icon {
+  flex-shrink: 0;
+}
+
+.arrow-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.arrow-icon.arrow-down {
+  transform: rotate(180deg);
+}
+
+.arrow-icon.arrow-up {
+  transform: rotate(0deg);
 }
 
 .btn {

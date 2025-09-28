@@ -485,35 +485,7 @@ async fn get_ledger_summary(customer_id: String, pricing_unit_id: String, token:
     }
 }
 
-#[tauri::command]
-async fn check_subscription_info(token: String, tenant_url: String) -> Result<bool, String> {
-    let url = format!("{}/subscription-info", tenant_url.trim_end_matches('/'));
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .map_err(|e| format!("Failed to make API request: {}", e))?;
-
-    let status = response.status();
-
-    if status.is_success() {
-        let response_text = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read response: {}", e))?;
-
-        // 检查响应中是否包含 "out of user messages"
-        let has_usage_limit = response_text.contains("out of user messages");
-        Ok(!has_usage_limit) // 如果包含限制信息则返回false，否则返回true
-    } else {
-        Err(format!("API request failed with status {}: {}", status, response.status()))
-    }
-}
 
 #[tauri::command]
 async fn test_api_call() -> Result<String, String> {
@@ -1197,7 +1169,6 @@ fn main() {
             // API 调用命令
             get_customer_info,
             get_ledger_summary,
-            check_subscription_info,
             test_api_call,
             open_data_folder,
             open_editor_with_protocol,

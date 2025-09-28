@@ -141,7 +141,8 @@ export default {
     refresh: '刷新',
     addToken: '添加Token',
     save: '保存',
-    databaseConfig: '数据库配置'
+    databaseConfig: '数据库配置',
+    sortByTime: '按创建时间排序'
   },
   tokenCard: {
     banned: '已封禁',
@@ -284,6 +285,7 @@ export default {
     bidirectionalSyncComplete: '双向同步完成',
     syncCompleteButStatusFailed: '同步完成，但账号状态检查失败',
     refreshingTokenStatus: '正在刷新 Token 状态和 Portal 信息...',
+    refreshComplete: '刷新完成',
     refreshFailed: '刷新失败',
     databaseConfigSaved: '数据库配置已保存，存储功能已更新',
     databaseConfigDeleted: '数据库配置已删除，已切换到仅本地存储',

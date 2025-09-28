@@ -120,7 +120,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import EmailViewer from './EmailViewer.vue'
 
-const emit = defineEmits(['close', 'show-status'])
+const emit = defineEmits(['close'])
 
 // i18n
 const { t } = useI18n()
@@ -145,7 +145,7 @@ const canAddAccount = computed(() => {
 
 // 方法
 const showStatus = (message, type = 'info') => {
-  emit('show-status', message, type)
+  window.$notify[type](message)
 }
 
 const refreshAccounts = async () => {

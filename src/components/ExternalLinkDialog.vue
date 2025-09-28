@@ -59,7 +59,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'show-status'])
+const emit = defineEmits(['close'])
 
 // Methods
 const handleClose = () => {
@@ -71,10 +71,10 @@ const handleCopyUrl = async () => {
 
   try {
     await navigator.clipboard.writeText(props.url)
-    emit('show-status', t('messages.copySuccess'), 'success')
+    window.$notify.success(t('messages.copySuccess'))
   } catch (error) {
     console.error('Failed to copy URL to clipboard:', error)
-    emit('show-status', t('messages.copyFailed'), 'error')
+    window.$notify.error(t('messages.copyFailed'))
   }
 }
 
@@ -86,7 +86,7 @@ const handleExternalOpen = async () => {
     await invoke('open_url', { url: props.url })
   } catch (error) {
     console.error('Failed to open URL externally:', error)
-    emit('show-status', t('messages.openUrlFailed'), 'error')
+    window.$notify.error(t('messages.openUrlFailed'))
   }
 }
 
@@ -101,7 +101,7 @@ const handleInternalOpen = async () => {
     })
   } catch (error) {
     console.error('Failed to open URL internally:', error)
-    emit('show-status', t('messages.openUrlFailed'), 'error')
+    window.$notify.error(t('messages.openUrlFailed'))
   }
 }
 </script>

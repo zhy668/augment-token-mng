@@ -135,7 +135,7 @@ import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 // Emits
-const emit = defineEmits(['close', 'token-saved', 'show-status', 'save-token'])
+const emit = defineEmits(['close', 'token-saved', 'save-token'])
 
 // Reactive data
 const authUrl = ref('')
@@ -158,7 +158,7 @@ const canGetToken = computed(() => {
 
 // Methods
 const showStatus = (message, type = 'info') => {
-  emit('show-status', message, type)
+  window.$notify[type](message)
 }
 
 const copyToClipboard = async (text) => {

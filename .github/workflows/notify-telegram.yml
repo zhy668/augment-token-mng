@@ -1,0 +1,65 @@
+name: GitHub Issues & Comments to Telegram
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened]
+  issue_comment:
+    types: [created, edited, deleted]
+
+jobs:
+  send_to_telegram:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.sender.type != 'Bot' && github.event.sender.login != 'github-actions[bot]' }}
+
+    steps:
+      - name: Compose and send message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}               # issues 或 issue_comment
+          ACTION: ${{ github.event.action }}                 # opened/edited/closed/created/...
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          SENDER: ${{ github.event.sender.login }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          # 选用正文：Issue 事件用 ISSUE_BODY，评论事件用 COMMENT_BODY
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            BODY="$COMMENT_BODY"
+            WHAT="Comment"
+            URL="${ISSUE_URL}#issuecomment-${{ github.event.comment.id }}"
+            TITLE="$ISSUE_TITLE"
+          else
+            BODY="$ISSUE_BODY"
+            WHAT="Issue"
+            URL="$ISSUE_URL"
+            TITLE="$ISSUE_TITLE"
+          fi
+
+          # 截断正文，避免超过 Telegram 4096 限制
+          MAX=1500
+          if [ -n "$BODY" ]; then
+            LEN=${#BODY}
+            if [ $LEN -gt $MAX ]; then
+              BODY="${BODY:0:$MAX}\n…(truncated)"
+            fi
+          fi
+
+          # 组装消息（Markdown），尽量避免特殊字符导致解析失败
+          # 如果你遇到解析报错，可把 parse_mode 改为 HTML，或去掉 parse_mode。
+          MESSAGE="
+          🔔 GitHub ${WHAT}
+          \`${REPO_NAME}\`
+          [Issue](${URL}): *${TITLE}*
+
+          > ${BODY}
+          
+          ${ACTION} by \`${SENDER}\`
+          "
+
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="$MESSAGE" \
+            -d parse_mode="MarkdownV2"

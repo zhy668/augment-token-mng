@@ -2,13 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod augment_oauth;
+mod augment_user_info;
 mod bookmarks;
 mod http_server;
 mod outlook_manager;
 mod database;
 mod storage;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
+use augment_user_info::{get_user_info, CompleteUserInfo};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus, AccountInfo};
@@ -16,9 +18,9 @@ use database::{DatabaseConfig, DatabaseConfigManager, DatabaseManager};
 use storage::{DualStorage, LocalFileStorage, PostgreSQLStorage, TokenStorage, SyncManager};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
-use tauri::{State, Manager, WebviewWindowBuilder, WebviewUrl};
+use tauri::{State, Manager, Emitter, WebviewWindowBuilder, WebviewUrl};
 use chrono;
-
+use serde::{Serialize, Deserialize};
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
@@ -92,6 +94,32 @@ async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenSt
     batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TokenFromSessionResponse {
+    access_token: String,
+    tenant_url: String,
+    user_info: CompleteUserInfo,
+}
+
+#[tauri::command]
+async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
+    // 1. 从 session 提取 token
+    let _ = app.emit("session-import-progress", "sessionImportExtractingToken");
+    let token_response = extract_token_from_session(&session).await?;
+
+    // 2. 获取用户信息
+    let _ = app.emit("session-import-progress", "sessionImportGettingUserInfo");
+    let user_info = get_user_info(&session).await?;
+
+    let _ = app.emit("session-import-progress", "sessionImportComplete");
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        user_info,
+    })
 }
 
 #[tauri::command]
@@ -761,8 +789,10 @@ async fn save_database_config(
                     database::create_tables(&client).await
                         .map_err(|e| format!("Failed to create tables: {}", e))?;
                 } else {
-                    // 表已存在，执行一次同步
-                    println!("Database tables already exist, will perform initial sync");
+                    // 表已存在，检查并添加新字段
+                    println!("Database tables already exist, checking for new fields");
+                    database::add_new_fields_if_not_exist(&client).await
+                        .map_err(|e| format!("Failed to add new fields: {}", e))?;
                 }
             }
 
@@ -917,6 +947,24 @@ async fn bidirectional_sync_tokens(
     };
 
     storage_manager.bidirectional_sync().await
+        .map_err(|e| format!("Sync failed: {}", e))
+}
+
+#[tauri::command]
+async fn bidirectional_sync_tokens_with_data(
+    tokens_json: String,
+    state: State<'_, AppState>,
+) -> Result<storage::SyncStatus, String> {
+    let storage_manager = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
+    };
+
+    // 解析前端传入的 tokens JSON
+    let tokens: Vec<storage::TokenData> = serde_json::from_str(&tokens_json)
+        .map_err(|e| format!("Failed to parse tokens JSON: {}", e))?;
+
+    storage_manager.bidirectional_sync_with_tokens(tokens).await
         .map_err(|e| format!("Sync failed: {}", e))
 }
 
@@ -1086,6 +1134,10 @@ fn main() {
                                                                 }
                                                                 false // 新创建的表不需要同步
                                                             } else {
+                                                                // 表已存在，检查并添加新字段
+                                                                if let Err(e) = database::add_new_fields_if_not_exist(&client).await {
+                                                                    eprintln!("Failed to add new fields on startup: {}", e);
+                                                                }
                                                                 true // 表已存在，需要同步
                                                             }
                                                         }
@@ -1156,6 +1208,7 @@ fn main() {
             get_augment_token,
             check_account_status,
             batch_check_tokens_status,
+            add_token_from_session,
             open_url,
             // 新的简化命令
             save_tokens_json,
@@ -1192,6 +1245,7 @@ fn main() {
             // 删除命令
             delete_token,
             bidirectional_sync_tokens,
+            bidirectional_sync_tokens_with_data,
             get_storage_status,
             get_sync_status,
 

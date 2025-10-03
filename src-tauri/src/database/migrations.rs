@@ -34,7 +34,9 @@ pub async fn create_tables(client: &Client) -> Result<(), Box<dyn std::error::Er
             portal_url TEXT,
             email_note TEXT,
             ban_status JSONB,
-            portal_info JSONB
+            portal_info JSONB,
+            auth_session TEXT,
+            suspensions JSONB
         )
         "#,
         &[],
@@ -105,6 +107,59 @@ pub async fn drop_tables(client: &Client) -> Result<(), Box<dyn std::error::Erro
     client.execute("DROP TABLE IF EXISTS sync_status CASCADE", &[]).await?;
     client.execute("DROP TABLE IF EXISTS tokens CASCADE", &[]).await?;
     client.execute("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE", &[]).await?;
+    Ok(())
+}
+
+// 添加新字段的迁移函数
+pub async fn add_new_fields_if_not_exist(client: &Client) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // 检查 auth_session 字段是否存在
+    let auth_session_exists = client.query(
+        r#"
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'tokens'
+            AND column_name = 'auth_session'
+        )
+        "#,
+        &[],
+    ).await?;
+
+    if let Some(row) = auth_session_exists.first() {
+        let exists: bool = row.get(0);
+        if !exists {
+            client.execute(
+                "ALTER TABLE tokens ADD COLUMN auth_session TEXT",
+                &[],
+            ).await?;
+            println!("Added auth_session column to tokens table");
+        }
+    }
+
+    // 检查 suspensions 字段是否存在
+    let suspensions_exists = client.query(
+        r#"
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'tokens'
+            AND column_name = 'suspensions'
+        )
+        "#,
+        &[],
+    ).await?;
+
+    if let Some(row) = suspensions_exists.first() {
+        let exists: bool = row.get(0);
+        if !exists {
+            client.execute(
+                "ALTER TABLE tokens ADD COLUMN suspensions JSONB",
+                &[],
+            ).await?;
+            println!("Added suspensions column to tokens table");
+        }
+    }
+
     Ok(())
 }
 

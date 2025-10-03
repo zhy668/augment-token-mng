@@ -12,6 +12,8 @@ pub struct TokenData {
     pub email_note: Option<String>,
     pub ban_status: Option<serde_json::Value>,
     pub portal_info: Option<serde_json::Value>,
+    pub auth_session: Option<String>,
+    pub suspensions: Option<serde_json::Value>,
 }
 
 impl TokenData {
@@ -33,6 +35,8 @@ impl TokenData {
             email_note,
             ban_status: None,
             portal_info: None,
+            auth_session: None,
+            suspensions: None,
         }
     }
 
@@ -72,13 +76,15 @@ pub trait TokenStorage: Send + Sync {
 #[async_trait::async_trait]
 pub trait SyncManager: Send + Sync {
     async fn sync_local_to_remote(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>>;
-    
+
     async fn sync_remote_to_local(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>>;
-    
+
     async fn bidirectional_sync(&self) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>>;
-    
+
+    async fn bidirectional_sync_with_tokens(&self, local_tokens: Vec<TokenData>) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>>;
+
     async fn get_sync_status(&self) -> Result<Option<SyncStatus>, Box<dyn std::error::Error + Send + Sync>>;
-    
+
     async fn resolve_conflicts(&self, local_tokens: Vec<TokenData>, remote_tokens: Vec<TokenData>) -> Result<Vec<TokenData>, Box<dyn std::error::Error + Send + Sync>>;
 }
 
@@ -121,6 +127,10 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
 
     let ban_status = legacy.get("ban_status").cloned();
     let portal_info = legacy.get("portal_info").cloned();
+    let auth_session = legacy.get("auth_session")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let suspensions = legacy.get("suspensions").cloned();
 
     Ok(TokenData {
         id,
@@ -132,6 +142,8 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         email_note,
         ban_status,
         portal_info,
+        auth_session,
+        suspensions,
     })
 }
 
@@ -160,7 +172,15 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
     if let Some(portal_info) = &token.portal_info {
         map.insert("portal_info".to_string(), portal_info.clone());
     }
-    
+
+    if let Some(auth_session) = &token.auth_session {
+        map.insert("auth_session".to_string(), serde_json::Value::String(auth_session.clone()));
+    }
+
+    if let Some(suspensions) = &token.suspensions {
+        map.insert("suspensions".to_string(), suspensions.clone());
+    }
+
     serde_json::Value::Object(map)
 }
 

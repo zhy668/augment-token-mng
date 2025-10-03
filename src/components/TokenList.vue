@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed, readonly } from 'vue'
+import { ref, nextTick, onMounted, computed, readonly, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import TokenCard from './TokenCard.vue'
@@ -144,6 +144,9 @@ const tokens = ref([])
 const isLoading = ref(false)
 const hasUnsavedChanges = ref(false)
 const isDatabaseAvailable = ref(false)
+
+// 初始化就绪标记
+const isReady = ref(false)
 
 // 排序状态管理
 const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
@@ -206,6 +209,19 @@ const getStorageStatus = async () => {
   }
 }
 
+// 初始化就绪等待方法
+const waitUntilReady = async () => {
+  if (isReady.value && !isLoading.value) return
+  await new Promise((resolve) => {
+    const stop = watch([isReady, isLoading], ([ready, loading]) => {
+      if (ready && !loading) {
+        stop()
+        resolve()
+      }
+    })
+  })
+}
+
 // 设置ref的函数
 const setTokenCardRef = (el, tokenId) => {
   if (el) {
@@ -263,7 +279,13 @@ const updateTokensFromResults = (results) => {
       const statusResult = result.status_result
       // 更新ban_status
       token.ban_status = statusResult.status
-      
+
+      // 更新 suspensions 信息（如果有）
+      if (result.suspensions) {
+        token.suspensions = result.suspensions
+        console.log(`Updated suspensions for token ${token.id}:`, result.suspensions)
+      }
+
       // 更新Portal信息（如果有）
       if (result.portal_info) {
         token.portal_info = {
@@ -358,7 +380,12 @@ const closeTokenForm = () => {
 
 const handleTokenFormSuccess = () => {
   closeTokenForm()
-  window.$notify.success(t('messages.tokenUpdated'))
+  // 根据是否在编辑模式显示不同的消息
+  if (editingToken.value) {
+    window.$notify.success(t('messages.tokenUpdatedToMemory'))
+  } else {
+    window.$notify.success(t('messages.tokenAddedToMemory'))
+  }
 }
 
 const handleUpdateToken = (updatedTokenData) => {
@@ -370,7 +397,8 @@ const handleUpdateToken = (updatedTokenData) => {
       tenant_url: updatedTokenData.tenantUrl,
       access_token: updatedTokenData.accessToken,
       portal_url: updatedTokenData.portalUrl || null,
-      email_note: updatedTokenData.emailNote || null
+      email_note: updatedTokenData.emailNote || null,
+      updated_at: new Date().toISOString()  // 更新 updated_at 时间戳
     }
     hasUnsavedChanges.value = true
   }
@@ -383,17 +411,21 @@ const handleAddTokenFromForm = (tokenData) => {
 
 // 添加token
 const addToken = (tokenData) => {
+  const now = new Date().toISOString()
   const newToken = {
     id: crypto.randomUUID(),
     tenant_url: tokenData.tenantUrl,
     access_token: tokenData.accessToken,
-    created_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,  // 添加 updated_at 字段
     portal_url: tokenData.portalUrl || null,
     ban_status: null,
     portal_info: null,
-    email_note: tokenData.emailNote || null
+    email_note: tokenData.emailNote || null,
+    auth_session: tokenData.authSession || null,  // 添加 auth_session 字段
+    suspensions: tokenData.suspensions || null  // 添加 suspensions 字段
   }
-  
+
   tokens.value.push(newToken)
   hasUnsavedChanges.value = true
   return newToken
@@ -478,12 +510,12 @@ const handleSave = async () => {
   isSaving.value = true
   try {
     if (isDatabaseAvailable.value) {
-      // 🔴 修复双向存储模式逻辑：
-      // 不要先保存到本地，因为bidirectional_sync会清空本地存储后重新写入
-      // 直接执行双向同步，它会自动处理本地和远程数据的合并
-      
       window.$notify.info(t('messages.bidirectionalSyncing'))
-      const result = await invoke('bidirectional_sync_tokens')
+
+      // 将内存中的 tokens 转换为 JSON 字符串传给后端
+      const tokensJson = JSON.stringify(tokens.value)
+      await invoke('bidirectional_sync_tokens_with_data', { tokensJson })
+
       window.$notify.success(t('messages.bidirectionalSyncSaveComplete'))
 
       // 双向同步完成后刷新本地显示
@@ -505,6 +537,7 @@ onMounted(async () => {
   // 首先获取存储状态
   await getStorageStatus()
   await loadTokens(false) // 显示成功消息
+  isReady.value = true
 })
 
 // 暴露方法给父组件
@@ -512,7 +545,8 @@ defineExpose({
   addToken,    // 允许App.vue添加token
   deleteToken, // 允许App.vue删除token  
   tokens: readonly(tokens), // 只读访问tokens
-  saveTokens   // 允许App.vue保存tokens
+  saveTokens,   // 允许App.vue保存tokens
+  waitUntilReady // 暴露就绪等待方法
 })
 </script>
 
@@ -625,10 +659,6 @@ defineExpose({
 .loading-state p {
   color: var(--color-text-muted, #6b7280);
   margin: 0;
-}
-
-.token-list {
-  /* 移除内部滚动，使用外层 modal-body 的滚动 */
 }
 
 .token-grid {

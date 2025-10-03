@@ -230,6 +230,13 @@ h2 {
     margin-bottom: 10px;
 }
 
+/* 防止按钮内的 SVG 图标在 hover 时抖动 */
+.btn svg {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-font-smoothing: subpixel-antialiased;
+}
+
 .btn:focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);

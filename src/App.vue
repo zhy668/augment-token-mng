@@ -55,10 +55,34 @@
               <p>{{ $t('tokenGenerator.description') }}</p>
             </div>
 
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+              <button
+                :class="['tab-btn', { active: activeTab === 'oauth' }]"
+                @click="activeTab = 'oauth'"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                </svg>
+                {{ $t('tokenGenerator.oauthTab') }}
+              </button>
+              <button
+                :class="['tab-btn', { active: activeTab === 'session' }]"
+                @click="activeTab = 'session'"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm0 4c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
+                </svg>
+                {{ $t('tokenGenerator.sessionTab') }}
+              </button>
+            </div>
+
           </div>
         </div>
 
         <div class="generator-body">
+          <!-- OAuth Flow Tab -->
+          <div v-if="activeTab === 'oauth'" class="tab-content">
           <!-- Step 1: Generate Authorization URL -->
           <div class="section">
             <h3>{{ $t('tokenGenerator.step1') }}</h3>
@@ -172,6 +196,43 @@
               </div>
             </div>
           </div>
+          </div>
+
+          <!-- Session Import Tab -->
+          <div v-else-if="activeTab === 'session'" class="tab-content">
+            <div class="section">
+              <div class="session-header">
+                <h3>{{ $t('tokenGenerator.sessionImportTitle') }}</h3>
+                <button @click="showSessionHelp = true" class="help-button" :title="$t('sessionHelp.title')">
+                  ?
+                </button>
+              </div>
+              <p class="section-description">{{ $t('tokenGenerator.sessionImportDescription') }}</p>
+
+              <textarea
+                v-model="sessionInput"
+                :placeholder="$t('tokenGenerator.sessionPlaceholder')"
+                rows="6"
+                :disabled="isImportingSession"
+              ></textarea>
+
+              <div class="button-container">
+                <button
+                  @click="importFromSession"
+                  class="btn primary"
+                  :disabled="!sessionInput.trim() || isImportingSession"
+                >
+                  {{ $t('tokenGenerator.importSession') }}
+                </button>
+              </div>
+
+              <!-- Loading State -->
+              <div v-if="isImportingSession" class="session-loading">
+                <div class="session-spinner"></div>
+                <span>{{ sessionImportProgress }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
 
@@ -184,6 +245,54 @@
       ref="tokenListRef"
       @close="showTokenList = false"
     />
+
+    <!-- Session Help Modal -->
+    <div v-if="showSessionHelp" class="help-modal" @click.self="showSessionHelp = false">
+      <div class="help-content">
+        <div class="help-header">
+          <h2>{{ $t('sessionHelp.title') }}</h2>
+          <button @click="showSessionHelp = false" class="close-button">×</button>
+        </div>
+
+        <div class="help-body">
+          <div class="help-step">
+            <h4>{{ $t('sessionHelp.step1Title') }}</h4>
+            <p class="help-inline">
+              {{ $t('sessionHelp.step1Content') }}
+              <a :href="$t('sessionHelp.step1LoginLink')" target="_blank" class="help-link">
+                {{ $t('sessionHelp.step1LoginLink') }} ↗
+              </a>
+            </p>
+            <p class="help-inline">
+              {{ $t('sessionHelp.step1LinkPrefix') }}
+              <a :href="$t('sessionHelp.step1Link')" target="_blank" class="help-link">
+                {{ $t('sessionHelp.step1Link') }} ↗
+              </a>
+            </p>
+          </div>
+
+          <div class="help-step">
+            <h4>{{ $t('sessionHelp.step2Title') }}</h4>
+            <p>{{ $t('sessionHelp.step2Content') }}</p>
+          </div>
+
+          <div class="help-step">
+            <h4>{{ $t('sessionHelp.step3Title') }}</h4>
+            <p>{{ $t('sessionHelp.step3Content') }}</p>
+          </div>
+
+          <div class="help-step">
+            <h4>{{ $t('sessionHelp.step4Title') }}</h4>
+            <p>{{ $t('sessionHelp.step4Content') }}</p>
+          </div>
+
+          <div class="help-step">
+            <h4>{{ $t('sessionHelp.step5Title') }}</h4>
+            <p>{{ $t('sessionHelp.step5Content') }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
 
     <!-- 删除确认对话框 -->
@@ -314,8 +423,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, inject, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed, inject, onBeforeUnmount, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
 import TokenList from './components/TokenList.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
@@ -373,6 +483,16 @@ const isGenerating = ref(false)
 const isGettingToken = ref(false)
 const portalUrl = ref('')
 const emailNote = ref('')
+
+// Tab state
+const activeTab = ref('oauth')
+
+// Session import data
+const sessionInput = ref('')
+const sessionTokenResult = ref(null)
+const isImportingSession = ref(false)
+const sessionImportProgress = ref('')
+const showSessionHelp = ref(false)
 
 // Template refs
 const authUrlInput = ref(null)
@@ -558,6 +678,69 @@ const copyTenantUrl = async () => {
 }
 
 
+// Session import methods
+const importFromSession = async () => {
+  if (!sessionInput.value.trim()) {
+    showStatus(t('messages.sessionRequired'), 'warning')
+    return
+  }
+
+  isImportingSession.value = true
+  sessionImportProgress.value = t('messages.sessionImportStarting')
+  showStatus(t('messages.importingSession'), 'info')
+
+  try {
+    const authSession = sessionInput.value.trim()
+    const result = await invoke('add_token_from_session', { session: authSession })
+
+    // 创建包含 auth_session 和 suspensions 的 tokenData
+    const tokenData = {
+      tenantUrl: result.tenant_url,
+      accessToken: result.access_token,
+      portalUrl: result.user_info?.portal_url || null,
+      emailNote: result.user_info?.email_note || null,
+      authSession: authSession,  // 保存 auth_session
+      suspensions: result.user_info?.suspensions || null  // 保存 suspensions
+    }
+
+    // 先打开 TokenList（如果未打开）
+    if (!showTokenList.value) {
+      showTokenList.value = true
+      await nextTick()
+    }
+
+    // 等待 TokenList 初始化完成
+    if (tokenListRef.value?.waitUntilReady) {
+      await tokenListRef.value.waitUntilReady()
+    }
+
+    // 保存 token
+    sessionImportProgress.value = t('messages.sessionImportSavingToken')
+
+    // 通过 TokenList 添加 token
+    if (tokenListRef.value) {
+      tokenListRef.value.addToken(tokenData)
+      sessionImportProgress.value = t('messages.sessionImportSuccess')
+      showStatus(t('messages.sessionImportSuccess'), 'success')
+    } else {
+      showStatus(t('messages.tokenSaveFailed') + ': TokenList not available', 'error')
+      return
+    }
+
+    // 清空输入
+    sessionInput.value = ''
+    sessionTokenResult.value = null
+
+  } catch (error) {
+    sessionImportProgress.value = t('messages.sessionImportFailed')
+    showStatus(`${t('messages.error')}: ${error}`, 'error')
+  } finally {
+    isImportingSession.value = false
+  }
+}
+
+
+
 const saveToken = async () => {
   try {
     // 创建新的 token 数据
@@ -568,10 +751,26 @@ const saveToken = async () => {
       emailNote: emailNote.value.trim() || null
     }
 
+    // 先打开 TokenList（如果未打开）
+    if (!showTokenList.value) {
+      showTokenList.value = true
+      // 等待 TokenList 组件挂载
+      await nextTick()
+    }
+
+    // 等待 TokenList 初始化完成
+    if (tokenListRef.value?.waitUntilReady) {
+      await tokenListRef.value.waitUntilReady()
+    }
+
     // 通过TokenList添加token
     if (tokenListRef.value) {
       tokenListRef.value.addToken(tokenData)
       showStatus(t('messages.tokenAddedToMemory'), 'success')
+    } else {
+      // 如果仍然无法获取 ref，说明有问题
+      showStatus(t('messages.tokenSaveFailed') + ': TokenList not available', 'error')
+      return
     }
 
     // Reset form
@@ -601,6 +800,13 @@ onMounted(async () => {
     currentLocale.value = savedLanguage
     locale.value = savedLanguage
   }
+
+  // 监听 Session 导入进度事件
+  await listen('session-import-progress', (event) => {
+    console.log('Progress event received:', event.payload)
+    // 后端发送的是 i18n key,需要转换为翻译文本
+    sessionImportProgress.value = t('messages.' + event.payload)
+  })
 
   // 添加点击外部区域关闭设置菜单的事件监听器
   document.addEventListener('click', handleClickOutside)
@@ -880,6 +1086,312 @@ html, body {
 .title-section p {
   margin: 0;
   font-size: 16px;
+  color: var(--color-text-muted, #6b7280);
+  line-height: 1.5;
+}
+
+/* Tab Navigation Styles */
+.tab-navigation {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+  border: 1px solid var(--color-border-strong, #d1d5db);
+}
+
+.tab-btn:hover {
+  background: var(--color-border, #e5e7eb);
+  border-color: var(--color-border-hover, #9ca3af);
+}
+
+.tab-btn.active {
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  color: var(--color-blue-soft-text, #1976d2);
+  border: 1px solid var(--color-blue-soft-border, #90caf9);
+}
+
+.tab-btn.active:hover {
+  background: var(--color-blue-soft-bg, #bbdefb);
+  border-color: var(--color-blue-soft-hover, #64b5f6);
+}
+
+.tab-btn svg {
+  flex-shrink: 0;
+}
+
+/* Tab Content */
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Session Loading State - 小巧版本 */
+.session-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  background: var(--color-surface-hover, #f8f9fa);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.session-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border, #e5e7eb);
+  border-top-color: var(--color-accent, #3b82f6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.session-loading span {
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* Session Header with Help Button */
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.session-header h3 {
+  margin: 0;
+}
+
+.help-button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.help-button:hover {
+  background: #45a049;
+}
+
+/* Help Modal Styles */
+.help-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  animation: fadeIn 0.2s;
+  backdrop-filter: blur(6px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.help-content {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 700px;
+  max-height: 85vh;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s;
+}
+
+/* 深色主题下的帮助弹窗 */
+:root[data-theme="dark"] .help-content {
+  background: #1e293b;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 30px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+:root[data-theme="dark"] .help-header {
+  border-bottom-color: #374151;
+}
+
+.help-header h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 24px;
+}
+
+:root[data-theme="dark"] .help-header h2 {
+  color: #f3f4f6;
+}
+
+.close-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.close-button:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+:root[data-theme="dark"] .close-button {
+  color: #9ca3af;
+}
+
+:root[data-theme="dark"] .close-button:hover {
+  background: #374151;
+  color: #f3f4f6;
+}
+
+.help-body {
+  padding: 30px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.help-step {
+  margin-bottom: 28px;
+}
+
+.help-step:last-child {
+  margin-bottom: 0;
+}
+
+.help-step h4 {
+  color: #4CAF50;
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.help-step p {
+  margin: 0 0 8px 0;
+  color: #4b5563;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+:root[data-theme="dark"] .help-step p {
+  color: #d1d5db;
+}
+
+.help-inline {
+  margin: 4px 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+:root[data-theme="dark"] .help-inline {
+  color: #d1d5db;
+}
+
+.help-link {
+  color: #4CAF50;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
+.help-footer {
+  padding: 20px 30px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:root[data-theme="dark"] .help-footer {
+  border-top-color: #374151;
+}
+
+.help-footer .btn {
+  min-width: 100px;
+}
+
+.section-description {
+  margin: 8px 0 16px 0;
+  font-size: 14px;
   color: var(--color-text-muted, #6b7280);
   line-height: 1.5;
 }

@@ -471,6 +471,76 @@ impl SyncManager for DualStorage {
         Ok(sync_status)
     }
 
+    async fn bidirectional_sync_with_tokens(&self, local_tokens: Vec<TokenData>) -> Result<SyncStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let postgres = self.postgres_storage.as_ref()
+            .ok_or("Database storage not available")?;
+
+        if !postgres.is_available().await {
+            return Err("Database not available".into());
+        }
+
+        // 使用传入的 local_tokens 而不是从文件读取
+        let remote_tokens = postgres.load_tokens().await?;
+
+        let resolved_tokens = self.resolve_conflicts(local_tokens.clone(), remote_tokens.clone()).await?;
+
+        let mut synced_count = 0;
+        let mut errors = Vec::new();
+
+        // 先清空本地存储，然后重新写入解决后的tokens
+        if let Err(e) = self.local_storage.clear_all_tokens().await {
+            errors.push(format!("Failed to clear local storage: {}", e));
+        }
+
+        // 同步解决后的tokens到两个存储
+        for token in resolved_tokens {
+            let mut local_ok = false;
+            let mut remote_ok = false;
+
+            if let Ok(_) = self.local_storage.save_token(&token).await {
+                local_ok = true;
+            }
+
+            if let Ok(_) = postgres.save_token(&token).await {
+                remote_ok = true;
+            }
+
+            if local_ok || remote_ok {
+                synced_count += 1;
+            } else {
+                errors.push(format!("Failed to sync token {}", token.id));
+            }
+        }
+
+        let status = if errors.is_empty() { "success" } else { "partial_success" };
+        let error_message = if errors.is_empty() {
+            None
+        } else {
+            Some(errors.join("; "))
+        };
+
+        let sync_status = SyncStatus {
+            last_sync_at: Some(Utc::now()),
+            sync_direction: "bidirectional_with_memory".to_string(),
+            status: status.to_string(),
+            error_message: error_message.clone(),
+            tokens_synced: synced_count,
+        };
+
+        // 记录同步状态到数据库
+        if let Some(pool) = postgres.db_manager.get_pool() {
+            let _ = super::postgres_storage::record_sync_status(
+                &pool,
+                &sync_status.sync_direction,
+                &sync_status.status,
+                error_message.as_deref(),
+                sync_status.tokens_synced,
+            ).await;
+        }
+
+        Ok(sync_status)
+    }
+
     async fn get_sync_status(&self) -> Result<Option<SyncStatus>, Box<dyn std::error::Error + Send + Sync>> {
         if let Some(postgres) = &self.postgres_storage {
             if postgres.is_available().await {

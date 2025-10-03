@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
+use regex::Regex;
 
 const CLIENT_ID: &str = "v";
 const AUTH_BASE_URL: &str = "https://auth.augmentcode.com";
@@ -59,6 +60,7 @@ pub struct TokenInfo {
     pub tenant_url: String,
     pub id: Option<String>, // 用于前端识别是哪个token
     pub portal_url: Option<String>, // Portal URL用于获取使用次数信息
+    pub auth_session: Option<String>, // Auth session用于自动刷新token
 }
 
 // Portal信息结构体
@@ -77,6 +79,8 @@ pub struct TokenStatusResult {
     pub status_result: AccountStatus,
     pub portal_info: Option<PortalInfo>, // Portal信息（如果有）
     pub portal_error: Option<String>, // Portal获取错误（如果有）
+    pub token_refreshed: bool, // 标记token是否被自动刷新
+    pub suspensions: Option<serde_json::Value>, // 封禁详情（如果有）
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -308,6 +312,7 @@ pub async fn check_account_ban_status(
     } else {
         // Handle different error status codes (without "suspended" keyword)
         let (is_banned, status, error_message) = match status_code {
+            402 => (false, "EXPIRED", "Subscription inactive or expired"),
             401 => (true, "UNAUTHORIZED", "Token is invalid or account is banned"),
             403 => (true, "FORBIDDEN", "Access forbidden - account may be banned"),
             429 => (false, "RATE_LIMITED", "Rate limited - account is active but throttled"),
@@ -336,11 +341,12 @@ pub async fn batch_check_account_status(
     let mut handles = Vec::new();
     
     for token_info in tokens {
-        let token = token_info.access_token.clone();
-        let tenant_url = token_info.tenant_url.clone();
+        let mut token = token_info.access_token.clone();
+        let mut tenant_url = token_info.tenant_url.clone();
         let token_id = token_info.id.clone();
         let portal_url = token_info.portal_url.clone();
-        
+        let auth_session = token_info.auth_session.clone();
+
         let handle = tokio::spawn(async move {
             println!("Checking status for token: {:?}", token_id);
 
@@ -348,7 +354,7 @@ pub async fn batch_check_account_status(
             let status_result = check_account_ban_status(&token, &tenant_url).await;
 
             // 处理账号状态检测结果
-            let status_result = match status_result {
+            let mut status_result = match status_result {
                 Ok(status) => status,
                 Err(err) => {
                     // 如果出错，创建一个错误状态并直接返回
@@ -375,12 +381,88 @@ pub async fn batch_check_account_status(
                         status_result: error_status,
                         portal_info: None,
                         portal_error: Some(format!("Status check failed: {}", err)),
+                        token_refreshed: false,
+                        suspensions: None,
                     };
                 }
             };
 
-            // 2. 如果账号被封禁，直接返回
+            // 2. 如果检测到 INVALID_TOKEN 且有 auth_session，尝试自动刷新
+            if status_result.status == "INVALID_TOKEN" {
+                if let Some(ref session) = auth_session {
+                    println!("Detected INVALID_TOKEN for {:?}, attempting auto-refresh with auth_session", token_id);
+
+                    match extract_token_from_session(session).await {
+                        Ok(new_token_response) => {
+                            println!("Successfully refreshed token for {:?}", token_id);
+                            // 更新 token 和 tenant_url
+                            token = new_token_response.access_token;
+                            tenant_url = new_token_response.tenant_url;
+
+                            // 重新检测状态
+                            match check_account_ban_status(&token, &tenant_url).await {
+                                Ok(new_status) => {
+                                    status_result = new_status;
+                                    status_result.error_message = Some(format!(
+                                        "Token was invalid but successfully auto-refreshed. New status: {}",
+                                        status_result.status
+                                    ));
+                                }
+                                Err(err) => {
+                                    println!("Failed to check status after refresh: {}", err);
+                                    status_result.error_message = Some(format!(
+                                        "Token refreshed but status check failed: {}",
+                                        err
+                                    ));
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            println!("Failed to refresh token for {:?}: {}", token_id, err);
+                            status_result.error_message = Some(format!(
+                                "Token is invalid. Auto-refresh failed: {}",
+                                err
+                            ));
+                        }
+                    }
+                } else {
+                    println!("Token {:?} is invalid but no auth_session available for refresh", token_id);
+                    status_result.error_message = Some(
+                        "Token is invalid. No auth_session available for auto-refresh".to_string()
+                    );
+                }
+            }
+
+            // 3. 检查是否需要标记为已刷新
+            let token_refreshed = status_result.error_message.as_ref()
+                .map(|msg| msg.contains("auto-refreshed"))
+                .unwrap_or(false);
+
+            // 4. 如果账号被封禁，尝试获取详细的用户信息
+            let mut suspensions_info = None;
             if status_result.is_banned {
+                // 如果有 auth_session,获取详细的封禁信息
+                if let Some(ref session) = auth_session {
+                    println!("Account banned for {:?}, fetching detailed user info", token_id);
+                    match crate::augment_user_info::get_user_info(session).await {
+                        Ok(user_info) => {
+                            println!("Successfully fetched user info for banned account {:?}", token_id);
+                            // 保存 suspensions 信息
+                            if let Some(suspensions) = user_info.suspensions {
+                                suspensions_info = Some(suspensions.clone());
+                                status_result.error_message = Some(format!(
+                                    "Account banned. Suspensions: {}",
+                                    serde_json::to_string(&suspensions).unwrap_or_else(|_| "N/A".to_string())
+                                ));
+                            }
+                        }
+                        Err(err) => {
+                            println!("Failed to fetch user info for banned account {:?}: {}", token_id, err);
+                            // 不影响主流程,只记录错误
+                        }
+                    }
+                }
+
                 return TokenStatusResult {
                     token_id,
                     access_token: token,
@@ -388,6 +470,8 @@ pub async fn batch_check_account_status(
                     status_result,
                     portal_info: None,
                     portal_error: None,
+                    token_refreshed,
+                    suspensions: suspensions_info,
                 };
             }
 
@@ -410,6 +494,11 @@ pub async fn batch_check_account_status(
                             // 如果有余额，设置为可以使用
                             portal_info.can_still_use = true;
                         }
+
+                        // 如果账号状态为 EXPIRED，则无论上面检测结果如何，都视为不可使用
+                        if status_result.status == "EXPIRED" {
+                            portal_info.can_still_use = false;
+                        }
                         (Some(portal_info), None)
                     }
                     Err(err) => (None, Some(err))
@@ -426,6 +515,8 @@ pub async fn batch_check_account_status(
                 status_result,
                 portal_info,
                 portal_error,
+                token_refreshed,
+                suspensions: None,  // 正常情况下不需要 suspensions
             }
         });
         
@@ -460,6 +551,8 @@ pub async fn batch_check_account_status(
                     },
                     portal_info: None,
                     portal_error: Some(format!("Task failed: {}", err)),
+                    token_refreshed: false,
+                    suspensions: None,
                 });
             }
         }
@@ -594,4 +687,95 @@ pub async fn check_subscription_info(token: String, tenant_url: String) -> Resul
     } else {
         Err(format!("API request failed with status {}: {}", status, response.status()))
     }
+}
+
+/// 从 auth session 中提取 access token
+pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenResponse, String> {
+    // 生成 PKCE 参数
+    let code_verifier = generate_random_string(32);
+    let code_challenge = base64_url_encode(&sha256_hash(code_verifier.as_bytes()));
+    let state = generate_random_string(42);
+    let client_id = CLIENT_ID;
+
+    // 使用 session 访问 terms-accept 获取 HTML
+    let terms_url = format!(
+        "{}/terms-accept?response_type=code&code_challenge={}&client_id={}&state={}&prompt=login",
+        AUTH_BASE_URL, code_challenge, client_id, state
+    );
+
+    let client = reqwest::Client::new();
+    let html_response = client
+        .get(&terms_url)
+        .header("Cookie", format!("session={}", session))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch terms page: {}", e))?;
+
+    let html = html_response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read HTML response: {}", e))?;
+
+    // 使用正则表达式提取 code, state, tenant_url
+    let code_regex = Regex::new(r#"code:\s*"([^"]+)""#).unwrap();
+    let state_regex = Regex::new(r#"state:\s*"([^"]+)""#).unwrap();
+    let tenant_url_regex = Regex::new(r#"tenant_url:\s*"([^"]+)""#).unwrap();
+
+    let code = code_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("Failed to extract code from HTML")?;
+
+    let parsed_state = state_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("Failed to extract state from HTML")?;
+
+    let tenant_url = tenant_url_regex
+        .captures(&html)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or("Failed to extract tenant_url from HTML")?;
+
+    println!("Extracted - code: {}, state: {}, tenant_url: {}", code, parsed_state, tenant_url);
+
+    // 用授权码换 Token
+    let token_url = format!("{}token", tenant_url);
+    let token_payload = serde_json::json!({
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "code_verifier": code_verifier,
+        "redirect_uri": "",
+        "code": code
+    });
+
+    let token_response = client
+        .post(&token_url)
+        .header("Content-Type", "application/json")
+        .json(&token_payload)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to exchange token: {}", e))?;
+
+    let token_data: TokenApiResponse = token_response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))?;
+
+    Ok(AugmentTokenResponse {
+        access_token: token_data.access_token,
+        tenant_url: tenant_url.to_string(),
+    })
+}
+
+/// 生成随机字符串
+fn generate_random_string(length: usize) -> String {
+    use rand::RngCore;
+    let mut rng = rand::thread_rng();
+    let mut random_bytes = vec![0u8; length];
+    rng.fill_bytes(&mut random_bytes);
+    base64_url_encode(&random_bytes)
 }

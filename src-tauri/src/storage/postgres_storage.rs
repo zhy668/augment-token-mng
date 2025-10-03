@@ -27,8 +27,8 @@ impl TokenStorage for PostgreSQLStorage {
         // 使用UPSERT (INSERT ... ON CONFLICT)
         client.execute(
             r#"
-            INSERT INTO tokens (id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO tokens (id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info, auth_session, suspensions)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (id) DO UPDATE SET
                 tenant_url = EXCLUDED.tenant_url,
                 access_token = EXCLUDED.access_token,
@@ -36,7 +36,9 @@ impl TokenStorage for PostgreSQLStorage {
                 portal_url = EXCLUDED.portal_url,
                 email_note = EXCLUDED.email_note,
                 ban_status = EXCLUDED.ban_status,
-                portal_info = EXCLUDED.portal_info
+                portal_info = EXCLUDED.portal_info,
+                auth_session = EXCLUDED.auth_session,
+                suspensions = EXCLUDED.suspensions
             "#,
             &[
                 &token.id,
@@ -48,6 +50,8 @@ impl TokenStorage for PostgreSQLStorage {
                 &token.email_note,
                 &token.ban_status,
                 &token.portal_info,
+                &token.auth_session,
+                &token.suspensions,
             ],
         ).await?;
 
@@ -59,7 +63,7 @@ impl TokenStorage for PostgreSQLStorage {
         let client = pool.get().await?;
 
         let rows = client.query(
-            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info FROM tokens ORDER BY created_at DESC",
+            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info, auth_session, suspensions FROM tokens ORDER BY created_at DESC",
             &[],
         ).await?;
 
@@ -75,6 +79,8 @@ impl TokenStorage for PostgreSQLStorage {
                 email_note: row.get(6),
                 ban_status: row.get(7),
                 portal_info: row.get(8),
+                auth_session: row.get(9),
+                suspensions: row.get(10),
             };
             tokens.push(token);
         }
@@ -96,7 +102,9 @@ impl TokenStorage for PostgreSQLStorage {
                 portal_url = $5,
                 email_note = $6,
                 ban_status = $7,
-                portal_info = $8
+                portal_info = $8,
+                auth_session = $9,
+                suspensions = $10
             WHERE id = $1
             "#,
             &[
@@ -108,6 +116,8 @@ impl TokenStorage for PostgreSQLStorage {
                 &token.email_note,
                 &token.ban_status,
                 &token.portal_info,
+                &token.auth_session,
+                &token.suspensions,
             ],
         ).await?;
 
@@ -135,7 +145,7 @@ impl TokenStorage for PostgreSQLStorage {
         let client = pool.get().await?;
 
         let rows = client.query(
-            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info FROM tokens WHERE id = $1",
+            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info, auth_session, suspensions FROM tokens WHERE id = $1",
             &[&token_id],
         ).await?;
 
@@ -150,6 +160,8 @@ impl TokenStorage for PostgreSQLStorage {
                 email_note: row.get(6),
                 ban_status: row.get(7),
                 portal_info: row.get(8),
+                auth_session: row.get(9),
+                suspensions: row.get(10),
             };
             Ok(Some(token))
         } else {
@@ -181,7 +193,7 @@ impl PostgreSQLStorage {
         let client = pool.get().await?;
 
         let rows = client.query(
-            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info FROM tokens WHERE tenant_url = $1 AND access_token = $2 AND id != $3",
+            "SELECT id, tenant_url, access_token, created_at, updated_at, portal_url, email_note, ban_status, portal_info, auth_session, suspensions FROM tokens WHERE tenant_url = $1 AND access_token = $2 AND id != $3",
             &[&tenant_url, &access_token, &exclude_token_id],
         ).await?;
 
@@ -197,6 +209,8 @@ impl PostgreSQLStorage {
                 email_note: row.get(6),
                 ban_status: row.get(7),
                 portal_info: row.get(8),
+                auth_session: row.get(9),
+                suspensions: row.get(10),
             };
             tokens.push(token);
         }

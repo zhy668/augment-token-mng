@@ -386,12 +386,19 @@ const balanceClasses = computed(() => {
   if (!portalInfo.value || !portalInfo.value.data) {
     return ['portal-meta', 'balance']
   }
-  const exhausted = portalInfo.value.data.credits_balance === 0 && !canStillUse.value
+  const exhausted = (
+    props.token.ban_status === 'EXPIRED' ||
+    props.token.ban_status === 'SUSPENDED' ||
+    (portalInfo.value.data.credits_balance === 0 && !canStillUse.value)
+  )
   return ['portal-meta', 'balance', { exhausted }]
 })
 
 const balanceDisplay = computed(() => {
   if (!portalInfo.value || !portalInfo.value.data) return ''
+  const status = props.token.ban_status
+  if (status === 'EXPIRED') return t('tokenCard.expired')
+  if (status === 'SUSPENDED') return t('tokenCard.banned')
   const credits = portalInfo.value.data.credits_balance
   if (credits === 0) {
     return canStillUse.value ? t('tokenCard.canUse') : t('tokenCard.exhausted')
@@ -404,6 +411,8 @@ const getStatusClass = (status) => {
   switch (status) {
     case 'SUSPENDED':
       return 'banned'
+    case 'EXPIRED':
+      return 'inactive'
     case 'INVALID_TOKEN':
       return 'invalid'
     case 'ACTIVE':
@@ -418,6 +427,8 @@ const getStatusText = (status) => {
   switch (status) {
     case 'SUSPENDED':
       return t('tokenCard.banned')
+    case 'EXPIRED':
+      return t('tokenCard.expired')
     case 'INVALID_TOKEN':
       return t('tokenCard.tokenInvalid')
     case 'ACTIVE':
@@ -690,7 +701,13 @@ const checkAccountStatus = async (showNotification = true) => {
 
       // 更新本地token对象 - 账号状态
       props.token.ban_status = banStatus
-      
+
+      // 更新 suspensions 信息（如果有）
+      if (result.suspensions) {
+        props.token.suspensions = result.suspensions
+        console.log(`Updated suspensions for token ${props.token.id}:`, result.suspensions)
+      }
+
       // 更新Portal信息（如果有）
       if (result.portal_info) {
         props.token.portal_info = {
@@ -722,6 +739,10 @@ const checkAccountStatus = async (showNotification = true) => {
         case 'SUSPENDED':
           statusMessage = t('messages.accountBanned')
           statusType = 'error'
+          break
+        case 'EXPIRED':
+          statusMessage = t('tokenCard.expired')
+          statusType = 'warning'
           break
         case 'INVALID_TOKEN':
           statusMessage = t('messages.tokenInvalid')
@@ -968,6 +989,63 @@ defineExpose({
   color: #bfdbfe;
 }
 
+/* 黑暗模式下的按钮样式优化 */
+[data-theme='dark'] .btn-action {
+  background: rgba(51, 65, 85, 0.5);
+  border-color: rgba(71, 85, 105, 0.6);
+  color: #cbd5e1;
+}
+
+[data-theme='dark'] .btn-action:hover {
+  background: rgba(71, 85, 105, 0.6);
+  border-color: rgba(100, 116, 139, 0.7);
+}
+
+[data-theme='dark'] .btn-action.delete {
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .btn-action.delete:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+[data-theme='dark'] .btn-action.portal {
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .btn-action.portal:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme='dark'] .btn-action.edit {
+  color: #86efac;
+}
+
+[data-theme='dark'] .btn-action.edit:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+[data-theme='dark'] .btn-action.vscode {
+  color: #7dd3fc;
+}
+
+[data-theme='dark'] .btn-action.vscode:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+[data-theme='dark'] .btn-action.status-check {
+  color: #fcd34d;
+}
+
+[data-theme='dark'] .btn-action.status-check:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
 .email-icon {
   flex-shrink: 0;
   opacity: 0.7;
@@ -1042,12 +1120,12 @@ defineExpose({
 }
 
 .btn-action {
-  background: var(--color-surface-muted, #f8f9fa);
-  border: 1px solid var(--color-border-strong, #dee2e6);
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
   padding: 8px;
   cursor: pointer;
-  color: var(--color-text-secondary, #495057);
+  color: #64748b;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -1057,55 +1135,63 @@ defineExpose({
   flex-shrink: 0;
 }
 
+/* 防止按钮内的 SVG 图标在 hover 时抖动 */
+.btn-action svg,
+.btn-action img {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
 .btn-action:hover {
-  background: var(--color-surface-muted, #e9ecef);
-  border-color: var(--color-border-strong, #adb5bd);
+  background: rgba(148, 163, 184, 0.25);
+  border-color: rgba(148, 163, 184, 0.5);
   transform: translateY(-1px);
 }
 
 .btn-action.delete {
-  color: var(--color-danger-bg, #dc3545);
+  color: #dc2626;
 }
 
 .btn-action.delete:hover {
-  background: var(--color-danger-surface, #f8d7da);
-  border-color: var(--color-danger-border, #f5c6cb);
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
 }
 
 .btn-action.portal {
-  color: var(--color-blue-primary, #007bff);
+  color: #2563eb;
 }
 
 .btn-action.portal:hover {
-  background: var(--color-blue-soft-bg, #e3f2fd);
-  border-color: var(--color-blue-soft-border, #90caf9);
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.3);
 }
 
 .btn-action.edit {
-  color: var(--color-success-bg, #28a745);
+  color: #16a34a;
 }
 
 .btn-action.edit:hover {
-  background: var(--color-success-surface, #d4edda);
-  border-color: var(--color-success-border, #c3e6cb);
+  background: rgba(22, 163, 74, 0.15);
+  border-color: rgba(22, 163, 74, 0.3);
 }
 
 .btn-action.vscode {
-  color: var(--color-link, #007acc);
+  color: #0284c7;
 }
 
 .btn-action.vscode:hover {
-  background: var(--color-blue-soft-bg, #e3f2fd);
-  border-color: var(--color-blue-soft-border, #90caf9);
+  background: rgba(2, 132, 199, 0.15);
+  border-color: rgba(2, 132, 199, 0.3);
 }
 
 .btn-action.status-check {
-  color: var(--color-warning-bg, #ffc107);
+  color: #ca8a04;
 }
 
 .btn-action.status-check:hover {
-  background: var(--color-warning-surface, #fff3cd);
-  border-color: var(--color-warning-border, #ffeaa7);
+  background: rgba(202, 138, 4, 0.15);
+  border-color: rgba(202, 138, 4, 0.3);
 }
 
 .btn-action.status-check.loading {

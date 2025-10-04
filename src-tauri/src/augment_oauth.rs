@@ -74,12 +74,11 @@ pub struct PortalInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenStatusResult {
     pub token_id: Option<String>, // 对应输入的id
-    pub access_token: String, // 保留token用于前端更新
-    pub tenant_url: String,
+    pub access_token: String, // 保留token用于前端更新 (如果被刷新,这里是新token)
+    pub tenant_url: String, // 保留tenant_url用于前端更新 (如果被刷新,这里是新url)
     pub status_result: AccountStatus,
     pub portal_info: Option<PortalInfo>, // Portal信息（如果有）
     pub portal_error: Option<String>, // Portal获取错误（如果有）
-    pub token_refreshed: bool, // 标记token是否被自动刷新
     pub suspensions: Option<serde_json::Value>, // 封禁详情（如果有）
 }
 
@@ -381,7 +380,6 @@ pub async fn batch_check_account_status(
                         status_result: error_status,
                         portal_info: None,
                         portal_error: Some(format!("Status check failed: {}", err)),
-                        token_refreshed: false,
                         suspensions: None,
                     };
                 }
@@ -433,12 +431,7 @@ pub async fn batch_check_account_status(
                 }
             }
 
-            // 3. 检查是否需要标记为已刷新
-            let token_refreshed = status_result.error_message.as_ref()
-                .map(|msg| msg.contains("auto-refreshed"))
-                .unwrap_or(false);
-
-            // 4. 如果账号被封禁，尝试获取详细的用户信息
+            // 3. 如果账号被封禁，尝试获取详细的用户信息
             let mut suspensions_info = None;
             if status_result.is_banned {
                 // 如果有 auth_session,获取详细的封禁信息
@@ -470,12 +463,11 @@ pub async fn batch_check_account_status(
                     status_result,
                     portal_info: None,
                     portal_error: None,
-                    token_refreshed,
                     suspensions: suspensions_info,
                 };
             }
 
-            // 3. 如果账号未封禁且有Portal URL，获取Portal信息
+            // 4. 如果账号未封禁且有Portal URL，获取Portal信息
             let (portal_info, portal_error) = if let Some(ref portal_url_ref) = portal_url {
                 match get_portal_info(portal_url_ref).await {
                     Ok(mut portal_info) => {
@@ -515,7 +507,6 @@ pub async fn batch_check_account_status(
                 status_result,
                 portal_info,
                 portal_error,
-                token_refreshed,
                 suspensions: None,  // 正常情况下不需要 suspensions
             }
         });
@@ -551,7 +542,6 @@ pub async fn batch_check_account_status(
                     },
                     portal_info: None,
                     portal_error: Some(format!("Task failed: {}", err)),
-                    token_refreshed: false,
                     suspensions: None,
                 });
             }

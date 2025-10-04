@@ -103,6 +103,21 @@ struct TokenFromSessionResponse {
     user_info: CompleteUserInfo,
 }
 
+// 内部函数,不发送进度事件
+async fn add_token_from_session_internal(session: &str) -> Result<TokenFromSessionResponse, String> {
+    // 1. 从 session 提取 token
+    let token_response = extract_token_from_session(session).await?;
+
+    // 2. 获取用户信息
+    let user_info = get_user_info(session).await?;
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        user_info,
+    })
+}
+
 #[tauri::command]
 async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
     // 1. 从 session 提取 token
@@ -391,11 +406,15 @@ async fn get_all_bookmarks(
 async fn open_internal_browser(
     app: tauri::AppHandle,
     url: String,
-    title: Option<String>
+    title: Option<String>,
 ) -> Result<String, String> {
-    let window_label = format!("browser_{}", chrono::Utc::now().timestamp());
+    use tauri::webview::PageLoadEvent;
+    use std::time::Duration;
 
-    let _window = WebviewWindowBuilder::new(
+    let window_label = format!("browser_{}", chrono::Utc::now().timestamp());
+    let app_handle = app.clone();
+
+    let window = WebviewWindowBuilder::new(
         &app,
         &window_label,
         WebviewUrl::External(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
@@ -404,6 +423,188 @@ async fn open_internal_browser(
     .inner_size(1000.0, 700.0)
     .center()
     .resizable(true)
+    .incognito(true)  // 无痕模式,关闭后自动清除所有数据
+    .initialization_script(r#"
+        console.log('[Tauri] Initialization script loaded');
+
+        // 全局状态
+        window.__tauriNavbarState = {
+            isImporting: false
+        };
+
+        // 创建导航栏的函数
+        function createNavbar() {
+            console.log('[Tauri] Creating navbar...');
+
+            // 只在 augmentcode.com 域名下显示
+            if (!window.location.hostname.includes('augmentcode.com')) {
+                console.log('[Tauri] Not on augmentcode.com, skipping navbar');
+                return;
+            }
+
+            // 检查是否已存在
+            if (document.getElementById('tauri-navbar')) {
+                console.log('[Tauri] Navbar already exists');
+                return;
+            }
+
+            const navbar = document.createElement('div');
+            navbar.id = 'tauri-navbar';
+            navbar.style.cssText = 'position: fixed; top: 50%; right: 20px; transform: translateY(-50%); z-index: 2147483647; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+
+            const button = document.createElement('button');
+            button.id = 'tauri-import-button';
+
+            // 检查当前页面状态
+            const isLoginPage = window.location.hostname.includes('login.augmentcode.com') ||
+                                window.location.href.includes('/login');
+            const isAuthPage = window.location.href.includes('auth.augmentcode.com');
+            const isImporting = window.__tauriNavbarState.isImporting;
+
+            // 根据状态设置按钮
+            if (isImporting || isAuthPage) {
+                // 正在导入或已在 auth 页面
+                button.textContent = '⏳ 正在导入...';
+                button.disabled = true;
+                button.style.cssText = 'background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
+            } else if (isLoginPage) {
+                // 在登录页面,提示先登录
+                button.textContent = '🔒 请先登录';
+                button.disabled = true;
+                button.style.cssText = 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.9; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
+            } else {
+                // 正常状态,可以点击
+                button.textContent = '🔑 导入 Session';
+                button.style.cssText = 'background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
+            }
+
+            button.addEventListener('mouseover', function() {
+                if (!this.disabled) {
+                    this.style.background = '#2563eb';
+                    this.style.transform = 'scale(1.05)';
+                    this.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+                }
+            });
+
+            button.addEventListener('mouseout', function() {
+                if (!this.disabled) {
+                    this.style.background = '#3b82f6';
+                    this.style.transform = 'scale(1)';
+                    this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                }
+            });
+
+            button.addEventListener('click', function() {
+                if (window.__tauriNavbarState.isImporting) {
+                    return;
+                }
+
+                console.log('[Tauri] Navigating to auth.augmentcode.com');
+
+                // 设置全局状态
+                window.__tauriNavbarState.isImporting = true;
+
+                // 显示加载状态
+                button.textContent = '⏳ 正在导入...';
+                button.disabled = true;
+                button.style.opacity = '0.7';
+                button.style.cursor = 'not-allowed';
+
+                // 跳转
+                window.location.href = 'https://auth.augmentcode.com';
+            });
+
+            navbar.appendChild(button);
+
+            // 插入到页面
+            if (document.body) {
+                document.body.appendChild(navbar);
+                console.log('[Tauri] Navbar inserted at right middle');
+            } else if (document.documentElement) {
+                document.documentElement.appendChild(navbar);
+                console.log('[Tauri] Navbar inserted to documentElement');
+            }
+        }
+
+        // 多种方式尝试插入导航栏
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', createNavbar);
+        } else {
+            createNavbar();
+        }
+
+        // 监听页面变化,确保导航栏始终存在
+        setInterval(function() {
+            if (!document.getElementById('tauri-navbar')) {
+                createNavbar();
+            }
+        }, 1000);
+    "#)
+    .on_page_load(move |window, payload| {
+        if payload.event() == PageLoadEvent::Finished {
+            let url_str = payload.url().to_string();
+
+            // 检查是否是 auth.augmentcode.com
+            if url_str.contains("auth.augmentcode.com") {
+                let window_clone = window.clone();
+                let app_handle_clone = app_handle.clone();
+
+                // 在后台线程中获取 Cookie (使用 tauri 的 async runtime)
+                tauri::async_runtime::spawn(async move {
+                    // 等待一小段时间确保 Cookie 已设置
+                    tokio::time::sleep(Duration::from_millis(1000)).await;
+
+                    match window_clone.cookies_for_url(
+                        "https://auth.augmentcode.com".parse().unwrap()
+                    ) {
+                        Ok(cookies) => {
+                            // 查找 session Cookie
+                            if let Some(session_cookie) = cookies.iter()
+                                .find(|c| c.name() == "session")
+                            {
+                                let session_value = session_cookie.value().to_string();
+                                eprintln!("Found session cookie, attempting to import token...");
+
+                                // 调用内部函数获取 token
+                                match add_token_from_session_internal(&session_value).await {
+                                    Ok(token_data) => {
+                                        eprintln!("Successfully imported token from session");
+
+                                        // 发送成功事件到前端
+                                        let _ = app_handle_clone.emit(
+                                            "session-auto-imported",
+                                            serde_json::json!({
+                                                "success": true,
+                                                "token": token_data
+                                            })
+                                        );
+
+                                        // 延迟关闭浏览器窗口,让用户看到成功提示
+                                        tokio::time::sleep(Duration::from_millis(500)).await;
+                                        let _ = window_clone.close();
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to import token: {}", e);
+                                        // 发送失败事件
+                                        let _ = app_handle_clone.emit(
+                                            "session-auto-import-failed",
+                                            serde_json::json!({
+                                                "success": false,
+                                                "error": e.to_string()
+                                            })
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to get cookies: {}", e);
+                        }
+                    }
+                });
+            }
+        }
+    })
     .build()
     .map_err(|e| format!("Failed to create browser window: {}", e))?;
 

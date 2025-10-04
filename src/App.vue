@@ -224,6 +224,13 @@
                 >
                   {{ $t('tokenGenerator.importSession') }}
                 </button>
+                <button
+                  @click="openInternalBrowserForAutoImport"
+                  class="btn secondary"
+                  :disabled="isImportingSession"
+                >
+                  {{ $t('tokenGenerator.autoImportSession') }}
+                </button>
               </div>
 
               <!-- Loading State -->
@@ -739,6 +746,19 @@ const importFromSession = async () => {
   }
 }
 
+// 打开内置浏览器进行自动导入
+const openInternalBrowserForAutoImport = async () => {
+  try {
+    // 打开登录页面,登录后会跳转到 auth.augmentcode.com
+    await invoke('open_internal_browser', {
+      url: 'https://app.augmentcode.com/',
+      title: t('tokenGenerator.autoImportBrowserTitle')
+    })
+  } catch (error) {
+    showStatus(`${t('messages.error')}: ${error}`, 'error')
+  }
+}
+
 
 
 const saveToken = async () => {
@@ -806,6 +826,42 @@ onMounted(async () => {
     console.log('Progress event received:', event.payload)
     // 后端发送的是 i18n key,需要转换为翻译文本
     sessionImportProgress.value = t('messages.' + event.payload)
+  })
+
+  // 监听 Session 自动导入成功事件
+  await listen('session-auto-imported', async (event) => {
+    console.log('Session auto-imported:', event.payload)
+    showStatus(t('messages.sessionAutoImported'), 'success')
+
+    // 打开 TokenList 并添加 token
+    if (!showTokenList.value) {
+      showTokenList.value = true
+    }
+
+    // 等待 TokenList 准备好
+    await nextTick()
+    if (tokenListRef.value?.waitUntilReady) {
+      await tokenListRef.value.waitUntilReady()
+    }
+
+    // 添加 token
+    if (tokenListRef.value && event.payload.token) {
+      const tokenData = {
+        tenantUrl: event.payload.token.tenant_url,
+        accessToken: event.payload.token.access_token,
+        portalUrl: event.payload.token.user_info?.portal_url || null,
+        emailNote: event.payload.token.user_info?.email_note || null,
+        authSession: null,  // 自动导入不保存 auth_session
+        suspensions: event.payload.token.user_info?.suspensions || null
+      }
+      tokenListRef.value.addToken(tokenData)
+    }
+  })
+
+  // 监听 Session 自动导入失败事件
+  await listen('session-auto-import-failed', (event) => {
+    console.error('Session auto-import failed:', event.payload)
+    showStatus(t('messages.sessionAutoImportFailed') + ': ' + event.payload.error, 'error')
   })
 
   // 添加点击外部区域关闭设置菜单的事件监听器
@@ -947,14 +1003,14 @@ html, body {
 
 /* 设置按钮样式 */
 .control-btn.settings-toggle {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-text-muted, #6b7280);
   color: var(--color-text-inverse, #ffffff);
-  border-color: var(--color-accent, #3b82f6);
+  border-color: var(--color-text-muted, #6b7280);
 }
 
 .control-btn.settings-toggle:hover {
-  background: var(--color-accent-hover, #2563eb);
-  border-color: var(--color-accent-hover, #2563eb);
+  background: var(--color-text-secondary, #4b5563);
+  border-color: var(--color-text-secondary, #4b5563);
 }
 
 .control-btn svg {
@@ -980,14 +1036,14 @@ html, body {
 }
 
 [data-theme='dark'] .control-btn.settings-toggle {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-text-muted, #9ca3af);
   color: var(--color-text-inverse, #ffffff);
-  border-color: var(--color-accent, #3b82f6);
+  border-color: var(--color-text-muted, #9ca3af);
 }
 
 [data-theme='dark'] .control-btn.settings-toggle:hover {
-  background: var(--color-accent-hover, #2563eb);
-  border-color: var(--color-accent-hover, #2563eb);
+  background: var(--color-text-secondary, #d1d5db);
+  border-color: var(--color-text-secondary, #d1d5db);
 }
 
 
@@ -1199,7 +1255,7 @@ html, body {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #4CAF50;
+  background: var(--color-text-muted, #6b7280);
   color: white;
   border: none;
   cursor: pointer;
@@ -1213,7 +1269,7 @@ html, body {
 }
 
 .help-button:hover {
-  background: #45a049;
+  background: var(--color-text-secondary, #4b5563);
 }
 
 /* Help Modal Styles */
@@ -1467,6 +1523,12 @@ html, body {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+.button-container {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .login-buttons {

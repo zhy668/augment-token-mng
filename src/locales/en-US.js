@@ -142,7 +142,18 @@ export default {
     addToken: 'Add Token',
     save: 'Save',
     databaseConfig: 'Database Config',
-    sortByTime: 'Sort by creation time'
+    sortByTime: 'Sort by creation time',
+    batchDelete: 'Batch Delete',
+    batchDeleteConfirm: 'Batch Delete Confirmation',
+    batchDeleteMessage: 'The following tokens will be deleted:',
+    bannedCount: 'Banned',
+    expiredCount: 'Expired',
+    totalCount: 'Total',
+    items: 'items',
+    cannotUndo: 'This action cannot be undone. Are you sure?',
+    confirmDelete: 'Confirm Delete',
+    deleting: 'Deleting...',
+    noDeletableTokens: 'No deletable tokens'
   },
   tokenCard: {
     banned: 'Banned',
@@ -161,7 +172,14 @@ export default {
     deleteToken: 'Delete Token',
     canUse: 'Can Use',
     exhausted: 'Usage Exhausted',
-    tokenInvalid: 'Token Invalid'
+    tokenInvalid: 'Token Invalid',
+    clickToViewDetails: 'Click to view details',
+    suspensionDetails: 'Suspension Details',
+    suspensionType: 'Suspension Type',
+    reason: 'Reason',
+    date: 'Date',
+    noSuspensionData: 'No suspension data available',
+    rawData: 'Raw Data'
   },
   tokenForm: {
     title: 'Add/Edit Token',
@@ -218,6 +236,8 @@ export default {
     sessionImportDescription: 'Paste your auth session to quickly import token and user info',
     sessionPlaceholder: 'Paste auth session here...',
     importSession: 'Import Session',
+    autoImportSession: 'Auto Import',
+    autoImportBrowserTitle: 'Augment Login - Auto Import',
     importingSession: 'Importing...'
   },
   sessionHelp: {
@@ -305,6 +325,8 @@ export default {
     sessionImportSavingToken: 'Saving token...',
     sessionImportComplete: 'Import complete!',
     sessionImportFailed: 'Import failed',
+    sessionAutoImported: 'Session auto-imported!',
+    sessionAutoImportFailed: 'Session auto-import failed',
     openAuthUrlFailed: 'Failed to open authorization URL',
     oauthTitle: 'Augment OAuth Authorization',
     appHomeTitle: 'App Home - Augment Token Manager',

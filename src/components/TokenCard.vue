@@ -2,7 +2,11 @@
   <div class="token-card">
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
-      <span :class="['status-badge', getStatusClass(token.ban_status)]">
+      <span
+        :class="['status-badge', getStatusClass(token.ban_status), { clickable: isBannedWithSuspensions }]"
+        @click="handleStatusClick"
+        :title="isBannedWithSuspensions ? $t('tokenCard.clickToViewDetails') : ''"
+      >
         {{ getStatusText(token.ban_status) }}
       </span>
     </div>
@@ -11,15 +15,17 @@
       <div class="token-info">
         <h3 class="tenant-name">{{ displayUrl }}</h3>
         <div class="token-meta">
-          <!-- 第一行：创建日期和邮箱备注 -->
+          <!-- 第一行：创建日期 -->
           <div class="meta-row">
             <span class="created-date">{{ formatDate(token.created_at) }}</span>
-            <div v-if="token.email_note" class="email-note-container">
+          </div>
+          <!-- 第二行：邮箱备注（如果有） -->
+          <div v-if="token.email_note" class="meta-row email-row">
+            <div class="email-note-container">
               <span
                 class="email-note"
-                @mouseenter="handleEmailMouseEnter"
-                @mouseleave="handleEmailMouseLeave"
-                :title="isEmailHovered ? '' : token.email_note"
+                @mouseenter="isEmailHovered = true"
+                @mouseleave="isEmailHovered = false"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="email-icon">
                   <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
@@ -283,6 +289,50 @@
     :browser-title="getPortalBrowserTitle()"
     @close="showPortalDialog = false"
   />
+
+  <!-- Suspensions 详情模态框 -->
+  <Teleport to="body">
+    <Transition name="modal" appear>
+      <div v-if="showSuspensionsModal" class="suspensions-modal-overlay" @click="showSuspensionsModal = false">
+        <div class="suspensions-modal" @click.stop>
+          <div class="modal-header">
+            <h3>{{ $t('tokenCard.suspensionDetails') }}</h3>
+            <button @click="showSuspensionsModal = false" class="modal-close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="formattedSuspensions.length > 0" class="suspensions-list">
+              <div v-for="(suspension, index) in formattedSuspensions" :key="index" class="suspension-item">
+                <div class="suspension-field">
+                  <strong>{{ $t('tokenCard.suspensionType') }}:</strong>
+                  <span class="suspension-value">{{ suspension.type }}</span>
+                </div>
+                <div v-if="suspension.reason" class="suspension-field">
+                  <strong>{{ $t('tokenCard.reason') }}:</strong>
+                  <span class="suspension-value">{{ suspension.reason }}</span>
+                </div>
+                <div v-if="suspension.date" class="suspension-field">
+                  <strong>{{ $t('tokenCard.date') }}:</strong>
+                  <span class="suspension-value">{{ suspension.date }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="no-suspensions">
+              <p>{{ $t('tokenCard.noSuspensionData') }}</p>
+            </div>
+            <!-- 原始 JSON 数据 -->
+            <details class="raw-json" open>
+              <summary>{{ $t('tokenCard.rawData') }}</summary>
+              <pre>{{ JSON.stringify(token.suspensions, null, 2) }}</pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -318,6 +368,7 @@ const showEditorModal = ref(false)
 const isModalClosing = ref(false)
 const canStillUse = ref(false)
 const showPortalDialog = ref(false)
+const showSuspensionsModal = ref(false)
 
 // 图标映射
 const editorIcons = {
@@ -342,6 +393,35 @@ const editorIcons = {
   aqua: '/icons/aqua.svg',
   androidstudio: '/icons/androidstudio.svg'
 }
+
+// 判断是否为封禁状态且有 suspensions 数据
+const isBannedWithSuspensions = computed(() => {
+  return (
+    props.token.ban_status === 'SUSPENDED' &&
+    props.token.suspensions &&
+    (Array.isArray(props.token.suspensions) ? props.token.suspensions.length > 0 : true)
+  )
+})
+
+// 格式化 suspensions 数据
+const formattedSuspensions = computed(() => {
+  if (!props.token.suspensions) return []
+
+  if (Array.isArray(props.token.suspensions)) {
+    return props.token.suspensions.map(s => ({
+      type: s.suspensionType || 'Unknown',
+      reason: s.reason || '',
+      date: s.date || s.createdAt || ''
+    }))
+  }
+
+  // 如果不是数组,尝试作为单个对象处理
+  return [{
+    type: props.token.suspensions.suspensionType || 'Unknown',
+    reason: props.token.suspensions.reason || '',
+    date: props.token.suspensions.date || props.token.suspensions.createdAt || ''
+  }]
+})
 
 // Computed properties
 const displayUrl = computed(() => {
@@ -508,6 +588,13 @@ const copyEmailNote = () => copyWithNotification(
   'messages.copyEmailNoteFailed'
 )
 
+// 处理状态标签点击
+const handleStatusClick = () => {
+  if (isBannedWithSuspensions.value) {
+    showSuspensionsModal.value = true
+  }
+}
+
 // 键盘事件处理
 const handleKeydown = (event) => {
   if (event.key === 'Escape' && showEditorModal.value) {
@@ -636,15 +723,6 @@ const handleEditorClick = async (editorType) => {
   }
 }
 
-// 邮箱悬浮事件处理
-const handleEmailMouseEnter = () => {
-  isEmailHovered.value = true
-}
-
-const handleEmailMouseLeave = () => {
-  isEmailHovered.value = false
-}
-
 // Portal相关方法
 const getPortalBrowserTitle = () => {
   if (!props.token) return 'Portal'
@@ -695,9 +773,13 @@ const checkAccountStatus = async (showNotification = true) => {
     if (batchResults && batchResults.length > 0) {
       const result = batchResults[0] // 取第一个结果对象
       const statusResult = result.status_result // 账号状态结果
-      
+
       // 使用后端返回的具体状态
       const banStatus = statusResult.status
+
+      // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
+      props.token.access_token = result.access_token
+      props.token.tenant_url = result.tenant_url
 
       // 更新本地token对象 - 账号状态
       props.token.ban_status = banStatus
@@ -730,7 +812,7 @@ const checkAccountStatus = async (showNotification = true) => {
           error: result.portal_error
         }
       }
-      
+
       // 更新时间戳以确保双向同步时选择正确版本
       props.token.updated_at = new Date().toISOString()
 
@@ -873,6 +955,16 @@ defineExpose({
   border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.status-badge.clickable {
+  cursor: pointer;
+}
+
+.status-badge.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .status-badge.active {
@@ -949,16 +1041,22 @@ defineExpose({
   color: var(--color-text-muted, #666);
 }
 
+/* 邮箱行样式 */
+.email-row {
+  width: 100%;
+}
+
 .email-note-container {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
 }
 
 .email-note {
   font-size: 12px;
   color: var(--color-link-visited, #4f46e5);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   background: var(--color-info-surface, #f0f9ff);
@@ -966,14 +1064,26 @@ defineExpose({
   border-radius: 4px;
   border: 1px solid var(--color-info-surface, #e0f2fe);
   cursor: pointer;
-  transition: all 0.2s ease;
   user-select: none;
+  /* 固定高度避免悬浮时抖动 */
+  min-height: 22px;
+  /* 限制最大宽度,超出显示省略号 */
+  max-width: calc(100% - 30px);
+  overflow: hidden;
+  /* 不使用 transition,避免尺寸变化时的动画导致抖动 */
 }
 
 .email-note:hover {
   background: var(--color-info-surface, #e0f2fe);
   border-color: var(--color-info-border, #bae6fd);
-  transform: translateY(-1px);
+  /* 移除 transform 避免抖动 */
+}
+
+/* 邮箱图标固定尺寸,避免抖动 */
+.email-icon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
 }
 
 /* 黑暗模式下的邮箱样式优化 */
@@ -1058,10 +1168,14 @@ defineExpose({
   cursor: pointer;
   color: var(--color-text-muted, #6b7280);
   border-radius: 3px;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 固定尺寸避免抖动 */
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .copy-email-btn:hover {
@@ -1071,6 +1185,10 @@ defineExpose({
 
 .copy-email-btn:active {
   transform: scale(0.95);
+}
+
+.copy-email-btn svg {
+  flex-shrink: 0;
 }
 
 .portal-meta {
@@ -1552,5 +1670,157 @@ defineExpose({
   }
 }
 
+/* Suspensions 模态框样式 */
+.suspensions-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.suspensions-modal {
+  background: var(--color-surface, #ffffff);
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.suspensions-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.suspensions-modal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.suspensions-modal .modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suspensions-modal .modal-close:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+}
+
+.suspensions-modal .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.suspensions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.suspension-item {
+  background: var(--color-surface-secondary, #f9fafb);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.suspension-field {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.suspension-field:last-child {
+  margin-bottom: 0;
+}
+
+.suspension-field strong {
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 14px;
+  min-width: 80px;
+}
+
+.suspension-value {
+  color: var(--color-text-primary, #374151);
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.no-suspensions {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.raw-json {
+  margin-top: 20px;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
+  padding-top: 16px;
+}
+
+.raw-json summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #6b7280);
+  padding: 8px 0;
+  user-select: none;
+}
+
+.raw-json summary:hover {
+  color: var(--color-text-primary, #374151);
+}
+
+.raw-json pre {
+  background: var(--color-surface-secondary, #f9fafb);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px 0 0 0;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-primary, #374151);
+}
+
+/* 黑暗模式 */
+[data-theme='dark'] .suspensions-modal {
+  background: var(--color-surface, #1f2937);
+}
+
+[data-theme='dark'] .suspension-item {
+  background: rgba(55, 65, 81, 0.5);
+  border-color: rgba(75, 85, 99, 0.6);
+}
+
+[data-theme='dark'] .raw-json pre {
+  background: rgba(55, 65, 81, 0.5);
+  border-color: rgba(75, 85, 99, 0.6);
+}
 
 </style>

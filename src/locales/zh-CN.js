@@ -142,7 +142,18 @@ export default {
     addToken: '添加Token',
     save: '保存',
     databaseConfig: '数据库配置',
-    sortByTime: '按创建时间排序'
+    sortByTime: '按创建时间排序',
+    batchDelete: '批量删除',
+    batchDeleteConfirm: '批量删除确认',
+    batchDeleteMessage: '即将删除以下 token:',
+    bannedCount: '已封禁',
+    expiredCount: '已过期',
+    totalCount: '总计',
+    items: '个',
+    cannotUndo: '此操作不可撤销，确定要继续吗？',
+    confirmDelete: '确认删除',
+    deleting: '删除中...',
+    noDeletableTokens: '没有可删除的 token'
   },
   tokenCard: {
     banned: '已封禁',
@@ -161,7 +172,14 @@ export default {
     deleteToken: '删除Token',
     canUse: '还能使用',
     exhausted: '使用次数耗尽',
-    tokenInvalid: 'Token失效'
+    tokenInvalid: 'Token失效',
+    clickToViewDetails: '点击查看详情',
+    suspensionDetails: '封禁详情',
+    suspensionType: '封禁类型',
+    reason: '原因',
+    date: '日期',
+    noSuspensionData: '暂无封禁数据',
+    rawData: '原始数据'
   },
   tokenForm: {
     title: '添加/编辑Token',
@@ -218,6 +236,8 @@ export default {
     sessionImportDescription: '粘贴你的 auth session 来快速导入 token 和用户信息',
     sessionPlaceholder: '在此粘贴 auth session...',
     importSession: '导入 Session',
+    autoImportSession: '自动导入',
+    autoImportBrowserTitle: 'Augment 登录 - 自动导入',
     importingSession: '正在导入...'
   },
   sessionHelp: {
@@ -305,6 +325,8 @@ export default {
     sessionImportSavingToken: '正在保存 token...',
     sessionImportComplete: '导入完成!',
     sessionImportFailed: '导入失败',
+    sessionAutoImported: 'Session 已自动导入!',
+    sessionAutoImportFailed: 'Session 自动导入失败',
     openAuthUrlFailed: '打开授权URL失败',
     oauthTitle: 'Augment OAuth 授权',
     appHomeTitle: 'App主页 - Augment Token Manager',

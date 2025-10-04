@@ -82,6 +82,16 @@
                     <path d="M7 14l5-5 5 5z"/>
                   </svg>
                 </button>
+                <button
+                  class="batch-delete-btn"
+                  @click="showBatchDeleteConfirm"
+                  :disabled="deletableTokensCount === 0"
+                  :title="deletableTokensCount === 0 ? $t('tokenList.noDeletableTokens') : $t('tokenList.batchDelete')"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -121,6 +131,47 @@
       @update-token="handleUpdateToken"
       @add-token="handleAddTokenFromForm"
     />
+
+    <!-- Batch Delete Confirmation Dialog -->
+    <Teleport to="body">
+      <Transition name="modal" appear>
+        <div v-if="showBatchDeleteDialog" class="batch-delete-overlay" @click="showBatchDeleteDialog = false">
+          <div class="batch-delete-dialog" @click.stop>
+            <div class="dialog-header">
+              <h3>{{ $t('tokenList.batchDeleteConfirm') }}</h3>
+              <button @click="showBatchDeleteDialog = false" class="dialog-close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="dialog-body">
+              <p class="dialog-message">{{ $t('tokenList.batchDeleteMessage') }}</p>
+              <div class="delete-stats">
+                <div class="stat-item">
+                  <span class="stat-label">{{ $t('tokenList.bannedCount') }}:</span>
+                  <span class="stat-value">{{ bannedTokensCount }} {{ $t('tokenList.items') }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">{{ $t('tokenList.expiredCount') }}:</span>
+                  <span class="stat-value">{{ expiredTokensCount }} {{ $t('tokenList.items') }}</span>
+                </div>
+                <div class="stat-item total">
+                  <span class="stat-label">{{ $t('tokenList.totalCount') }}:</span>
+                  <span class="stat-value">{{ deletableTokensCount }} {{ $t('tokenList.items') }}</span>
+                </div>
+              </div>
+              <p class="dialog-warning">{{ $t('tokenList.cannotUndo') }}</p>
+            </div>
+            <div class="dialog-footer">
+              <button @click="executeBatchDelete" class="btn btn-danger" :disabled="isDeleting">
+                {{ isDeleting ? $t('tokenList.deleting') : $t('tokenList.confirmDelete') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -151,6 +202,27 @@ const isReady = ref(false)
 // 排序状态管理
 const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
 
+// 批量删除状态
+const showBatchDeleteDialog = ref(false)
+const isDeleting = ref(false)
+
+// 计算可删除的 token 数量
+const deletableTokensCount = computed(() => {
+  return tokens.value.filter(token =>
+    token.ban_status === 'SUSPENDED' || token.ban_status === 'EXPIRED'
+  ).length
+})
+
+// 计算已封禁的 token 数量
+const bannedTokensCount = computed(() => {
+  return tokens.value.filter(token => token.ban_status === 'SUSPENDED').length
+})
+
+// 计算已过期的 token 数量
+const expiredTokensCount = computed(() => {
+  return tokens.value.filter(token => token.ban_status === 'EXPIRED').length
+})
+
 // 排序后的tokens计算属性
 const sortedTokens = computed(() => {
   if (tokens.value.length === 0) return []
@@ -170,6 +242,65 @@ const sortedTokens = computed(() => {
 // 切换排序方式
 const toggleSort = () => {
   sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+}
+
+// 显示批量删除确认对话框
+const showBatchDeleteConfirm = () => {
+  if (deletableTokensCount.value > 0) {
+    showBatchDeleteDialog.value = true
+  }
+}
+
+// 执行批量删除
+const executeBatchDelete = async () => {
+  isDeleting.value = true
+
+  try {
+    // 获取要删除的 tokens
+    const tokensToDelete = tokens.value.filter(token =>
+      token.ban_status === 'SUSPENDED' || token.ban_status === 'EXPIRED'
+    )
+
+    // 并行删除所有 tokens
+    const deletePromises = tokensToDelete.map(token =>
+      invoke('delete_token', { tokenId: token.id })
+        .then(() => {
+          // 删除成功,从本地列表移除
+          const index = tokens.value.findIndex(t => t.id === token.id)
+          if (index !== -1) {
+            tokens.value.splice(index, 1)
+          }
+          return { success: true, id: token.id }
+        })
+        .catch(error => {
+          console.error(`Failed to delete token ${token.id}:`, error)
+          return { success: false, id: token.id, error }
+        })
+    )
+
+    // 等待所有删除操作完成
+    const results = await Promise.allSettled(deletePromises)
+
+    // 统计成功和失败的数量
+    const successCount = results.filter(r =>
+      r.status === 'fulfilled' && r.value.success
+    ).length
+    const failedCount = tokensToDelete.length - successCount
+
+    // 关闭对话框
+    showBatchDeleteDialog.value = false
+
+    // 显示结果消息
+    if (failedCount === 0) {
+      console.log(`Successfully deleted ${successCount} tokens`)
+    } else {
+      console.warn(`Deleted ${successCount} tokens, ${failedCount} failed`)
+    }
+  } catch (error) {
+    console.error('Batch delete failed:', error)
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 const emit = defineEmits(['close'])
@@ -277,6 +408,11 @@ const updateTokensFromResults = (results) => {
     const token = tokens.value.find(t => t.id === result.token_id)
     if (token) {
       const statusResult = result.status_result
+
+      // 始终更新 access_token 和 tenant_url (如果 token 被刷新,这里会是新值)
+      token.access_token = result.access_token
+      token.tenant_url = result.tenant_url
+
       // 更新ban_status
       token.ban_status = statusResult.status
 
@@ -297,13 +433,13 @@ const updateTokensFromResults = (results) => {
       } else if (result.portal_error) {
         console.warn(`Failed to get portal info for token ${token.id}:`, result.portal_error)
       }
-      
+
       // 更新时间戳
       token.updated_at = new Date().toISOString()
       console.log(`Updated token ${token.id} status to: ${statusResult.status}`)
     }
   })
-  
+
   // 标记有未保存的更改
   hasUnsavedChanges.value = true
 }
@@ -576,8 +712,8 @@ defineExpose({
 .modal-content {
   background: var(--color-surface, #ffffff);
   border-radius: 12px;
-  width: 100%;
-  max-width: 900px;
+  width: 95vw;  /* 使用视口宽度的 95%,自适应屏幕大小 */
+  max-width: none;  /* 移除固定最大宽度限制 */
   height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
@@ -663,16 +799,27 @@ defineExpose({
 
 .token-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
   gap: 16px;
   padding: 4px;
 }
 
 /* 响应式处理 */
+
+/* 超大屏幕优化 */
+@media (min-width: 1920px) {
+  .token-grid {
+    /* 超大屏幕: 每列最小 320px,允许更多列 */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+}
+
+/* 中等屏幕 */
 @media (max-width: 768px) {
   .modal-content {
     margin: 10px;
-    max-width: calc(100vw - 20px);
+    width: calc(100vw - 20px);
   }
 
   .modal-header {
@@ -719,6 +866,189 @@ defineExpose({
     width: 10px;
     height: 10px;
   }
+}
+
+/* 批量删除按钮 - 与排序按钮样式一致 */
+.batch-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0;
+}
+
+.batch-delete-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover, #e9ecef);
+  color: var(--color-danger, #dc2626);
+  border-color: var(--color-danger, #dc2626);
+}
+
+.batch-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-delete-btn svg {
+  flex-shrink: 0;
+}
+
+/* 批量删除对话框 */
+.batch-delete-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.batch-delete-dialog {
+  background: var(--color-surface, #ffffff);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.batch-delete-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.batch-delete-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.batch-delete-dialog .dialog-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-delete-dialog .dialog-close:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+}
+
+.batch-delete-dialog .dialog-body {
+  padding: 24px;
+}
+
+.dialog-message {
+  margin: 0 0 16px 0;
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 14px;
+}
+
+.delete-stats {
+  background: var(--color-surface-secondary, #f9fafb);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.stat-item:not(:last-child) {
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.stat-item.total {
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.stat-label {
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 14px;
+}
+
+.stat-value {
+  color: var(--color-text-primary, #374151);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dialog-warning {
+  margin: 0;
+  color: var(--color-warning-text, #92400e);
+  background: var(--color-warning-surface, #fef3c7);
+  border: 1px solid var(--color-warning-border, #fde68a);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.batch-delete-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
+  background: var(--color-surface, #ffffff);
+}
+
+.btn-danger {
+  background: var(--color-danger, #dc2626);
+  color: white;
+  border: 1px solid var(--color-danger, #dc2626);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover, #b91c1c);
+  border-color: var(--color-danger-hover, #b91c1c);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 黑暗模式 */
+[data-theme='dark'] .batch-delete-dialog {
+  background: var(--color-surface, #1f2937);
+}
+
+[data-theme='dark'] .delete-stats {
+  background: rgba(55, 65, 81, 0.5);
+  border-color: rgba(75, 85, 99, 0.6);
+}
+
+[data-theme='dark'] .dialog-warning {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
 }
 
 @media (max-width: 480px) {

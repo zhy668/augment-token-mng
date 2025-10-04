@@ -160,6 +160,13 @@ const handleInternalOpen = async () => {
   justify-content: center;
 }
 
+.dialog-btn svg {
+  flex-shrink: 0;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
 .dialog-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

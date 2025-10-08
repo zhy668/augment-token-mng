@@ -570,12 +570,13 @@ async fn open_internal_browser(
                                     Ok(token_data) => {
                                         eprintln!("Successfully imported token from session");
 
-                                        // 发送成功事件到前端
+                                        // 发送成功事件到前端，包含 session
                                         let _ = app_handle_clone.emit(
                                             "session-auto-imported",
                                             serde_json::json!({
                                                 "success": true,
-                                                "token": token_data
+                                                "token": token_data,
+                                                "session": session_value
                                             })
                                         );
 

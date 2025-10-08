@@ -34,6 +34,7 @@
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>trae</string>
+                <string>trae-cn</string>
             </array>
         </dict>
         <dict>

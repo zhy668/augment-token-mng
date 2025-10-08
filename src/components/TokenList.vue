@@ -42,8 +42,14 @@
         </div>
         
         <div class="modal-body">
+          <!-- Loading State -->
+          <div v-if="isLoading" class="loading-state">
+            <div class="spinner"></div>
+            <p>{{ $t('tokenList.loading') }}</p>
+          </div>
+
           <!-- Empty State -->
-          <div v-if="tokens.length === 0 && !isLoading" class="empty-state">
+          <div v-else-if="tokens.length === 0" class="empty-state">
             <div class="empty-icon">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -53,14 +59,8 @@
             <p>{{ $t('tokenList.emptyDescription') }}</p>
           </div>
 
-          <!-- Loading State -->
-          <div v-if="isLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>{{ $t('tokenList.loading') }}</p>
-          </div>
-
           <!-- Token List -->
-          <div v-if="tokens.length > 0" class="token-list">
+          <div v-else class="token-list">
             <div class="list-header">
               <div class="list-title-section">
                 <h3>{{ $t('tokenList.listTitle', { count: tokens.length }) }}</h3>
@@ -90,6 +90,15 @@
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
+                <button
+                  class="batch-import-btn"
+                  @click="showBatchImportConfirm"
+                  :title="$t('tokenList.batchImport')"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
                   </svg>
                 </button>
               </div>
@@ -131,6 +140,70 @@
       @update-token="handleUpdateToken"
       @add-token="handleAddTokenFromForm"
     />
+
+    <!-- Batch Import Dialog -->
+    <Teleport to="body">
+      <Transition name="modal" appear>
+        <div v-if="showBatchImportDialog" class="batch-import-overlay" @click="showBatchImportDialog = false">
+          <div class="batch-import-dialog" @click.stop>
+            <div class="dialog-header">
+              <h3>{{ $t('tokenList.batchImportTitle') }}</h3>
+              <button @click="showBatchImportDialog = false" class="dialog-close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="dialog-body">
+              <p class="dialog-message">{{ $t('tokenList.batchImportMessage') }}</p>
+              <div class="import-input-section">
+                <textarea
+                  v-model="importJsonText"
+                  rows="10"
+                  class="import-textarea"
+                  @input="validateImportJson"
+                ></textarea>
+              </div>
+
+              <!-- 错误信息 -->
+              <div v-if="importErrors.length > 0" class="import-errors">
+                <div class="error-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                  </svg>
+                  <span>{{ $t('tokenList.importErrorsFound', { count: importErrors.length }) }}</span>
+                </div>
+                <ul class="error-list">
+                  <li v-for="(error, index) in importErrors" :key="index">{{ error }}</li>
+                </ul>
+              </div>
+
+              <!-- 预览信息 -->
+              <div v-if="importPreview.length > 0" class="import-preview">
+                <div class="preview-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                  <span>{{ $t('tokenList.importPreviewReady', { count: importPreview.length }) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button @click="showBatchImportDialog = false" class="btn-cancel">
+                {{ $t('tokenList.cancel') }}
+              </button>
+              <button
+                @click="executeBatchImport"
+                class="btn-confirm"
+                :disabled="isImporting || importPreview.length === 0"
+              >
+                {{ isImporting ? $t('tokenList.importing') : $t('tokenList.confirmImport') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Batch Delete Confirmation Dialog -->
     <Teleport to="body">
@@ -206,6 +279,13 @@ const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
 const showBatchDeleteDialog = ref(false)
 const isDeleting = ref(false)
 
+// 批量导入状态
+const showBatchImportDialog = ref(false)
+const importJsonText = ref('')
+const isImporting = ref(false)
+const importPreview = ref([])
+const importErrors = ref([])
+
 // 计算可删除的 token 数量
 const deletableTokensCount = computed(() => {
   return tokens.value.filter(token =>
@@ -248,6 +328,119 @@ const toggleSort = () => {
 const showBatchDeleteConfirm = () => {
   if (deletableTokensCount.value > 0) {
     showBatchDeleteDialog.value = true
+  }
+}
+
+// 显示批量导入对话框
+const showBatchImportConfirm = () => {
+  importJsonText.value = '[\n  \n]'
+  importPreview.value = []
+  importErrors.value = []
+  showBatchImportDialog.value = true
+}
+
+// 验证并解析导入的 JSON
+const validateImportJson = () => {
+  importErrors.value = []
+  importPreview.value = []
+
+  if (!importJsonText.value.trim()) {
+    importErrors.value.push(t('tokenList.importJsonEmpty'))
+    return false
+  }
+
+  try {
+    const parsed = JSON.parse(importJsonText.value)
+
+    if (!Array.isArray(parsed)) {
+      importErrors.value.push(t('tokenList.importJsonNotArray'))
+      return false
+    }
+
+    if (parsed.length === 0) {
+      importErrors.value.push(t('tokenList.importJsonEmptyArray'))
+      return false
+    }
+
+    // 验证每个 token 对象
+    const validTokens = []
+    parsed.forEach((item) => {
+      const errors = []
+
+      if (!item.access_token || typeof item.access_token !== 'string' || !item.access_token.trim()) {
+        errors.push(t('tokenList.missingAccessToken'))
+      }
+
+      if (!item.tenant_url || typeof item.tenant_url !== 'string' || !item.tenant_url.trim()) {
+        errors.push(t('tokenList.missingTenantUrl'))
+      }
+
+      // 验证 URL 格式
+      if (item.tenant_url) {
+        try {
+          new URL(item.tenant_url)
+        } catch {
+          errors.push(t('tokenList.invalidTenantUrl'))
+        }
+      }
+
+      if (item.portal_url) {
+        try {
+          new URL(item.portal_url)
+        } catch {
+          errors.push(t('tokenList.invalidPortalUrl'))
+        }
+      }
+
+      if (errors.length > 0) {
+        importErrors.value.push(...errors)
+      } else {
+        validTokens.push(item)
+      }
+    })
+
+    importPreview.value = validTokens
+    return validTokens.length > 0
+  } catch (error) {
+    importErrors.value.push(`${t('tokenList.importJsonParseError')}: ${error.message}`)
+    return false
+  }
+}
+
+// 执行批量导入
+const executeBatchImport = async () => {
+  if (!validateImportJson()) {
+    return
+  }
+
+  isImporting.value = true
+
+  try {
+    let successCount = 0
+
+    importPreview.value.forEach(item => {
+      const tokenData = {
+        tenantUrl: item.tenant_url,
+        accessToken: item.access_token,
+        portalUrl: item.portal_url || null,
+        emailNote: item.email_note || null,
+        authSession: item.auth_session || null,
+        suspensions: item.suspensions || null
+      }
+
+      addToken(tokenData)
+      successCount++
+    })
+
+    // 关闭对话框
+    showBatchImportDialog.value = false
+
+    // 显示结果
+    window.$notify.success(t('messages.batchImportSuccess', { count: successCount }))
+  } catch (error) {
+    window.$notify.error(`${t('messages.batchImportFailed')}: ${error}`)
+  } finally {
+    isImporting.value = false
   }
 }
 
@@ -448,16 +641,23 @@ const loadTokens = async (showSuccessMessage = false) => {
   isLoading.value = true
   try {
     const jsonString = await invoke('load_tokens_json')
-    tokens.value = JSON.parse(jsonString)
+    const parsedTokens = JSON.parse(jsonString)
+
+    // 确保是数组
+    if (Array.isArray(parsedTokens)) {
+      // 使用展开运算符创建新数组，确保触发响应式更新
+      tokens.value = [...parsedTokens]
+    } else {
+      tokens.value = []
+    }
+
     hasUnsavedChanges.value = false
     if (showSuccessMessage) {
       window.$notify.success(t('messages.tokenLoadSuccess'))
     }
   } catch (error) {
     window.$notify.error(`${t('messages.tokenLoadFailed')}: ${error}`)
-    if (tokens.value.length === 0) {
-      tokens.value = []
-    }
+    tokens.value = []
     hasUnsavedChanges.value = false
   } finally {
     isLoading.value = false
@@ -898,6 +1098,215 @@ defineExpose({
   flex-shrink: 0;
 }
 
+/* 批量导入按钮 */
+.batch-import-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0;
+}
+
+.batch-import-btn:hover {
+  background: var(--color-surface-hover, #e9ecef);
+  color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, #2563eb);
+}
+
+.batch-import-btn svg {
+  flex-shrink: 0;
+}
+
+/* 批量导入对话框 */
+.batch-import-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.batch-import-dialog {
+  background: var(--color-surface, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 700px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.batch-import-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.batch-import-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.batch-import-dialog .dialog-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-import-dialog .dialog-close:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+}
+
+.batch-import-dialog .dialog-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.batch-import-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-divider, #e1e5e9);
+  background: var(--color-surface, #ffffff);
+}
+
+.batch-import-dialog .btn-cancel {
+  padding: 8px 16px;
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 6px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #374151);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.batch-import-dialog .btn-cancel:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  border-color: var(--color-border-hover, #9ca3af);
+}
+
+.batch-import-dialog .btn-confirm {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primary, #2563eb);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.batch-import-dialog .btn-confirm:hover:not(:disabled) {
+  background: var(--color-primary-hover, #1d4ed8);
+}
+
+.batch-import-dialog .btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.import-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #374151);
+  transition: border-color 0.2s ease;
+}
+
+.import-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+}
+
+.import-textarea::placeholder {
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.import-input-section {
+  margin: 16px 0;
+}
+
+.import-errors {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--color-danger-light, #fee2e2);
+  border: 1px solid var(--color-danger, #dc2626);
+  border-radius: 8px;
+}
+
+.import-errors .error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-danger, #dc2626);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.import-errors .error-list {
+  margin: 0;
+  padding-left: 24px;
+  color: var(--color-danger, #dc2626);
+  font-size: 13px;
+}
+
+.import-errors .error-list li {
+  margin: 4px 0;
+}
+
+.import-preview {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--color-success-light, #d1fae5);
+  border: 1px solid var(--color-success, #10b981);
+  border-radius: 8px;
+}
+
+.import-preview .preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-success, #10b981);
+  font-weight: 600;
+}
+
 /* 批量删除对话框 */
 .batch-delete-overlay {
   position: fixed;
@@ -909,7 +1318,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 3000;
   padding: 20px;
 }
 
@@ -1036,6 +1445,14 @@ defineExpose({
 }
 
 /* 黑暗模式 */
+[data-theme='dark'] .batch-import-dialog {
+  background: var(--color-surface, #1f2937);
+}
+
+[data-theme='dark'] .batch-import-dialog .dialog-footer {
+  background: var(--color-surface, #1f2937);
+}
+
 [data-theme='dark'] .batch-delete-dialog {
   background: var(--color-surface, #1f2937);
 }

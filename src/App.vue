@@ -851,7 +851,7 @@ onMounted(async () => {
         accessToken: event.payload.token.access_token,
         portalUrl: event.payload.token.user_info?.portal_url || null,
         emailNote: event.payload.token.user_info?.email_note || null,
-        authSession: null,  // 自动导入不保存 auth_session
+        authSession: event.payload.session || null,  // 保存 auth_session
         suspensions: event.payload.token.user_info?.suspensions || null
       }
       tokenListRef.value.addToken(tokenData)

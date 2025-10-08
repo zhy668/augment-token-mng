@@ -1,5 +1,5 @@
 <template>
-  <div class="token-card">
+  <div :class="['token-card', { 'menu-open': showCopyMenu }]" @click="handleClickOutside">
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
       <span
@@ -57,16 +57,40 @@
         <button @click="openEditorModal" class="btn-action vscode" :title="$t('tokenCard.selectEditor')">
           <img :src="editorIcons.vscode" :alt="$t('tokenCard.selectEditor')" width="18" height="18" />
         </button>
-        <button @click="copyToken" class="btn-action" :title="$t('tokenCard.copyToken')">
+        <button @click="exportTokenAsJson" class="btn-action export" :title="$t('tokenCard.exportJson')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
           </svg>
         </button>
-        <button @click="copyTenantUrl" class="btn-action" :title="$t('tokenCard.copyTenantUrl')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
-          </svg>
-        </button>
+        <div class="copy-menu-wrapper" @click.stop>
+          <button @click.stop="toggleCopyMenu" class="btn-action copy" :title="$t('tokenCard.copyMenu')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+          </button>
+          <Transition name="dropdown">
+            <div v-if="showCopyMenu" class="copy-dropdown" @click.stop>
+              <button @click="handleCopyMenuClick('token')" class="copy-menu-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+                <span>{{ $t('tokenCard.copyToken') }}</span>
+              </button>
+              <button @click="handleCopyMenuClick('url')" class="copy-menu-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                </svg>
+                <span>{{ $t('tokenCard.copyTenantUrl') }}</span>
+              </button>
+              <button v-if="token.auth_session" @click="handleCopyMenuClick('session')" class="copy-menu-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                </svg>
+                <span>{{ $t('tokenCard.copyAuthSession') }}</span>
+              </button>
+            </div>
+          </Transition>
+        </div>
         <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus || isBatchChecking }]" :disabled="isCheckingStatus || isBatchChecking" :title="$t('tokenCard.checkAccountStatus')">
           <svg v-if="!isCheckingStatus && !isBatchChecking" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -333,6 +357,36 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Trae 版本选择对话框 -->
+  <Teleport to="body">
+    <Transition name="modal" appear>
+      <div v-if="showTraeVersionDialog" class="trae-version-modal-overlay" @click="showTraeVersionDialog = false">
+        <div class="trae-version-modal" @click.stop>
+          <div class="modal-header">
+            <h3>选择 Trae 版本</h3>
+            <button @click="showTraeVersionDialog = false" class="modal-close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="version-options">
+              <button @click="handleTraeVersionSelect('global')" class="version-option">
+                <div class="version-icon">🌍</div>
+                <div class="version-name">Trae 国际版</div>
+              </button>
+              <button @click="handleTraeVersionSelect('cn')" class="version-option">
+                <div class="version-icon">🇨🇳</div>
+                <div class="version-name">Trae 国内版</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -369,6 +423,8 @@ const isModalClosing = ref(false)
 const canStillUse = ref(false)
 const showPortalDialog = ref(false)
 const showSuspensionsModal = ref(false)
+const showTraeVersionDialog = ref(false)
+const showCopyMenu = ref(false)
 
 // 图标映射
 const editorIcons = {
@@ -588,6 +644,63 @@ const copyEmailNote = () => copyWithNotification(
   'messages.copyEmailNoteFailed'
 )
 
+// 复制Auth Session
+const copyAuthSession = () => {
+  if (!props.token.auth_session) {
+    window.$notify.warning(t('messages.noAuthSession'))
+    return
+  }
+  copyWithNotification(
+    props.token.auth_session,
+    'messages.authSessionCopied',
+    'messages.copyAuthSessionFailed'
+  )
+}
+
+// 导出Token为JSON
+const exportTokenAsJson = () => {
+  const exportData = {
+    access_token: props.token.access_token,
+    tenant_url: props.token.tenant_url
+  }
+
+  if (props.token.portal_url) {
+    exportData.portal_url = props.token.portal_url
+  }
+
+  if (props.token.auth_session) {
+    exportData.auth_session = props.token.auth_session
+  }
+
+  const jsonString = JSON.stringify(exportData, null, 2)
+  copyWithNotification(
+    jsonString,
+    'messages.tokenJsonExported',
+    'messages.exportTokenJsonFailed'
+  )
+}
+
+// 切换复制菜单
+const toggleCopyMenu = () => {
+  showCopyMenu.value = !showCopyMenu.value
+}
+
+// 处理复制菜单项点击
+const handleCopyMenuClick = (type) => {
+  showCopyMenu.value = false
+  switch (type) {
+    case 'token':
+      copyToken()
+      break
+    case 'url':
+      copyTenantUrl()
+      break
+    case 'session':
+      copyAuthSession()
+      break
+  }
+}
+
 // 处理状态标签点击
 const handleStatusClick = () => {
   if (isBannedWithSuspensions.value) {
@@ -597,8 +710,20 @@ const handleStatusClick = () => {
 
 // 键盘事件处理
 const handleKeydown = (event) => {
-  if (event.key === 'Escape' && showEditorModal.value) {
-    showEditorModal.value = false
+  if (event.key === 'Escape') {
+    if (showEditorModal.value) {
+      showEditorModal.value = false
+    }
+    if (showCopyMenu.value) {
+      showCopyMenu.value = false
+    }
+  }
+}
+
+// 点击外部关闭复制菜单
+const handleClickOutside = () => {
+  if (showCopyMenu.value) {
+    showCopyMenu.value = false
   }
 }
 
@@ -637,6 +762,7 @@ const vscodeSchemes = {
   'vscode': 'vscode',
   'kiro': 'kiro',
   'trae': 'trae',
+  'trae-cn': 'trae-cn',
   'windsurf': 'windsurf',
   'qoder': 'qoder',
   'vscodium': 'vscodium',
@@ -692,6 +818,12 @@ const createJetBrainsTokenFile = async (editorType) => {
 
 // 处理编辑器链接点击事件
 const handleEditorClick = async (editorType) => {
+  // 如果是 Trae，显示版本选择对话框
+  if (editorType === 'trae') {
+    showTraeVersionDialog.value = true
+    return
+  }
+
   try {
     const editorName = editorNames[editorType] || editorType
 
@@ -715,6 +847,29 @@ const handleEditorClick = async (editorType) => {
       await invoke('open_editor_with_protocol', { protocolUrl })
       window.$notify.success(t('messages.openingEditor', { editor: editorName }))
     }
+  } catch (error) {
+    window.$notify.error(t('messages.operationFailed'))
+  } finally {
+    showEditorModal.value = false
+    isModalClosing.value = false
+  }
+}
+
+// 处理 Trae 版本选择
+const handleTraeVersionSelect = async (version) => {
+  showTraeVersionDialog.value = false
+
+  try {
+    const editorType = version === 'global' ? 'trae' : 'trae-cn'
+    const resolver = vscodeProtocolResolvers[editorType]
+
+    if (!resolver) {
+      throw new Error(`Unknown Trae version: ${version}`)
+    }
+
+    const protocolUrl = resolver()
+    await invoke('open_editor_with_protocol', { protocolUrl })
+    window.$notify.success(t('messages.openingEditor', { editor: 'Trae' }))
   } catch (error) {
     window.$notify.error(t('messages.operationFailed'))
   } finally {
@@ -908,7 +1063,7 @@ onMounted(async () => {
     checkAccountStatus(false)
   }
 
-  // 添加键盘事件监听器
+  // 添加事件监听器
   document.addEventListener('keydown', handleKeydown)
 })
 
@@ -939,6 +1094,11 @@ defineExpose({
   height: fit-content;
   min-height: 120px;
   position: relative; /* 为状态指示器定位 */
+  z-index: 1;
+}
+
+.token-card.menu-open {
+  z-index: 1000;
 }
 
 .status-indicator {
@@ -1156,6 +1316,38 @@ defineExpose({
   border-color: rgba(245, 158, 11, 0.4);
 }
 
+[data-theme='dark'] .btn-action.copy {
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .btn-action.copy:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme='dark'] .btn-action.export {
+  color: #c4b5fd;
+}
+
+[data-theme='dark'] .btn-action.export:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+[data-theme='dark'] .copy-dropdown {
+  background: var(--color-surface, #1f2937);
+  border-color: rgba(75, 85, 99, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .copy-menu-item {
+  color: var(--color-text-primary, #e5e7eb);
+}
+
+[data-theme='dark'] .copy-menu-item:hover {
+  background: rgba(55, 65, 81, 0.6);
+}
+
 .email-icon {
   flex-shrink: 0;
   opacity: 0.7;
@@ -1317,6 +1509,24 @@ defineExpose({
   cursor: not-allowed;
 }
 
+.btn-action.export {
+  color: #7c3aed;
+}
+
+.btn-action.export:hover {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+.btn-action.copy {
+  color: #2563eb;
+}
+
+.btn-action.copy:hover {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
 .loading-spinner {
   width: 14px;
   height: 14px;
@@ -1330,6 +1540,71 @@ defineExpose({
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 复制菜单样式 */
+.copy-menu-wrapper {
+  position: relative;
+}
+
+.copy-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.copy-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-primary, #374151);
+  transition: background 0.2s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.copy-menu-item:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+}
+
+.copy-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.copy-menu-item span {
+  flex: 1;
+}
+
+/* 下拉菜单动画 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.dropdown-enter-to,
+.dropdown-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Vue 过渡动画 */
@@ -1821,6 +2096,141 @@ defineExpose({
 [data-theme='dark'] .raw-json pre {
   background: rgba(55, 65, 81, 0.5);
   border-color: rgba(75, 85, 99, 0.6);
+}
+
+/* Trae 版本选择对话框样式 */
+.trae-version-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.trae-version-modal {
+  background: var(--color-surface, #ffffff);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.trae-version-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.trae-version-modal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.trae-version-modal .modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trae-version-modal .modal-close:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+}
+
+.trae-version-modal .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.version-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.version-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 2px solid var(--color-divider, #e1e5e9);
+  border-radius: 12px;
+  background: var(--color-surface, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.version-option:hover {
+  border-color: var(--color-accent, #3b82f6);
+  background: var(--color-surface-soft, #f8fafc);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
+}
+
+.version-option:active {
+  transform: translateY(0);
+}
+
+.version-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-muted, #f8f9fa);
+  border-radius: 8px;
+}
+
+.version-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-heading, #333);
+}
+
+/* 黑暗模式 */
+[data-theme='dark'] .trae-version-modal {
+  background: var(--color-surface, #1f2937);
+}
+
+[data-theme='dark'] .version-option {
+  background: rgba(55, 65, 81, 0.5);
+  border-color: rgba(75, 85, 99, 0.6);
+}
+
+[data-theme='dark'] .version-option:hover {
+  background: rgba(55, 65, 81, 0.7);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+[data-theme='dark'] .version-icon {
+  background: rgba(55, 65, 81, 0.8);
 }
 
 </style>

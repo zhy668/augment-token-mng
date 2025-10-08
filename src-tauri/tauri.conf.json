@@ -1,6 +1,6 @@
 {
   "productName": "ATM",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "identifier": "com.cubezhao.atm",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -37,7 +37,10 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["xdg-utils", "libwebkit2gtk-4.0-0 | libwebkit2gtk-4.1-0"],
+        "depends": [
+          "xdg-utils",
+          "libwebkit2gtk-4.0-0 | libwebkit2gtk-4.1-0"
+        ],
         "files": {
           "/usr/share/applications/atm.desktop": "./assets/atm.desktop"
         }

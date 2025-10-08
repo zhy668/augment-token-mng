@@ -372,10 +372,35 @@
       @close="showPluginHomeDialog = false"
     />
 
+    <!-- 更新横幅 -->
+    <UpdateBanner
+      v-if="updateInfo && updateInfo.has_update"
+      :update-info="updateInfo"
+      @close="updateInfo = null"
+    />
+
     <!-- 固定在右下角的控制按钮 -->
     <div class="fixed-controls">
       <!-- 弹出的设置选项 -->
       <div v-if="showSettingsMenu" class="settings-menu">
+        <!-- 检查更新按钮 -->
+        <button
+          type="button"
+          class="control-btn update-check-toggle"
+          @click="manualCheckForUpdates"
+          :aria-label="$t('app.checkForUpdates')"
+          :title="$t('app.checkForUpdates')"
+          :disabled="checkingUpdate"
+        >
+          <svg v-if="!checkingUpdate" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="16 12 12 8 8 12"/>
+            <line x1="12" y1="16" x2="12" y2="8"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+        </button>
         <!-- 语言切换按钮 -->
         <button
           type="button"
@@ -439,6 +464,7 @@ import BookmarkManager from './components/BookmarkManager.vue'
 import OutlookManager from './components/OutlookManager.vue'
 import ExternalLinkDialog from './components/ExternalLinkDialog.vue'
 import NotificationManager from './components/NotificationManager.vue'
+import UpdateBanner from './components/UpdateBanner.vue'
 
 const { t, locale } = useI18n()
 
@@ -473,6 +499,35 @@ const handleClickOutside = (event) => {
   }
 }
 
+// 检查更新
+const checkForUpdates = async (silent = true) => {
+  try {
+    checkingUpdate.value = true
+    const result = await invoke('check_for_updates')
+    updateInfo.value = result
+
+    if (!silent) {
+      if (result.has_update) {
+        showStatus(t('update.newVersionAvailable'), 'success')
+      } else {
+        showStatus(t('update.upToDate'), 'success')
+      }
+    }
+  } catch (error) {
+    console.error('Failed to check for updates:', error)
+    if (!silent) {
+      showStatus(`${t('update.checkFailed')}: ${error}`, 'error')
+    }
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+
+// 手动检查更新
+const manualCheckForUpdates = async () => {
+  await checkForUpdates(false)
+}
+
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
 const showOutlookManager = ref(false)
@@ -492,7 +547,7 @@ const portalUrl = ref('')
 const emailNote = ref('')
 
 // Tab state
-const activeTab = ref('oauth')
+const activeTab = ref('session')
 
 // Session import data
 const sessionInput = ref('')
@@ -597,6 +652,10 @@ const showPluginHomeDialog = ref(false)
 
 // Settings menu
 const showSettingsMenu = ref(false)
+
+// Update check
+const updateInfo = ref(null)
+const checkingUpdate = ref(false)
 
 // Computed properties
 
@@ -821,6 +880,9 @@ onMounted(async () => {
     locale.value = savedLanguage
   }
 
+  // 启动时检查更新（静默模式）
+  checkForUpdates(true)
+
   // 监听 Session 导入进度事件
   await listen('session-import-progress', (event) => {
     console.log('Progress event received:', event.payload)
@@ -1001,6 +1063,13 @@ html, body {
   font-size: 12px;
 }
 
+/* 检查更新按钮样式 - 与其他按钮保持一致 */
+.control-btn.update-check-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* 设置按钮样式 */
 .control-btn.settings-toggle {
   background: var(--color-text-muted, #6b7280);
@@ -1015,6 +1084,20 @@ html, body {
 
 .control-btn svg {
   transition: all 0.3s ease;
+}
+
+/* 旋转动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }
 
 .control-btn:hover svg {

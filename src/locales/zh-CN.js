@@ -13,7 +13,23 @@ export default {
     switchToDark: '切换到夜间模式',
     switchToEnglish: '切换到英文',
     switchToChinese: '切换到中文',
-    settings: '设置'
+    settings: '设置',
+    checkForUpdates: '检查更新'
+  },
+  update: {
+    newVersionAvailable: '新版本可用',
+    currentVersion: '当前版本',
+    latestVersion: '最新版本',
+    installMethods: '安装方式',
+    githubRelease: 'GitHub Release',
+    homebrewCommand: 'Homebrew 命令',
+    scoopCommand: 'Scoop 命令',
+    copyCommand: '复制命令',
+    commandCopied: '命令已复制',
+    checkingForUpdates: '正在检查更新...',
+    upToDate: '已是最新版本',
+    checkFailed: '检查更新失败',
+    close: '关闭'
   },
   bookmarkManager: {
     title: '书签管理',

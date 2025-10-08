@@ -13,7 +13,23 @@ export default {
     switchToDark: 'Switch to Dark Mode',
     switchToEnglish: 'Switch to English',
     switchToChinese: 'Switch to Chinese',
-    settings: 'Settings'
+    settings: 'Settings',
+    checkForUpdates: 'Check for Updates'
+  },
+  update: {
+    newVersionAvailable: 'New Version Available',
+    currentVersion: 'Current Version',
+    latestVersion: 'Latest Version',
+    installMethods: 'Installation Methods',
+    githubRelease: 'GitHub Release',
+    homebrewCommand: 'Homebrew Command',
+    scoopCommand: 'Scoop Command',
+    copyCommand: 'Copy Command',
+    commandCopied: 'Command Copied',
+    checkingForUpdates: 'Checking for updates...',
+    upToDate: 'You are up to date',
+    checkFailed: 'Failed to check for updates',
+    close: 'Close'
   },
   bookmarkManager: {
     title: 'Bookmark Manager',

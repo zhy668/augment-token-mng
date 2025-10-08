@@ -21,6 +21,24 @@ use std::path::PathBuf;
 use tauri::{State, Manager, Emitter, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 use serde::{Serialize, Deserialize};
+
+// Update check structures
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdateInfo {
+    current_version: String,
+    latest_version: String,
+    has_update: bool,
+    download_url: String,
+    release_notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    html_url: String,
+    body: Option<String>,
+}
+
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
@@ -94,6 +112,66 @@ async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenSt
     batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
+}
+
+// Version comparison helper
+fn compare_versions(current: &str, latest: &str) -> bool {
+    let parse_version = |v: &str| -> Vec<u32> {
+        v.trim_start_matches('v')
+            .split('.')
+            .filter_map(|s| s.parse::<u32>().ok())
+            .collect()
+    };
+
+    let current_parts = parse_version(current);
+    let latest_parts = parse_version(latest);
+
+    for i in 0..std::cmp::max(current_parts.len(), latest_parts.len()) {
+        let current_part = current_parts.get(i).unwrap_or(&0);
+        let latest_part = latest_parts.get(i).unwrap_or(&0);
+
+        if latest_part > current_part {
+            return true;
+        } else if latest_part < current_part {
+            return false;
+        }
+    }
+
+    false
+}
+
+#[tauri::command]
+async fn check_for_updates() -> Result<UpdateInfo, String> {
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get("https://api.github.com/repos/zhaochengcube/augment-token-mng/releases/latest")
+        .header("User-Agent", "ATM-App")
+        .header("Authorization", "Bearer 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")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to check for updates: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("GitHub API returned status: {}", response.status()));
+    }
+
+    let release: GitHubRelease = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse GitHub response: {}", e))?;
+
+    let latest_version = release.tag_name.trim_start_matches('v');
+    let has_update = compare_versions(current_version, latest_version);
+
+    Ok(UpdateInfo {
+        current_version: current_version.to_string(),
+        latest_version: latest_version.to_string(),
+        has_update,
+        download_url: release.html_url,
+        release_notes: release.body,
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1452,7 +1530,8 @@ fn main() {
             get_sync_status,
 
             open_internal_browser,
-            close_window
+            close_window,
+            check_for_updates
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

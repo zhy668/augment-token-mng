@@ -147,8 +147,7 @@ async fn check_for_updates() -> Result<UpdateInfo, String> {
     let client = reqwest::Client::new();
     let response = client
         .get("https://api.github.com/repos/zhaochengcube/augment-token-mng/releases/latest")
-        .header("User-Agent", "ATM-App")
-        .header("Authorization", "Bearer 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")
+        .header("User-Agent", "Mozilla/5.0 (compatible; ATM-App/1.0)")
         .send()
         .await
         .map_err(|e| format!("Failed to check for updates: {}", e))?;

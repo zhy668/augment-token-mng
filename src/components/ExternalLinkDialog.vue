@@ -72,6 +72,7 @@ const handleCopyUrl = async () => {
   try {
     await navigator.clipboard.writeText(props.url)
     window.$notify.success(t('messages.copySuccess'))
+    emit('close') // 复制成功后关闭对话框
   } catch (error) {
     console.error('Failed to copy URL to clipboard:', error)
     window.$notify.error(t('messages.copyFailed'))

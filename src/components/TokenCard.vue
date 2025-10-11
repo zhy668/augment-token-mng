@@ -1,5 +1,5 @@
 <template>
-  <div :class="['token-card', { 'menu-open': showCopyMenu }]" @click="handleClickOutside">
+  <div :class="['token-card', { 'menu-open': showCopyMenu || showCheckMenu }]" @click="handleClickOutside">
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
       <span
@@ -82,6 +82,12 @@
                 </svg>
                 <span>{{ $t('tokenCard.copyTenantUrl') }}</span>
               </button>
+              <button v-if="token.portal_url" @click="handleCopyMenuClick('portal')" class="copy-menu-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                </svg>
+                <span>{{ $t('tokenCard.copyPortalUrl') }}</span>
+              </button>
               <button v-if="token.auth_session" @click="handleCopyMenuClick('session')" class="copy-menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
@@ -91,12 +97,42 @@
             </div>
           </Transition>
         </div>
-        <button @click="checkAccountStatus" :class="['btn-action', 'status-check', { loading: isCheckingStatus || isBatchChecking }]" :disabled="isCheckingStatus || isBatchChecking" :title="$t('tokenCard.checkAccountStatus')">
-          <svg v-if="!isCheckingStatus && !isBatchChecking" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-          </svg>
-          <div v-else-if="isCheckingStatus || isBatchChecking" class="loading-spinner"></div>
-        </button>
+        <div class="check-menu-wrapper">
+          <button
+            @click="checkAccountStatus"
+            @contextmenu.prevent="showCheckMenu = !showCheckMenu"
+            :class="['btn-action', 'status-check', {
+              loading: isCheckingStatus || (isBatchChecking && !token.skip_check),
+              disabled: token.skip_check
+            }]"
+            :disabled="isCheckingStatus || (isBatchChecking && !token.skip_check)"
+            :title="token.skip_check ? $t('tokenCard.checkDisabled') : $t('tokenCard.checkAccountStatus')"
+          >
+            <svg v-if="!isCheckingStatus && !(isBatchChecking && !token.skip_check) && !token.skip_check" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            <!-- 禁用检测时显示暂停图标 -->
+            <svg v-else-if="!isCheckingStatus && !(isBatchChecking && !token.skip_check) && token.skip_check" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+            <div v-else-if="isCheckingStatus || (isBatchChecking && !token.skip_check)" class="loading-spinner"></div>
+          </button>
+          <Transition name="dropdown">
+            <div v-if="showCheckMenu" class="check-dropdown" @click.stop>
+              <button @click="toggleSkipCheck" class="check-menu-item">
+                <!-- 禁用检测图标 - 暂停 -->
+                <svg v-if="!token.skip_check" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <!-- 启用检测图标 - 播放 -->
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span>{{ token.skip_check ? $t('tokenCard.enableCheck') : $t('tokenCard.disableCheck') }}</span>
+              </button>
+            </div>
+          </Transition>
+        </div>
         <button v-if="token.portal_url" @click="showPortalDialog = true" class="btn-action portal" :title="$t('tokenCard.openPortal')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
@@ -422,6 +458,7 @@ const showEditorModal = ref(false)
 const isModalClosing = ref(false)
 const canStillUse = ref(false)
 const showPortalDialog = ref(false)
+const showCheckMenu = ref(false)
 const showSuspensionsModal = ref(false)
 const showTraeVersionDialog = ref(false)
 const showCopyMenu = ref(false)
@@ -644,6 +681,15 @@ const copyEmailNote = () => copyWithNotification(
   'messages.copyEmailNoteFailed'
 )
 
+// 复制Portal URL
+const copyPortalUrl = () => {
+  copyWithNotification(
+    props.token.portal_url,
+    'messages.portalUrlCopied',
+    'messages.copyPortalUrlFailed'
+  )
+}
+
 // 复制Auth Session
 const copyAuthSession = () => {
   if (!props.token.auth_session) {
@@ -695,6 +741,9 @@ const handleCopyMenuClick = (type) => {
     case 'url':
       copyTenantUrl()
       break
+    case 'portal':
+      copyPortalUrl()
+      break
     case 'session':
       copyAuthSession()
       break
@@ -720,10 +769,13 @@ const handleKeydown = (event) => {
   }
 }
 
-// 点击外部关闭复制菜单
+// 点击外部关闭复制菜单和检测菜单
 const handleClickOutside = () => {
   if (showCopyMenu.value) {
     showCopyMenu.value = false
+  }
+  if (showCheckMenu.value) {
+    showCheckMenu.value = false
   }
 }
 
@@ -904,9 +956,33 @@ const formatExpiryDate = (dateString) => {
 
 
 
+// 切换跳过检测状态
+const toggleSkipCheck = () => {
+  // 切换 skip_check 状态
+  props.token.skip_check = !props.token.skip_check
+
+  // 关闭菜单
+  showCheckMenu.value = false
+
+  // 通知父组件有更新
+  emit('token-updated')
+
+  // 显示提示
+  const message = props.token.skip_check
+    ? t('messages.checkDisabled')
+    : t('messages.checkEnabled')
+  window.$notify.info(message)
+}
+
 // 检测账号状态
 const checkAccountStatus = async (showNotification = true) => {
-  if (isCheckingStatus.value || props.isBatchChecking) return
+  // 如果禁用了检测，静默返回
+  if (props.token.skip_check) {
+    return
+  }
+
+  // 如果正在检测中，或者批量检测中（且未禁用），则返回
+  if (isCheckingStatus.value || (props.isBatchChecking && !props.token.skip_check)) return
 
   isCheckingStatus.value = true
 
@@ -917,7 +993,8 @@ const checkAccountStatus = async (showNotification = true) => {
         id: props.token.id,
         access_token: props.token.access_token,
         tenant_url: props.token.tenant_url,
-        portal_url: props.token.portal_url || null
+        portal_url: props.token.portal_url || null,
+        auth_session: props.token.auth_session || null
       }]
     })
 
@@ -938,6 +1015,18 @@ const checkAccountStatus = async (showNotification = true) => {
 
       // 更新本地token对象 - 账号状态
       props.token.ban_status = banStatus
+
+      // 自动禁用封禁或过期的账号检测
+      if ((banStatus === 'SUSPENDED' || banStatus === 'EXPIRED') && !props.token.skip_check) {
+        props.token.skip_check = true
+        // 通知父组件有更新，触发保存
+        emit('token-updated')
+        // 显示通知
+        const autoDisableMsg = banStatus === 'SUSPENDED'
+          ? t('messages.autoDisabledBanned')
+          : t('messages.autoDisabledExpired')
+        window.$notify.info(autoDisableMsg)
+      }
 
       // 更新 suspensions 信息（如果有）
       if (result.suspensions) {
@@ -1557,7 +1646,7 @@ defineExpose({
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 180px;
   overflow: hidden;
-  z-index: 10;
+  z-index: 1001; /* 比 token-card.menu-open 的 z-index: 1000 更高 */
 }
 
 .copy-menu-item {
@@ -1587,6 +1676,65 @@ defineExpose({
 
 .copy-menu-item span {
   flex: 1;
+}
+
+/* 检测菜单样式 - 复用复制菜单样式 */
+.check-menu-wrapper {
+  position: relative;
+}
+
+.check-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  overflow: hidden;
+  z-index: 1001; /* 比 token-card.menu-open 的 z-index: 1000 更高 */
+}
+
+.check-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-primary, #374151);
+  transition: background 0.2s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.check-menu-item:hover {
+  background: var(--color-surface-hover, #f3f4f6);
+}
+
+.check-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.check-menu-item span {
+  flex: 1;
+}
+
+/* 禁用检测时的按钮样式 */
+.btn-action.status-check.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-action.status-check.disabled:hover {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.3);
+  transform: none;
 }
 
 /* 下拉菜单动画 */

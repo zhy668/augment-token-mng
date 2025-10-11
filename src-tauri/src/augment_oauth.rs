@@ -417,10 +417,20 @@ pub async fn batch_check_account_status(
                         }
                         Err(err) => {
                             println!("Failed to refresh token for {:?}: {}", token_id, err);
-                            status_result.error_message = Some(format!(
-                                "Token is invalid. Auto-refresh failed: {}",
-                                err
-                            ));
+
+                            // 如果刷新失败原因是 SESSION_ERROR_OR_ACCOUNT_BANNED，视为账号封禁
+                            if err.contains("SESSION_ERROR_OR_ACCOUNT_BANNED") {
+                                status_result.status = "SUSPENDED".to_string();
+                                status_result.is_banned = true;
+                                status_result.error_message = Some(
+                                    "Account is suspended (detected during token refresh)".to_string()
+                                );
+                            } else {
+                                status_result.error_message = Some(format!(
+                                    "Token is invalid. Auto-refresh failed: {}",
+                                    err
+                                ));
+                            }
                         }
                     }
                 } else {
@@ -716,19 +726,19 @@ pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenRes
         .captures(&html)
         .and_then(|cap| cap.get(1))
         .map(|m| m.as_str())
-        .ok_or("Failed to extract code from HTML")?;
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
 
     let parsed_state = state_regex
         .captures(&html)
         .and_then(|cap| cap.get(1))
         .map(|m| m.as_str())
-        .ok_or("Failed to extract state from HTML")?;
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
 
     let tenant_url = tenant_url_regex
         .captures(&html)
         .and_then(|cap| cap.get(1))
         .map(|m| m.as_str())
-        .ok_or("Failed to extract tenant_url from HTML")?;
+        .ok_or("SESSION_ERROR_OR_ACCOUNT_BANNED")?;
 
     println!("Extracted - code: {}, state: {}, tenant_url: {}", code, parsed_state, tenant_url);
 

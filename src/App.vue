@@ -799,7 +799,12 @@ const importFromSession = async () => {
 
   } catch (error) {
     sessionImportProgress.value = t('messages.sessionImportFailed')
-    showStatus(`${t('messages.error')}: ${error}`, 'error')
+    // 映射后端错误标识符到 i18n key
+    let errorMessage = error
+    if (error.includes('SESSION_ERROR_OR_ACCOUNT_BANNED')) {
+      errorMessage = t('messages.sessionErrorOrAccountBanned')
+    }
+    showStatus(`${t('messages.error')}: ${errorMessage}`, 'error')
   } finally {
     isImportingSession.value = false
   }
@@ -923,7 +928,12 @@ onMounted(async () => {
   // 监听 Session 自动导入失败事件
   await listen('session-auto-import-failed', (event) => {
     console.error('Session auto-import failed:', event.payload)
-    showStatus(t('messages.sessionAutoImportFailed') + ': ' + event.payload.error, 'error')
+    // 映射后端错误标识符到 i18n key
+    let errorMessage = event.payload.error
+    if (errorMessage.includes('SESSION_ERROR_OR_ACCOUNT_BANNED')) {
+      errorMessage = t('messages.sessionErrorOrAccountBanned')
+    }
+    showStatus(t('messages.sessionAutoImportFailed') + ': ' + errorMessage, 'error')
   })
 
   // 添加点击外部区域关闭设置菜单的事件监听器

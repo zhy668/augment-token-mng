@@ -113,7 +113,7 @@
                 :is-batch-checking="isRefreshing"
                 @delete="deleteToken"
                 @edit="handleEditToken"
-                @token-updated="hasUnsavedChanges = true"
+                @token-updated="handleTokenUpdated"
               />
             </div>
 
@@ -556,7 +556,10 @@ const setTokenCardRef = (el, tokenId) => {
   }
 }
 
-
+// 处理 Token 更新事件
+const handleTokenUpdated = () => {
+  hasUnsavedChanges.value = true
+}
 
 // 检查所有Token的账号状态
 const checkAllAccountStatus = async () => {
@@ -565,12 +568,15 @@ const checkAllAccountStatus = async () => {
   }
 
   try {
-    // 准备批量检测的数据
-    const tokenInfos = tokens.value.map(token => ({
+    // 准备批量检测的数据，过滤掉标记为跳过检测的账号
+    const tokensToCheck = tokens.value.filter(token => !token.skip_check)
+
+    const tokenInfos = tokensToCheck.map(token => ({
       id: token.id,
       access_token: token.access_token,
       tenant_url: token.tenant_url,
-      portal_url: token.portal_url || null
+      portal_url: token.portal_url || null,
+      auth_session: token.auth_session || null
     }))
 
     // 单次批量API调用
@@ -608,6 +614,16 @@ const updateTokensFromResults = (results) => {
 
       // 更新ban_status
       token.ban_status = statusResult.status
+
+      // 自动禁用封禁或过期的账号检测
+      if ((statusResult.status === 'SUSPENDED' || statusResult.status === 'EXPIRED') && !token.skip_check) {
+        token.skip_check = true
+        // 显示通知
+        const autoDisableMsg = statusResult.status === 'SUSPENDED'
+          ? t('messages.autoDisabledBanned')
+          : t('messages.autoDisabledExpired')
+        window.$notify.info(autoDisableMsg)
+      }
 
       // 更新 suspensions 信息（如果有）
       if (result.suspensions) {
@@ -759,7 +775,8 @@ const addToken = (tokenData) => {
     portal_info: null,
     email_note: tokenData.emailNote || null,
     auth_session: tokenData.authSession || null,  // 添加 auth_session 字段
-    suspensions: tokenData.suspensions || null  // 添加 suspensions 字段
+    suspensions: tokenData.suspensions || null,  // 添加 suspensions 字段
+    skip_check: false  // 默认不跳过检测
   }
 
   tokens.value.push(newToken)

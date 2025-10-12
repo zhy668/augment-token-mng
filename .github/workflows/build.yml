@@ -155,7 +155,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build the app
+      - name: Build the app (Windows - no bundle)
+        if: matrix.platform == 'windows-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,10 +166,23 @@ jobs:
           releaseBody: ${{ needs.generate-changelog.outputs.changelog }}
           releaseDraft: true
           prerelease: false
-          args: --verbose --target ${{ matrix.target }} ${{ matrix.platform == 'windows-latest' && '--no-bundle' || '' }}
+          args: --verbose --target ${{ matrix.target }} --no-bundle
           artifactName: ${{ matrix.name }}
-          # Upload plain executable for Windows (no installer)
-          uploadPlainBinary: ${{ matrix.platform == 'windows-latest' }}
+          uploadPlainBinary: true
+
+      - name: Build the app (Other platforms)
+        if: matrix.platform != 'windows-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.generate-changelog.outputs.tag }}
+          releaseName: 'ATM v${{ needs.generate-changelog.outputs.version }}'
+          releaseBody: ${{ needs.generate-changelog.outputs.changelog }}
+          releaseDraft: true
+          prerelease: false
+          args: --verbose --target ${{ matrix.target }}
+          artifactName: ${{ matrix.name }}
 
   # Notify on Telegram when all builds complete
   notify-telegram:

@@ -155,30 +155,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build the app (Windows - only exe)
-        if: matrix.platform == 'windows-latest'
+      - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --verbose --target ${{ matrix.target }}
 
-      - name: Build the app (Other platforms)
-        if: matrix.platform != 'windows-latest'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ needs.generate-changelog.outputs.tag }}
-          releaseName: 'ATM v${{ needs.generate-changelog.outputs.version }}'
-          releaseBody: ${{ needs.generate-changelog.outputs.changelog }}
-          releaseDraft: true
-          prerelease: false
-          args: --verbose --target ${{ matrix.target }}
-          artifactName: ${{ matrix.name }}
-
-      - name: Upload Windows executable to Release
-        if: matrix.platform == 'windows-latest'
+      - name: Upload artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.generate-changelog.outputs.tag }}
@@ -186,6 +170,12 @@ jobs:
           body: ${{ needs.generate-changelog.outputs.changelog }}
           draft: true
           files: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             src-tauri/target/${{ matrix.target }}/release/ATM.exe
 
   # Notify on Telegram when all builds complete

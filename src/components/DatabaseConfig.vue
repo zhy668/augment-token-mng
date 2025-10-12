@@ -397,6 +397,7 @@ onMounted(() => {
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s ease;
+  background: var(--color-surface, #ffffff);
 }
 
 .form-group input:focus {

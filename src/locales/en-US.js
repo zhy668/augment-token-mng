@@ -172,7 +172,7 @@ export default {
     noDeletableTokens: 'No deletable tokens',
     batchImport: 'Batch Import',
     batchImportTitle: 'Batch Import Tokens',
-    batchImportMessage: 'Please paste JSON array of tokens:',
+    batchImportMessage: 'Please paste a JSON array of tokens. Each token object supports the following fields:\n• access_token (required) - Access token\n• tenant_url (required) - Tenant URL\n• portal_url (optional) - Portal URL\n• email_note (optional) - Email note',
     importJsonEmpty: 'JSON content cannot be empty',
     importJsonNotArray: 'JSON must be an array',
     importJsonEmptyArray: 'JSON array cannot be empty',
@@ -238,7 +238,13 @@ export default {
     required: 'Required',
     save: 'Save',
     update: 'Update',
-    cancel: 'Cancel'
+    cancel: 'Cancel',
+    manualTab: 'Manual Input',
+    sessionTab: 'Session Import',
+    sessionImportTitle: 'Import from Session',
+    sessionImportDescription: 'Paste your Augment Session to automatically extract Token information',
+    sessionPlaceholder: 'Please paste Session string...',
+    importSession: 'Import'
   },
   tokenGenerator: {
     title: 'Generate Augment Token',
@@ -445,7 +451,8 @@ export default {
     saving: 'Saving...',
     syncing: 'Syncing...',
     refreshing: 'Refreshing...',
-    deleting: 'Deleting...'
+    deleting: 'Deleting...',
+    importing: 'Importing...'
   },
   dialogs: {
     selectOpenMethod: 'Select Open Method',

@@ -172,7 +172,7 @@ export default {
     noDeletableTokens: '没有可删除的 token',
     batchImport: '批量导入',
     batchImportTitle: '批量导入Token',
-    batchImportMessage: '请粘贴JSON格式的Token数组：',
+    batchImportMessage: '请粘贴JSON格式的Token数组。每个Token对象支持以下字段：\n• access_token (必需) - 访问令牌\n• tenant_url (必需) - 租户URL\n• portal_url (可选) - Portal URL\n• email_note (可选) - 邮箱备注',
     importJsonEmpty: 'JSON内容不能为空',
     importJsonNotArray: 'JSON必须是一个数组',
     importJsonEmptyArray: 'JSON数组不能为空',
@@ -238,7 +238,13 @@ export default {
     required: '必填项',
     save: '保存',
     update: '更新',
-    cancel: '取消'
+    cancel: '取消',
+    manualTab: '手动输入',
+    sessionTab: 'Session 导入',
+    sessionImportTitle: '从 Session 导入',
+    sessionImportDescription: '粘贴你的 Augment Session 来自动提取 Token 信息',
+    sessionPlaceholder: '请粘贴 Session 字符串...',
+    importSession: '导入'
   },
   tokenGenerator: {
     title: '生成Augment Token',
@@ -445,7 +451,8 @@ export default {
     saving: '保存中...',
     syncing: '同步中...',
     refreshing: '刷新中...',
-    deleting: '删除中...'
+    deleting: '删除中...',
+    importing: '导入中...'
   },
   dialogs: {
     selectOpenMethod: '选择打开方式',

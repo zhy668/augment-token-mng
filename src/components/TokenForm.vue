@@ -6,9 +6,34 @@
           <h2>{{ isEditing ? $t('tokenForm.editTitle') : $t('tokenForm.addTitle') }}</h2>
           <button class="close-btn" @click="handleCancel">×</button>
         </div>
-        
+
         <div class="modal-body">
-          <form @submit.prevent="handleSubmit">
+          <!-- Tab Navigation (只在添加模式显示) -->
+          <div v-if="!isEditing" class="tab-navigation">
+            <button
+              :class="['tab-btn', { active: activeTab === 'manual' }]"
+              @click="activeTab = 'manual'"
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm0 4c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
+              </svg>
+              {{ $t('tokenForm.manualTab') }}
+            </button>
+            <button
+              :class="['tab-btn', { active: activeTab === 'session' }]"
+              @click="activeTab = 'session'"
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              </svg>
+              {{ $t('tokenForm.sessionTab') }}
+            </button>
+          </div>
+
+          <!-- Manual Input Tab -->
+          <form v-if="activeTab === 'manual'" @submit.prevent="handleSubmit" class="tab-content">
             <div class="form-group">
               <label for="tenantUrl">{{ $t('tokenForm.tenantUrl') }} *</label>
               <input
@@ -71,6 +96,50 @@
               </button>
             </div>
           </form>
+
+          <!-- Session Import Tab -->
+          <div v-else-if="activeTab === 'session'" class="tab-content">
+            <div class="session-section">
+              <div class="session-header">
+                <h3>{{ $t('tokenForm.sessionImportTitle') }}</h3>
+              </div>
+              <p class="section-description">{{ $t('tokenForm.sessionImportDescription') }}</p>
+
+              <textarea
+                v-model="sessionInput"
+                :placeholder="$t('tokenForm.sessionPlaceholder')"
+                rows="6"
+                :disabled="isImportingSession"
+                class="session-textarea"
+              ></textarea>
+
+              <div class="button-container">
+                <button
+                  type="button"
+                  @click="importFromSession"
+                  class="btn primary"
+                  :disabled="!sessionInput.trim() || isImportingSession"
+                >
+                  <span v-if="isImportingSession" class="loading-spinner"></span>
+                  {{ isImportingSession ? $t('loading.importing') : $t('tokenForm.importSession') }}
+                </button>
+                <button
+                  type="button"
+                  @click="handleCancel"
+                  class="btn secondary"
+                  :disabled="isImportingSession"
+                >
+                  {{ $t('tokenForm.cancel') }}
+                </button>
+              </div>
+
+              <!-- Loading State -->
+              <div v-if="isImportingSession" class="session-loading">
+                <div class="session-spinner"></div>
+                <span>{{ sessionImportProgress }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
 
@@ -80,8 +149,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -113,6 +183,14 @@ const errors = ref({
 })
 
 const isLoading = ref(false)
+
+// Tab state
+const activeTab = ref('manual')
+
+// Session import data
+const sessionInput = ref('')
+const isImportingSession = ref(false)
+const sessionImportProgress = ref('')
 
 // Computed properties
 const isEditing = computed(() => !!props.token)
@@ -232,6 +310,77 @@ const handleSubmit = async () => {
 const handleCancel = () => {
   emit('close')
 }
+
+// Session import method
+const importFromSession = async () => {
+  if (!sessionInput.value.trim()) {
+    showStatus(t('messages.sessionRequired'), 'warning')
+    return
+  }
+
+  isImportingSession.value = true
+  sessionImportProgress.value = t('messages.sessionImportStarting')
+  showStatus(t('messages.importingSession'), 'info')
+
+  try {
+    const authSession = sessionInput.value.trim()
+    const result = await invoke('add_token_from_session', { session: authSession })
+
+    // 创建包含 auth_session 和 suspensions 的 tokenData
+    const tokenData = {
+      tenantUrl: result.tenant_url,
+      accessToken: result.access_token,
+      portalUrl: result.user_info?.portal_url || null,
+      emailNote: result.user_info?.email_note || null,
+      authSession: authSession,  // 保存 auth_session
+      suspensions: result.user_info?.suspensions || null  // 保存 suspensions
+    }
+
+    // 保存 token
+    sessionImportProgress.value = t('messages.sessionImportSavingToken')
+
+    // 通知父组件添加 token
+    emit('add-token', tokenData)
+
+    sessionImportProgress.value = t('messages.sessionImportSuccess')
+    showStatus(t('messages.sessionImportSuccess'), 'success')
+
+    emit('success')
+    emit('close')
+
+    // 清空输入
+    sessionInput.value = ''
+  } catch (error) {
+    sessionImportProgress.value = t('messages.sessionImportFailed')
+    // 映射后端错误标识符到 i18n key
+    let errorMessage = error
+    if (error.includes('SESSION_ERROR_OR_ACCOUNT_BANNED')) {
+      errorMessage = t('messages.sessionErrorOrAccountBanned')
+    }
+    showStatus(`${t('messages.error')}: ${errorMessage}`, 'error')
+  } finally {
+    isImportingSession.value = false
+  }
+}
+
+// Event listeners
+let unlistenProgress = null
+
+onMounted(async () => {
+  // 监听 Session 导入进度事件
+  unlistenProgress = await listen('session-import-progress', (event) => {
+    console.log('Progress event received in TokenForm:', event.payload)
+    // 后端发送的是 i18n key,需要转换为翻译文本
+    sessionImportProgress.value = t('messages.' + event.payload)
+  })
+})
+
+onUnmounted(() => {
+  // 清理事件监听器
+  if (unlistenProgress) {
+    unlistenProgress()
+  }
+})
 </script>
 
 <style scoped>
@@ -311,7 +460,7 @@ const handleCancel = () => {
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
@@ -331,6 +480,7 @@ const handleCancel = () => {
   font-size: 14px;
   transition: border-color 0.2s;
   box-sizing: border-box;
+  background: var(--color-surface, #ffffff);
 }
 
 .form-group input:focus,
@@ -368,8 +518,8 @@ const handleCancel = () => {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  margin-top: 24px;
-  padding-top: 20px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--color-divider, #e1e5e9);
 }
 
@@ -427,5 +577,179 @@ const handleCancel = () => {
   }
 }
 
+/* Tab Navigation Styles */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.tab-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+  border: 1px solid var(--color-border-strong, #d1d5db);
+}
+
+.tab-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tab-btn:hover {
+  background: var(--color-border, #e5e7eb);
+  border-color: var(--color-border-hover, #9ca3af);
+}
+
+.tab-btn.active {
+  background: var(--color-blue-soft-bg, #e3f2fd);
+  color: var(--color-blue-soft-text, #1976d2);
+  border: 1px solid var(--color-blue-soft-border, #90caf9);
+}
+
+.tab-btn.active:hover {
+  background: var(--color-blue-soft-bg, #bbdefb);
+  border-color: var(--color-blue-soft-hover, #64b5f6);
+}
+
+.tab-btn svg {
+  flex-shrink: 0;
+}
+
+/* Tab Content */
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Session Import Styles */
+.session-section {
+  padding: 0;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.session-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.section-description {
+  margin: 4px 0 12px 0;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  line-height: 1.4;
+}
+
+.session-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-border-strong, #d1d5db);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: monospace;
+  resize: vertical;
+  background: var(--color-surface, #ffffff);
+  min-height: 100px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.session-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.session-textarea:disabled {
+  background: var(--color-btn-tertiary-bg, #f5f5f5);
+  color: var(--color-text-muted, #666);
+  cursor: not-allowed;
+}
+
+.button-container {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Session Loading State */
+.session-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  background: var(--color-surface-hover, #f8f9fa);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.session-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border, #e5e7eb);
+  border-top-color: var(--color-accent, #3b82f6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.session-loading span {
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* Dark theme support for tabs */
+[data-theme='dark'] .tab-btn {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+[data-theme='dark'] .tab-btn:hover {
+  background: rgba(148, 163, 184, 0.3);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+[data-theme='dark'] .tab-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.4);
+}
+
+[data-theme='dark'] .tab-btn.active:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: rgba(96, 165, 250, 0.6);
+}
 
 </style>

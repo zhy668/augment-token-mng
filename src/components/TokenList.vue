@@ -1389,6 +1389,8 @@ defineExpose({
   margin: 0 0 16px 0;
   color: var(--color-text-secondary, #6b7280);
   font-size: 14px;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
 .delete-stats {

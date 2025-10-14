@@ -14,6 +14,8 @@ pub struct TokenData {
     pub portal_info: Option<serde_json::Value>,
     pub auth_session: Option<String>,
     pub suspensions: Option<serde_json::Value>,
+    pub balance_color_mode: Option<String>,
+    pub skip_check: Option<bool>,
 }
 
 impl TokenData {
@@ -37,6 +39,8 @@ impl TokenData {
             portal_info: None,
             auth_session: None,
             suspensions: None,
+            balance_color_mode: None,
+            skip_check: None,
         }
     }
 
@@ -131,6 +135,11 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let suspensions = legacy.get("suspensions").cloned();
+    let balance_color_mode = legacy.get("balance_color_mode")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let skip_check = legacy.get("skip_check")
+        .and_then(|v| v.as_bool());
 
     Ok(TokenData {
         id,
@@ -144,6 +153,8 @@ pub fn convert_legacy_token(legacy: &serde_json::Value) -> Result<TokenData, Box
         portal_info,
         auth_session,
         suspensions,
+        balance_color_mode,
+        skip_check,
     })
 }
 
@@ -179,6 +190,14 @@ pub fn convert_to_legacy_format(token: &TokenData) -> serde_json::Value {
 
     if let Some(suspensions) = &token.suspensions {
         map.insert("suspensions".to_string(), suspensions.clone());
+    }
+
+    if let Some(balance_color_mode) = &token.balance_color_mode {
+        map.insert("balance_color_mode".to_string(), serde_json::Value::String(balance_color_mode.clone()));
+    }
+
+    if let Some(skip_check) = token.skip_check {
+        map.insert("skip_check".to_string(), serde_json::Value::Bool(skip_check));
     }
 
     serde_json::Value::Object(map)

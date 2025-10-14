@@ -776,7 +776,8 @@ const addToken = (tokenData) => {
     email_note: tokenData.emailNote || null,
     auth_session: tokenData.authSession || null,  // 添加 auth_session 字段
     suspensions: tokenData.suspensions || null,  // 添加 suspensions 字段
-    skip_check: false  // 默认不跳过检测
+    skip_check: false,  // 默认不跳过检测
+    balance_color_mode: null  // 默认为 null，将使用绿色
   }
 
   tokens.value.push(newToken)

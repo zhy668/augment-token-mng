@@ -160,6 +160,54 @@ pub async fn add_new_fields_if_not_exist(client: &Client) -> Result<(), Box<dyn 
         }
     }
 
+    // 检查 balance_color_mode 字段是否存在
+    let balance_color_mode_exists = client.query(
+        r#"
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'tokens'
+            AND column_name = 'balance_color_mode'
+        )
+        "#,
+        &[],
+    ).await?;
+
+    if let Some(row) = balance_color_mode_exists.first() {
+        let exists: bool = row.get(0);
+        if !exists {
+            client.execute(
+                "ALTER TABLE tokens ADD COLUMN balance_color_mode TEXT",
+                &[],
+            ).await?;
+            println!("Added balance_color_mode column to tokens table");
+        }
+    }
+
+    // 检查 skip_check 字段是否存在
+    let skip_check_exists = client.query(
+        r#"
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'tokens'
+            AND column_name = 'skip_check'
+        )
+        "#,
+        &[],
+    ).await?;
+
+    if let Some(row) = skip_check_exists.first() {
+        let exists: bool = row.get(0);
+        if !exists {
+            client.execute(
+                "ALTER TABLE tokens ADD COLUMN skip_check BOOLEAN",
+                &[],
+            ).await?;
+            println!("Added skip_check column to tokens table");
+        }
+    }
+
     Ok(())
 }
 

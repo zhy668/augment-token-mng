@@ -44,7 +44,11 @@
             <div class="meta-row portal-row">
               <template v-if="portalInfo.data">
                 <span v-if="portalInfo.data.expiry_date" class="portal-meta expiry">{{ $t('tokenCard.expiry') }}: {{ formatExpiryDate(portalInfo.data.expiry_date) }}</span>
-                <span :class="balanceClasses">
+                <span
+                  :class="balanceClasses"
+                  @click="toggleBalanceColor"
+                  :style="{ cursor: isBalanceClickable ? 'pointer' : 'default' }"
+                >
                   {{ balanceDisplay }}
                 </span>
               </template>
@@ -564,7 +568,28 @@ const balanceClasses = computed(() => {
     props.token.ban_status === 'SUSPENDED' ||
     (portalInfo.value.data.credits_balance === 0 && !canStillUse.value)
   )
-  return ['portal-meta', 'balance', { exhausted }]
+
+  // 如果是异常状态（红色），不应用颜色模式
+  if (exhausted) {
+    return ['portal-meta', 'balance', 'exhausted']
+  }
+
+  // 正常状态下应用颜色模式
+  const colorMode = props.token.balance_color_mode || 'green'
+  return ['portal-meta', 'balance', `color-${colorMode}`]
+})
+
+// 判断余额是否可点击（非异常状态才可点击）
+const isBalanceClickable = computed(() => {
+  if (!portalInfo.value || !portalInfo.value.data) {
+    return false
+  }
+  const exhausted = (
+    props.token.ban_status === 'EXPIRED' ||
+    props.token.ban_status === 'SUSPENDED' ||
+    (portalInfo.value.data.credits_balance === 0 && !canStillUse.value)
+  )
+  return !exhausted
 })
 
 const balanceDisplay = computed(() => {
@@ -712,6 +737,10 @@ const exportTokenAsJson = () => {
 
   if (props.token.portal_url) {
     exportData.portal_url = props.token.portal_url
+  }
+
+  if (props.token.email_note) {
+    exportData.email_note = props.token.email_note
   }
 
   if (props.token.auth_session) {
@@ -955,6 +984,21 @@ const formatExpiryDate = (dateString) => {
 }
 
 
+
+// 切换余额颜色模式
+const toggleBalanceColor = () => {
+  // 只有在非异常状态下才允许切换
+  if (!isBalanceClickable.value) {
+    return
+  }
+
+  // 切换颜色模式：green <-> blue
+  const currentMode = props.token.balance_color_mode || 'green'
+  props.token.balance_color_mode = currentMode === 'green' ? 'blue' : 'green'
+
+  // 通知父组件有更新，触发保存
+  emit('token-updated')
+}
 
 // 切换跳过检测状态
 const toggleSkipCheck = () => {
@@ -1437,6 +1481,30 @@ defineExpose({
   background: rgba(55, 65, 81, 0.6);
 }
 
+/* 暗黑模式下的余额颜色 */
+[data-theme='dark'] .portal-meta.balance.color-green {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.2);
+}
+
+[data-theme='dark'] .portal-meta.balance.color-green:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme='dark'] .portal-meta.balance.color-blue {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme='dark'] .portal-meta.balance.color-blue:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme='dark'] .portal-meta.balance.exhausted {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.2);
+}
+
 .email-icon {
   flex-shrink: 0;
   opacity: 0.7;
@@ -1495,14 +1563,35 @@ defineExpose({
 }
 
 .portal-meta.balance {
-  color: var(--color-success-text, #155724);
-  background: var(--color-success-surface, #d4edda);
   font-weight: 600;
+  transition: all 0.2s ease;
 }
 
+/* 绿色模式（默认） */
+.portal-meta.balance.color-green {
+  color: var(--color-success-text, #155724);
+  background: var(--color-success-surface, #d4edda);
+}
+
+.portal-meta.balance.color-green:hover {
+  background: #c3e6cb;
+}
+
+/* 蓝色模式 */
+.portal-meta.balance.color-blue {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.portal-meta.balance.color-blue:hover {
+  background: #bfdbfe;
+}
+
+/* 异常状态（红色，不可切换） */
 .portal-meta.balance.exhausted {
   color: var(--color-danger-text, #721c24);
   background: var(--color-danger-surface, #f8d7da);
+  cursor: default !important;
 }
 
 

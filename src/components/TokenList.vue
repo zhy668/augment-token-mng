@@ -63,7 +63,11 @@
           <div v-else class="token-list">
             <div class="list-header">
               <div class="list-title-section">
-                <h3>{{ $t('tokenList.listTitle', { count: tokens.length }) }}</h3>
+                <h3>{{
+                  searchQuery.trim()
+                    ? $t('tokenList.searchResults', { count: filteredTokens.length })
+                    : $t('tokenList.listTitle', { count: tokens.length })
+                }}</h3>
                 <button
                   class="sort-btn"
                   @click="toggleSort"
@@ -101,12 +105,41 @@
                     <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
                   </svg>
                 </button>
+                <div class="search-box">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="search-icon">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                  </svg>
+                  <input
+                    type="text"
+                    v-model="searchQuery"
+                    :placeholder="$t('tokenList.searchPlaceholder')"
+                    class="search-input"
+                  />
+                  <button
+                    v-if="searchQuery.trim()"
+                    @click="searchQuery = ''"
+                    class="clear-search-btn"
+                    title="清空搜索"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="token-grid">
+            <!-- 无搜索结果提示 -->
+            <div v-if="searchQuery.trim() && filteredTokens.length === 0" class="no-search-results">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+              <p>{{ $t('tokenList.noSearchResults') }}</p>
+            </div>
+
+            <div v-else class="token-grid">
               <TokenCard
-                v-for="token in sortedTokens"
+                v-for="token in filteredTokens"
                 :key="token.id"
                 :ref="el => setTokenCardRef(el, token.id)"
                 :token="token"
@@ -276,6 +309,9 @@ const isReady = ref(false)
 // 排序状态管理
 const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
 
+// 搜索状态管理
+const searchQuery = ref('')
+
 // 高亮状态管理
 const highlightedTokenId = ref(null)
 let highlightTimer = null
@@ -321,6 +357,22 @@ const sortedTokens = computed(() => {
     } else {
       return dateA - dateB // 最旧优先
     }
+  })
+})
+
+// 过滤后的tokens计算属性（搜索 + 排序）
+const filteredTokens = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return sortedTokens.value
+  }
+
+  const query = searchQuery.value.toLowerCase().trim()
+  return sortedTokens.value.filter(token => {
+    return (
+      token.access_token?.toLowerCase().includes(query) ||
+      token.email_note?.toLowerCase().includes(query) ||
+      token.auth_session?.toLowerCase().includes(query)
+    )
   })
 })
 
@@ -1651,6 +1703,7 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .list-header h3 {
@@ -1658,6 +1711,77 @@ defineExpose({
   color: var(--color-text-primary, #374151);
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+/* 搜索框样式 */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--color-text-secondary, #6b7280);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 300px;
+  padding: 6px 32px 6px 32px;
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-text-primary, #374151);
+  background: var(--color-surface, #ffffff);
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--color-text-secondary, #9ca3af);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 6px;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  background: var(--color-hover, #f3f4f6);
+  color: var(--color-text-primary, #374151);
+}
+
+/* 无搜索结果样式 */
+.no-search-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.no-search-results p {
+  margin-top: 16px;
+  font-size: 14px;
 }
 
 .sort-btn {
@@ -1927,6 +2051,21 @@ defineExpose({
   border-color: rgba(96, 165, 250, 0.6);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+}
+
+[data-theme='dark'] .search-input {
+  background: var(--color-surface, #1f2937);
+  border-color: var(--color-divider, #374151);
+  color: var(--color-text-primary, #f3f4f6);
+}
+
+[data-theme='dark'] .search-input:focus {
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme='dark'] .clear-search-btn:hover {
+  background: var(--color-hover, #374151);
 }
 
 </style>

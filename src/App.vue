@@ -785,9 +785,16 @@ const importFromSession = async () => {
 
     // 通过 TokenList 添加 token
     if (tokenListRef.value) {
-      tokenListRef.value.addToken(tokenData)
-      sessionImportProgress.value = t('messages.sessionImportSuccess')
-      showStatus(t('messages.sessionImportSuccess'), 'success')
+      const result = tokenListRef.value.addToken(tokenData)
+      if (result.success) {
+        // 添加成功
+        sessionImportProgress.value = t('messages.sessionImportSuccess')
+        showStatus(t('messages.sessionImportSuccess'), 'success')
+      } else if (result.duplicateId) {
+        // 添加失败（重复邮箱），高亮并滚动到重复的 token
+        sessionImportProgress.value = ''
+        tokenListRef.value.highlightAndScrollTo(result.duplicateId)
+      }
     } else {
       showStatus(t('messages.tokenSaveFailed') + ': TokenList not available', 'error')
       return
@@ -898,7 +905,6 @@ onMounted(async () => {
   // 监听 Session 自动导入成功事件
   await listen('session-auto-imported', async (event) => {
     console.log('Session auto-imported:', event.payload)
-    showStatus(t('messages.sessionAutoImported'), 'success')
 
     // 打开 TokenList 并添加 token
     if (!showTokenList.value) {
@@ -921,7 +927,14 @@ onMounted(async () => {
         authSession: event.payload.session || null,  // 保存 auth_session
         suspensions: event.payload.token.user_info?.suspensions || null
       }
-      tokenListRef.value.addToken(tokenData)
+      const result = tokenListRef.value.addToken(tokenData)
+      if (result.success) {
+        // 添加成功才显示成功提示
+        showStatus(t('messages.sessionAutoImported'), 'success')
+      } else if (result.duplicateId) {
+        // 添加失败（重复邮箱），高亮并滚动到重复的 token
+        tokenListRef.value.highlightAndScrollTo(result.duplicateId)
+      }
     }
   })
 

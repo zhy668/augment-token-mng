@@ -111,6 +111,7 @@
                 :ref="el => setTokenCardRef(el, token.id)"
                 :token="token"
                 :is-batch-checking="isRefreshing"
+                :is-highlighted="highlightedTokenId === token.id"
                 @delete="deleteToken"
                 @edit="handleEditToken"
                 @token-updated="handleTokenUpdated"
@@ -275,6 +276,10 @@ const isReady = ref(false)
 // 排序状态管理
 const sortOrder = ref('desc') // 'desc' = 最新优先, 'asc' = 最旧优先
 
+// 高亮状态管理
+const highlightedTokenId = ref(null)
+let highlightTimer = null
+
 // 批量删除状态
 const showBatchDeleteDialog = ref(false)
 const isDeleting = ref(false)
@@ -322,6 +327,15 @@ const sortedTokens = computed(() => {
 // 切换排序方式
 const toggleSort = () => {
   sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+
+  // 清空高亮状态，避免排序时重新触发动画
+  if (highlightedTokenId.value) {
+    highlightedTokenId.value = null
+    if (highlightTimer) {
+      clearTimeout(highlightTimer)
+      highlightTimer = null
+    }
+  }
 }
 
 // 显示批量删除确认对话框
@@ -417,6 +431,7 @@ const executeBatchImport = async () => {
 
   try {
     let successCount = 0
+    let skippedCount = 0
 
     importPreview.value.forEach(item => {
       const tokenData = {
@@ -428,15 +443,28 @@ const executeBatchImport = async () => {
         suspensions: item.suspensions || null
       }
 
-      addToken(tokenData)
-      successCount++
+      const result = addToken(tokenData)
+      if (result.success) {
+        successCount++
+      } else {
+        skippedCount++
+      }
     })
 
     // 关闭对话框
     showBatchImportDialog.value = false
 
     // 显示结果
-    window.$notify.success(t('messages.batchImportSuccess', { count: successCount }))
+    if (skippedCount > 0) {
+      window.$notify.success(
+        t('messages.batchImportSuccessWithSkipped', {
+          success: successCount,
+          skipped: skippedCount
+        })
+      )
+    } else {
+      window.$notify.success(t('messages.batchImportSuccess', { count: successCount }))
+    }
   } catch (error) {
     window.$notify.error(`${t('messages.batchImportFailed')}: ${error}`)
   } finally {
@@ -730,13 +758,22 @@ const closeTokenForm = () => {
   editingToken.value = null
 }
 
+// 用于标记最后一次添加是否成功
+const lastAddTokenSuccess = ref(true)
+
 const handleTokenFormSuccess = () => {
-  closeTokenForm()
-  // 根据是否在编辑模式显示不同的消息
+  // 只有在添加成功时才关闭对话框和显示提示
   if (editingToken.value) {
+    // 编辑模式总是关闭
+    closeTokenForm()
     window.$notify.success(t('messages.tokenUpdatedToMemory'))
   } else {
-    window.$notify.success(t('messages.tokenAddedToMemory'))
+    // 添加模式：只有成功时才关闭和提示
+    if (lastAddTokenSuccess.value) {
+      closeTokenForm()
+      window.$notify.success(t('messages.tokenAddedToMemory'))
+    }
+    // 如果失败（重复），不关闭对话框，已经显示了警告并高亮了重复的 token
   }
 }
 
@@ -757,12 +794,34 @@ const handleUpdateToken = (updatedTokenData) => {
 }
 
 const handleAddTokenFromForm = (tokenData) => {
-  addToken(tokenData)
+  const result = addToken(tokenData)
+  lastAddTokenSuccess.value = result.success
+
+  // 如果是重复邮箱，高亮并滚动到重复的 token
+  if (!result.success && result.duplicateId) {
+    highlightAndScrollTo(result.duplicateId)
+  }
 }
 
 
 // 添加token
 const addToken = (tokenData) => {
+  // 如果有邮箱，检查是否重复
+  if (tokenData.emailNote && tokenData.emailNote.trim()) {
+    const emailToCheck = tokenData.emailNote.trim().toLowerCase()
+    const duplicate = tokens.value.find(token =>
+      token.email_note &&
+      token.email_note.trim().toLowerCase() === emailToCheck
+    )
+
+    if (duplicate) {
+      window.$notify.warning(
+        t('messages.duplicateEmailSkipped', { email: tokenData.emailNote })
+      )
+      return { success: false, duplicateId: duplicate.id }  // 返回重复的 token ID
+    }
+  }
+
   const now = new Date().toISOString()
   const newToken = {
     id: crypto.randomUUID(),
@@ -782,7 +841,62 @@ const addToken = (tokenData) => {
 
   tokens.value.push(newToken)
   hasUnsavedChanges.value = true
-  return newToken
+  return { success: true, token: newToken }
+}
+
+// 高亮并滚动到指定 token
+const highlightAndScrollTo = (tokenId) => {
+  // 清除之前的定时器
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+    highlightTimer = null
+  }
+
+  // 先清空高亮状态，确保即使是同一个 token 也能重新触发动画
+  highlightedTokenId.value = null
+
+  // 使用 requestAnimationFrame 确保 DOM 完全更新
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // 重新设置高亮
+      highlightedTokenId.value = tokenId
+
+      nextTick(() => {
+        const element = tokenCardRefs.value[tokenId]
+
+        if (element) {
+          // 尝试多种方式获取 DOM 元素
+          let domElement = null
+
+          // 如果 $el 是文本节点，尝试获取下一个元素节点
+          if (element.$el) {
+            if (element.$el.nodeType === Node.ELEMENT_NODE) {
+              domElement = element.$el
+            } else if (element.$el.nextElementSibling) {
+              domElement = element.$el.nextElementSibling
+            } else if (element.$el.parentElement) {
+              // 如果是文本节点，尝试在父元素中查找 .token-card
+              domElement = element.$el.parentElement.querySelector('.token-card')
+            }
+          } else if (element instanceof HTMLElement) {
+            domElement = element
+          } else if (element.value) {
+            domElement = element.value
+          }
+
+          if (domElement && typeof domElement.scrollIntoView === 'function') {
+            domElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }
+
+        // 3秒后取消高亮
+        highlightTimer = setTimeout(() => {
+          highlightedTokenId.value = null
+          highlightTimer = null
+        }, 3000)
+      })
+    })
+  })
 }
 
 // 处理关闭事件
@@ -897,10 +1011,11 @@ onMounted(async () => {
 // 暴露方法给父组件
 defineExpose({
   addToken,    // 允许App.vue添加token
-  deleteToken, // 允许App.vue删除token  
+  deleteToken, // 允许App.vue删除token
   tokens: readonly(tokens), // 只读访问tokens
   saveTokens,   // 允许App.vue保存tokens
-  waitUntilReady // 暴露就绪等待方法
+  waitUntilReady, // 暴露就绪等待方法
+  highlightAndScrollTo // 暴露高亮和滚动方法
 })
 </script>
 

@@ -411,6 +411,8 @@ export default {
     emailNoteCopied: 'Email note copied to clipboard!',
     copyEmailNoteFailed: 'Failed to copy email note',
     batchImportSuccess: 'Successfully imported {count} token(s)',
+    batchImportSuccessWithSkipped: 'Successfully imported {success} token(s), skipped {skipped} duplicate email(s)',
+    duplicateEmailSkipped: 'Email account already exists: {email}, skipped',
     batchImportFailed: 'Batch import failed',
     editorTokenFileCreated: '{editor} Token file created',
     createEditorTokenFileFailed: 'Failed to create {editor} Token file: {error}',

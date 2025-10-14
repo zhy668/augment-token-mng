@@ -411,6 +411,8 @@ export default {
     emailNoteCopied: '邮箱备注已复制到剪贴板!',
     copyEmailNoteFailed: '复制邮箱备注失败',
     batchImportSuccess: '成功导入 {count} 个Token',
+    batchImportSuccessWithSkipped: '成功导入 {success} 个Token，跳过 {skipped} 个重复邮箱',
+    duplicateEmailSkipped: '该邮箱账号已存在：{email}，跳过导入',
     batchImportFailed: '批量导入失败',
     editorTokenFileCreated: '{editor} Token 文件已创建',
     createEditorTokenFileFailed: '创建 {editor} Token 文件失败: {error}',

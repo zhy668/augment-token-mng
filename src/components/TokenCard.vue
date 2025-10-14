@@ -1,5 +1,5 @@
 <template>
-  <div :class="['token-card', { 'menu-open': showCopyMenu || showCheckMenu }]" @click="handleClickOutside">
+  <div :class="['token-card', { 'menu-open': showCopyMenu || showCheckMenu, 'highlighted': isHighlighted }]" @click="handleClickOutside">
     <!-- 状态指示器 -->
     <div v-if="(token.portal_url && portalInfo.data) || token.ban_status" class="status-indicator">
       <span
@@ -445,6 +445,10 @@ const props = defineProps({
     required: true
   },
   isBatchChecking: {
+    type: Boolean,
+    default: false
+  },
+  isHighlighted: {
     type: Boolean,
     default: false
   }
@@ -1232,6 +1236,24 @@ defineExpose({
 
 .token-card.menu-open {
   z-index: 1000;
+}
+
+/* 高亮动画 */
+.token-card.highlighted {
+  animation: highlight-pulse 1s ease-in-out 3;
+  z-index: 100;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 3px #fbbf24, 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 6px #fbbf24, 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .status-indicator {

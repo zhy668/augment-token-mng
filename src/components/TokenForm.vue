@@ -120,7 +120,6 @@
                   class="btn primary"
                   :disabled="!sessionInput.trim() || isImportingSession"
                 >
-                  <span v-if="isImportingSession" class="loading-spinner"></span>
                   {{ isImportingSession ? $t('loading.importing') : $t('tokenForm.importSession') }}
                 </button>
                 <button
@@ -343,7 +342,9 @@ const importFromSession = async () => {
     emit('add-token', tokenData)
 
     sessionImportProgress.value = t('messages.sessionImportSuccess')
-    showStatus(t('messages.sessionImportSuccess'), 'success')
+
+    // 等待一下让父组件处理完 add-token 事件
+    await nextTick()
 
     emit('success')
     emit('close')

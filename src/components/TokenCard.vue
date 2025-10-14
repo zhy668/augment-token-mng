@@ -1514,12 +1514,12 @@ defineExpose({
 }
 
 [data-theme='dark'] .portal-meta.balance.color-blue {
-  color: #93c5fd;
-  background: rgba(59, 130, 246, 0.2);
+  color: #f9a8d4;
+  background: rgba(236, 72, 153, 0.2);
 }
 
 [data-theme='dark'] .portal-meta.balance.color-blue:hover {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(236, 72, 153, 0.3);
 }
 
 [data-theme='dark'] .portal-meta.balance.exhausted {
@@ -1599,14 +1599,14 @@ defineExpose({
   background: #c3e6cb;
 }
 
-/* 蓝色模式 */
+/* 粉色模式 */
 .portal-meta.balance.color-blue {
-  color: #1e40af;
-  background: #dbeafe;
+  color: #be185d;
+  background: #fce7f3;
 }
 
 .portal-meta.balance.color-blue:hover {
-  background: #bfdbfe;
+  background: #fbcfe8;
 }
 
 /* 异常状态（红色，不可切换） */

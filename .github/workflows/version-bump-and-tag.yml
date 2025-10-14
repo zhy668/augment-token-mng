@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TAP_DISPATCH_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -151,7 +151,9 @@ jobs:
           echo "- **Tag Created:** $TAG_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "1. The tag \`$TAG_NAME\` has been created and pushed" >> $GITHUB_STEP_SUMMARY
-          echo "2. To trigger a build, manually run the **Build and Release** workflow" >> $GITHUB_STEP_SUMMARY
-          echo "3. Or push the tag to trigger automatic build (if configured)" >> $GITHUB_STEP_SUMMARY
+          echo "1. ✅ Tag \`$TAG_NAME\` has been created and pushed" >> $GITHUB_STEP_SUMMARY
+          echo "2. 🚀 Build workflow will be triggered automatically" >> $GITHUB_STEP_SUMMARY
+          echo "3. 📦 Check the **Actions** tab for build progress" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ⚠️ **Note:** Automatic build requires \`WORKFLOW_PAT\` secret to be configured" >> $GITHUB_STEP_SUMMARY
 

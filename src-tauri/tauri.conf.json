@@ -35,6 +35,10 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
+    "windows": {
+      "wix": null,
+      "nsis": null
+    },
     "linux": {
       "deb": {
         "depends": [

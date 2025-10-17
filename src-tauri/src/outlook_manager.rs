@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::Utc;
 use imap::Session;
 use native_tls::TlsStream;
 use std::net::TcpStream;
+use crate::http_client;
 
 // XOAUTH2 认证器
 struct XOAuth2 {
@@ -143,7 +143,9 @@ impl OutlookManager {
             ("scope", "https://outlook.office.com/IMAP.AccessAsUser.All offline_access"),
         ];
 
-        let client = reqwest::Client::new();
+        // 使用 ProxyClient，自动处理所有类型的代理（包括 Edge Function）
+        let client = http_client::create_proxy_client()
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
         let response = client
             .post(token_url)
             .form(&params)

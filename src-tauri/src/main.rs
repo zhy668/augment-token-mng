@@ -8,6 +8,9 @@ mod http_server;
 mod outlook_manager;
 mod database;
 mod storage;
+mod http_client;
+mod proxy_config;
+mod proxy_helper;
 
 use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
 use augment_user_info::{get_user_info, CompleteUserInfo};
@@ -144,7 +147,8 @@ fn compare_versions(current: &str, latest: &str) -> bool {
 async fn check_for_updates() -> Result<UpdateInfo, String> {
     let current_version = env!("CARGO_PKG_VERSION");
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = http_client::create_proxy_client()?;
     let response = client
         .get("https://api.github.com/repos/zhaochengcube/augment-token-mng/releases/latest")
         .header("User-Agent", "Mozilla/5.0 (compatible; ATM-App/1.0)")
@@ -504,11 +508,6 @@ async fn open_internal_browser(
     .initialization_script(r#"
         console.log('[Tauri] Initialization script loaded');
 
-        // 全局状态
-        window.__tauriNavbarState = {
-            isImporting: false
-        };
-
         // 创建导航栏的函数
         function createNavbar() {
             console.log('[Tauri] Creating navbar...');
@@ -535,61 +534,21 @@ async fn open_internal_browser(
             // 检查当前页面状态
             const isLoginPage = window.location.hostname.includes('login.augmentcode.com') ||
                                 window.location.href.includes('/login');
-            const isAuthPage = window.location.href.includes('auth.augmentcode.com');
-            const isImporting = window.__tauriNavbarState.isImporting;
 
             // 根据状态设置按钮
-            if (isImporting || isAuthPage) {
-                // 正在导入或已在 auth 页面
-                button.textContent = '⏳ 正在导入...';
-                button.disabled = true;
-                button.style.cssText = 'background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
-            } else if (isLoginPage) {
-                // 在登录页面,提示先登录
-                button.textContent = '🔒 请先登录';
+            if (isLoginPage) {
+                // 在登录页面,提示登录后会自动导入
+                button.textContent = '🔒 登录后自动导入';
                 button.disabled = true;
                 button.style.cssText = 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.9; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
             } else {
-                // 正常状态,可以点击
-                button.textContent = '🔑 导入 Session';
-                button.style.cssText = 'background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
-            }
-
-            button.addEventListener('mouseover', function() {
-                if (!this.disabled) {
-                    this.style.background = '#2563eb';
-                    this.style.transform = 'scale(1.05)';
-                    this.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-                }
-            });
-
-            button.addEventListener('mouseout', function() {
-                if (!this.disabled) {
-                    this.style.background = '#3b82f6';
-                    this.style.transform = 'scale(1)';
-                    this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                }
-            });
-
-            button.addEventListener('click', function() {
-                if (window.__tauriNavbarState.isImporting) {
-                    return;
-                }
-
-                console.log('[Tauri] Navigating to auth.augmentcode.com');
-
-                // 设置全局状态
-                window.__tauriNavbarState.isImporting = true;
-
-                // 显示加载状态
+                // 其他页面(主页/auth页面),显示正在导入
                 button.textContent = '⏳ 正在导入...';
                 button.disabled = true;
-                button.style.opacity = '0.7';
-                button.style.cursor = 'not-allowed';
+                button.style.cssText = 'background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
+            }
 
-                // 跳转
-                window.location.href = 'https://auth.augmentcode.com';
-            });
+            // 按钮仅用于显示状态,不需要交互事件
 
             navbar.appendChild(button);
 
@@ -660,6 +619,11 @@ async fn open_internal_browser(
                                         // 延迟关闭浏览器窗口,让用户看到成功提示
                                         tokio::time::sleep(Duration::from_millis(500)).await;
                                         let _ = window_clone.close();
+
+                                        // 聚焦主窗口
+                                        if let Some(main_window) = app_handle_clone.get_webview_window("main") {
+                                            let _ = main_window.set_focus();
+                                        }
                                     }
                                     Err(e) => {
                                         eprintln!("Failed to import token: {}", e);
@@ -701,7 +665,8 @@ async fn close_window(app: tauri::AppHandle, window_label: String) -> Result<(),
 async fn get_customer_info(token: String) -> Result<String, String> {
     let url = format!("https://portal.withorb.com/api/v1/customer_from_link?token={}", token);
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = http_client::create_proxy_client()?;
     let response = client
         .get(&url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -749,7 +714,8 @@ async fn get_ledger_summary(customer_id: String, pricing_unit_id: String, token:
     let url = format!("https://portal.withorb.com/api/v1/customers/{}/ledger_summary?pricing_unit_id={}&token={}",
                      customer_id, pricing_unit_id, token);
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = http_client::create_proxy_client()?;
     let response = client
         .get(&url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -798,7 +764,8 @@ async fn get_ledger_summary(customer_id: String, pricing_unit_id: String, token:
 async fn test_api_call() -> Result<String, String> {
     let url = "https://portal.withorb.com/api/v1/customer_from_link?token=ImRhUHFhU3ZtelpKdEJrUVci.1konHDs_4UqVUJWcxaZpKV4nQik";
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = http_client::create_proxy_client()?;
     let response = client
         .get(url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -1342,6 +1309,95 @@ async fn get_sync_status(
         .map_err(|e| format!("Failed to get sync status: {}", e))
 }
 
+// 代理配置相关命令
+#[tauri::command]
+async fn save_proxy_config(
+    proxy_type: String,
+    enabled: bool,
+    host: Option<String>,
+    port: Option<u16>,
+    username: Option<String>,
+    password: Option<String>,
+    custom_url: Option<String>,
+) -> Result<(), String> {
+    let proxy_type = match proxy_type.as_str() {
+        "system" => proxy_config::ProxyType::System,
+        "http" => proxy_config::ProxyType::Http,
+        "https" => proxy_config::ProxyType::Https,
+        "socks5" => proxy_config::ProxyType::Socks5,
+        "custom_url" => proxy_config::ProxyType::CustomUrl,
+        _ => return Err(format!("Unknown proxy type: {}", proxy_type)),
+    };
+
+    let config = proxy_config::ProxyConfig {
+        enabled,
+        proxy_type,
+        host: host.unwrap_or_default(),
+        port: port.unwrap_or(7890),
+        username,
+        password,
+        custom_url,
+    };
+
+    proxy_config::save_proxy_config(&config)
+        .map_err(|e| format!("Failed to save proxy config: {}", e))
+}
+
+#[tauri::command]
+async fn load_proxy_config() -> Result<proxy_config::ProxyConfig, String> {
+    proxy_config::load_proxy_config()
+        .map_err(|e| format!("Failed to load proxy config: {}", e))
+}
+
+#[tauri::command]
+async fn test_proxy_config(
+    proxy_type: String,
+    enabled: bool,
+    host: Option<String>,
+    port: Option<u16>,
+    username: Option<String>,
+    password: Option<String>,
+    custom_url: Option<String>,
+) -> Result<(), String> {
+    let proxy_type = match proxy_type.as_str() {
+        "system" => proxy_config::ProxyType::System,
+        "http" => proxy_config::ProxyType::Http,
+        "https" => proxy_config::ProxyType::Https,
+        "socks5" => proxy_config::ProxyType::Socks5,
+        "custom_url" => proxy_config::ProxyType::CustomUrl,
+        _ => return Err(format!("Unknown proxy type: {}", proxy_type)),
+    };
+
+    let config = proxy_config::ProxyConfig {
+        enabled,
+        proxy_type,
+        host: host.unwrap_or_default(),
+        port: port.unwrap_or(7890),
+        username,
+        password,
+        custom_url,
+    };
+
+    proxy_config::test_proxy_connection(&config).await
+}
+
+#[tauri::command]
+async fn delete_proxy_config() -> Result<(), String> {
+    proxy_config::delete_proxy_config()
+        .map_err(|e| format!("Failed to delete proxy config: {}", e))
+}
+
+#[tauri::command]
+async fn proxy_config_exists() -> Result<bool, String> {
+    // 获取配置文件路径
+    let config_path = dirs::config_dir()
+        .ok_or("Failed to get config directory")?
+        .join("ATM")
+        .join("proxy_config.json");
+    
+    Ok(config_path.exists())
+}
+
 // 辅助函数：初始化存储管理器
 async fn initialize_storage_manager(
     app: &tauri::AppHandle,
@@ -1518,6 +1574,12 @@ fn main() {
             load_database_config,
             test_database_connection,
             delete_database_config,
+            // 代理配置命令
+            save_proxy_config,
+            load_proxy_config,
+            test_proxy_config,
+            delete_proxy_config,
+            proxy_config_exists,
             // 同步命令
             sync_tokens_to_database,
             sync_tokens_from_database,

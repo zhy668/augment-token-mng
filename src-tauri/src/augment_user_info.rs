@@ -1,6 +1,7 @@
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use crate::http_client::{create_http_client_with_cookies, create_proxy_client};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserInfo {
@@ -49,11 +50,7 @@ pub async fn exchange_auth_session_for_app_session(auth_session: &str) -> Result
     );
 
     // 创建带 cookie store 的客户端
-    let client = reqwest::Client::builder()
-        .cookie_provider(jar.clone())
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    let client = create_http_client_with_cookies(jar.clone())?;
 
     // HEAD 敲门
     let _ = client
@@ -103,7 +100,8 @@ pub async fn exchange_auth_session_for_app_session(auth_session: &str) -> Result
 
 /// 获取用户信息
 pub async fn fetch_app_user(app_session: &str) -> Result<UserInfo, String> {
-    let client = reqwest::Client::new();
+    // 使用新的 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let response = client
         .get("https://app.augmentcode.com/api/user")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -120,7 +118,8 @@ pub async fn fetch_app_user(app_session: &str) -> Result<UserInfo, String> {
 
 /// 获取订阅信息
 pub async fn fetch_app_subscription(app_session: &str) -> Result<SubscriptionInfo, String> {
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let response = client
         .get("https://app.augmentcode.com/api/subscription")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -137,7 +136,8 @@ pub async fn fetch_app_subscription(app_session: &str) -> Result<SubscriptionInf
 
 /// 获取积分信息
 pub async fn fetch_app_credits(app_session: &str) -> Result<CreditsInfo, String> {
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let response = client
         .get("https://app.augmentcode.com/api/credits")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")

@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
 use regex::Regex;
+use crate::http_client::create_proxy_client;
 
 const CLIENT_ID: &str = "v";
 const AUTH_BASE_URL: &str = "https://auth.augmentcode.com";
@@ -162,8 +163,9 @@ pub async fn get_augment_access_token(
     code_verifier: &str,
     code: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-    
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client().map_err(|e| Box::<dyn std::error::Error>::from(e))?;
+
     let mut data = HashMap::new();
     data.insert("grant_type", "authorization_code");
     data.insert("client_id", CLIENT_ID);
@@ -205,7 +207,8 @@ pub async fn check_account_ban_status(
     token: &str,
     tenant_url: &str,
 ) -> Result<AccountStatus, String> {
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
 
 
 
@@ -580,8 +583,9 @@ async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
 
     // 获取customer信息
     let customer_url = format!("https://portal.withorb.com/api/v1/customer_from_link?token={}", token);
-    
-    let client = reqwest::Client::new();
+
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let customer_response = client
         .get(&customer_url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -663,7 +667,8 @@ async fn get_portal_info(portal_url: &str) -> Result<PortalInfo, String> {
 pub async fn check_subscription_info(token: String, tenant_url: String) -> Result<bool, String> {
     let url = format!("{}/subscription-info", tenant_url.trim_end_matches('/'));
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -703,7 +708,8 @@ pub async fn extract_token_from_session(session: &str) -> Result<AugmentTokenRes
         AUTH_BASE_URL, code_challenge, client_id, state
     );
 
-    let client = reqwest::Client::new();
+    // 使用 ProxyClient，自动处理 Edge Function
+    let client = create_proxy_client()?;
     let html_response = client
         .get(&terms_url)
         .header("Cookie", format!("session={}", session))

@@ -1,6 +1,8 @@
 export default {
   common: {
-    close: '关闭'
+    close: '关闭',
+    cancel: '取消',
+    confirm: '确认'
   },
   app: {
     title: 'Augment Token Manager',
@@ -9,6 +11,7 @@ export default {
     viewTokens: '查看Token',
     bookmarkManager: '书签管理',
     outlookManager: '邮箱管理',
+    proxySettings: '代理设置',
     switchToLight: '切换到白天模式',
     switchToDark: '切换到夜间模式',
     switchToEnglish: '切换到英文',
@@ -472,5 +475,54 @@ export default {
     appHomeTitle: 'App主页 - 选择打开方式',
     pluginHomeTitle: '插件主页 - 选择打开方式',
     authUrlTitle: '授权URL打开方式选择对话框'
+  },
+  proxyConfig: {
+    title: '代理设置',
+    enableProxy: '启用代理',
+    proxyType: '代理类型',
+    host: '代理服务器',
+    port: '端口',
+    username: '用户名',
+    password: '密码',
+    customUrl: '代理 URL',
+    optional: '可选',
+    testConnection: '测试连接',
+    save: '保存',
+    delete: '删除配置',
+    confirmDelete: '确认删除',
+    confirmDeleteMessage: '确定要删除代理配置吗？',
+    types: {
+      system: '使用系统代理',
+      http: 'HTTP 代理',
+      https: 'HTTPS 代理',
+      socks5: 'SOCKS5 代理',
+      customUrl: 'Edge Function'
+    },
+    help: {
+      system: '自动检测并使用系统配置的代理设置',
+      http: '使用 HTTP 协议的代理服务器',
+      https: '使用 HTTPS 协议的代理服务器',
+      socks5: '使用 SOCKS5 协议的代理服务器',
+      customUrl: '通过云端函数转发所有 API 请求'
+    },
+    detailedHelp: {
+      customUrl: '支持 Supabase Edge Functions、Cloudflare Workers、Vercel Edge Functions 等平台。请输入部署后的完整 URL 地址。'
+    },
+    placeholders: {
+      host: '例如: 127.0.0.1 或 proxy.example.com',
+      port: '例如: 8080',
+      username: '如果代理需要认证，请输入用户名',
+      password: '如果代理需要认证，请输入密码',
+      customUrl: '例如: https://your-project.supabase.co/functions/v1/proxy'
+    },
+    messages: {
+      saveSuccess: '代理配置已保存',
+      saveFailed: '保存代理配置失败',
+      deleteSuccess: '代理配置已删除',
+      deleteFailed: '删除代理配置失败',
+      testSuccess: '代理连接测试成功',
+      testFailed: '代理连接测试失败',
+      proxyConfigSaved: '代理配置已保存并生效'
+    }
   }
 }

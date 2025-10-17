@@ -1,6 +1,8 @@
 export default {
   common: {
-    close: 'Close'
+    close: 'Close',
+    cancel: 'Cancel',
+    confirm: 'Confirm'
   },
   app: {
     title: 'Augment Token Manager',
@@ -9,6 +11,7 @@ export default {
     viewTokens: 'View Tokens',
     bookmarkManager: 'Bookmark Manager',
     outlookManager: 'Outlook Manager',
+    proxySettings: 'Proxy Settings',
     switchToLight: 'Switch to Light Mode',
     switchToDark: 'Switch to Dark Mode',
     switchToEnglish: 'Switch to English',
@@ -472,5 +475,54 @@ export default {
     appHomeTitle: 'App Home - Select Open Method',
     pluginHomeTitle: 'Plugin Home - Select Open Method',
     authUrlTitle: 'Authorization URL Open Method Selection Dialog'
+  },
+  proxyConfig: {
+    title: 'Proxy Settings',
+    enableProxy: 'Enable Proxy',
+    proxyType: 'Proxy Type',
+    host: 'Proxy Server',
+    port: 'Port',
+    username: 'Username',
+    password: 'Password',
+    customUrl: 'Proxy URL',
+    optional: 'Optional',
+    testConnection: 'Test Connection',
+    save: 'Save',
+    delete: 'Delete Configuration',
+    confirmDelete: 'Confirm Delete',
+    confirmDeleteMessage: 'Are you sure you want to delete the proxy configuration?',
+    types: {
+      system: 'System Proxy',
+      http: 'HTTP Proxy',
+      https: 'HTTPS Proxy',
+      socks5: 'SOCKS5 Proxy',
+      customUrl: 'Edge Function'
+    },
+    help: {
+      system: 'Automatically detect and use system proxy settings',
+      http: 'Use HTTP protocol proxy server',
+      https: 'Use HTTPS protocol proxy server',
+      socks5: 'Use SOCKS5 protocol proxy server',
+      customUrl: 'Forward all API requests through cloud functions'
+    },
+    detailedHelp: {
+      customUrl: 'Supports Supabase Edge Functions, Cloudflare Workers, Vercel Edge Functions, and more. Please enter the full URL of your deployed function.'
+    },
+    placeholders: {
+      host: 'e.g., 127.0.0.1 or proxy.example.com',
+      port: 'e.g., 8080',
+      username: 'Enter username if proxy requires authentication',
+      password: 'Enter password if proxy requires authentication',
+      customUrl: 'e.g., https://your-project.supabase.co/functions/v1/proxy'
+    },
+    messages: {
+      saveSuccess: 'Proxy configuration saved',
+      saveFailed: 'Failed to save proxy configuration',
+      deleteSuccess: 'Proxy configuration deleted',
+      deleteFailed: 'Failed to delete proxy configuration',
+      testSuccess: 'Proxy connection test successful',
+      testFailed: 'Proxy connection test failed',
+      proxyConfigSaved: 'Proxy configuration saved and applied'
+    }
   }
 }

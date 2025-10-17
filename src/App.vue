@@ -227,7 +227,7 @@
                 <button
                   @click="openInternalBrowserForAutoImport"
                   class="btn secondary"
-                  :disabled="isImportingSession"
+                  :disabled="isImportingSession || isOpeningBrowser"
                 >
                   {{ $t('tokenGenerator.autoImportSession') }}
                 </button>
@@ -583,6 +583,7 @@ const sessionTokenResult = ref(null)
 const isImportingSession = ref(false)
 const sessionImportProgress = ref('')
 const showSessionHelp = ref(false)
+const isOpeningBrowser = ref(false)
 
 // Template refs
 const authUrlInput = ref(null)
@@ -847,6 +848,11 @@ const importFromSession = async () => {
 
 // 打开内置浏览器进行自动导入
 const openInternalBrowserForAutoImport = async () => {
+  if (isOpeningBrowser.value) {
+    return // 防止重复点击
+  }
+  
+  isOpeningBrowser.value = true
   try {
     // 打开登录页面,登录后会跳转到 auth.augmentcode.com
     await invoke('open_internal_browser', {
@@ -855,6 +861,11 @@ const openInternalBrowserForAutoImport = async () => {
     })
   } catch (error) {
     showStatus(`${t('messages.error')}: ${error}`, 'error')
+  } finally {
+    // 延迟重置状态，避免窗口创建过程中再次点击
+    setTimeout(() => {
+      isOpeningBrowser.value = false
+    }, 1000)
   }
 }
 

@@ -382,6 +382,8 @@ onMounted(() => {
   font-size: 14px;
   transition: border-color 0.2s ease;
   box-sizing: border-box;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #374151);
 }
 
 .form-input:focus,
@@ -626,5 +628,17 @@ onMounted(() => {
   .modal-content {
     max-height: 95vh;
   }
+}
+
+/* Dark theme styles */
+[data-theme='dark'] .session-notice {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+[data-theme='dark'] .status-icon.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 </style>

@@ -173,6 +173,8 @@
       @success="handleTokenFormSuccess"
       @update-token="handleUpdateToken"
       @add-token="handleAddTokenFromForm"
+      @auto-import-completed="handleAutoImportCompleted"
+      @manual-import-completed="handleManualImportCompleted"
     />
 
     <!-- Batch Import Dialog -->
@@ -853,6 +855,26 @@ const handleAddTokenFromForm = (tokenData) => {
   if (!result.success && result.duplicateId) {
     highlightAndScrollTo(result.duplicateId)
   }
+}
+
+// 处理自动导入完成事件
+const handleAutoImportCompleted = () => {
+  if (lastAddTokenSuccess.value) {
+    // 添加成功,显示成功提示
+    window.$notify.success(t('messages.sessionAutoImported'))
+  }
+  // 无论成功失败都关闭对话框
+  closeTokenForm()
+}
+
+// 处理手动导入完成事件
+const handleManualImportCompleted = () => {
+  if (lastAddTokenSuccess.value) {
+    // 添加成功,显示成功提示
+    window.$notify.success(t('messages.sessionImportSuccess'))
+  }
+  // 无论成功失败都关闭对话框
+  closeTokenForm()
 }
 
 

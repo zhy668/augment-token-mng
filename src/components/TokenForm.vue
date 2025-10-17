@@ -124,6 +124,14 @@
                 </button>
                 <button
                   type="button"
+                  @click="openInternalBrowserForAutoImport"
+                  class="btn secondary"
+                  :disabled="isImportingSession"
+                >
+                  {{ $t('tokenGenerator.autoImportSession') }}
+                </button>
+                <button
+                  type="button"
                   @click="handleCancel"
                   class="btn secondary"
                   :disabled="isImportingSession"
@@ -341,16 +349,15 @@ const importFromSession = async () => {
     // 通知父组件添加 token
     emit('add-token', tokenData)
 
-    sessionImportProgress.value = t('messages.sessionImportSuccess')
-
     // 等待一下让父组件处理完 add-token 事件
     await nextTick()
 
-    emit('success')
-    emit('close')
+    // 通知父组件处理成功逻辑
+    emit('manual-import-completed')
 
     // 清空输入
     sessionInput.value = ''
+    sessionImportProgress.value = ''
   } catch (error) {
     sessionImportProgress.value = t('messages.sessionImportFailed')
     // 映射后端错误标识符到 i18n key
@@ -364,8 +371,23 @@ const importFromSession = async () => {
   }
 }
 
+// 打开内置浏览器进行自动导入
+const openInternalBrowserForAutoImport = async () => {
+  try {
+    // 打开登录页面,登录后会跳转到 auth.augmentcode.com
+    await invoke('open_internal_browser', {
+      url: 'https://app.augmentcode.com/',
+      title: t('tokenGenerator.autoImportBrowserTitle')
+    })
+  } catch (error) {
+    showStatus(`${t('messages.error')}: ${error}`, 'error')
+  }
+}
+
 // Event listeners
 let unlistenProgress = null
+let unlistenAutoImported = null
+let unlistenAutoImportFailed = null
 
 onMounted(async () => {
   // 监听 Session 导入进度事件
@@ -374,12 +396,56 @@ onMounted(async () => {
     // 后端发送的是 i18n key,需要转换为翻译文本
     sessionImportProgress.value = t('messages.' + event.payload)
   })
+
+  // 监听 Session 自动导入成功事件
+  unlistenAutoImported = await listen('session-auto-imported', async (event) => {
+    console.log('Session auto-imported in TokenForm:', event.payload)
+
+    // 添加 token
+    if (event.payload.token) {
+      const tokenData = {
+        tenantUrl: event.payload.token.tenant_url,
+        accessToken: event.payload.token.access_token,
+        portalUrl: event.payload.token.user_info?.portal_url || null,
+        emailNote: event.payload.token.user_info?.email_note || null,
+        authSession: event.payload.session || null,  // 保存 auth_session
+        suspensions: event.payload.token.user_info?.suspensions || null
+      }
+
+      // 通知父组件添加 token
+      emit('add-token', tokenData)
+
+      // 等待一下让父组件处理完 add-token 事件
+      await nextTick()
+
+      // 通知父组件处理成功逻辑(显示提示、关闭对话框等)
+      // 父组件会根据 lastAddTokenSuccess 判断是否真的成功
+      emit('auto-import-completed')
+    }
+  })
+
+  // 监听 Session 自动导入失败事件
+  unlistenAutoImportFailed = await listen('session-auto-import-failed', (event) => {
+    console.error('Session auto-import failed in TokenForm:', event.payload)
+    // 映射后端错误标识符到 i18n key
+    let errorMessage = event.payload.error
+    if (errorMessage.includes('SESSION_ERROR_OR_ACCOUNT_BANNED')) {
+      errorMessage = t('messages.sessionErrorOrAccountBanned')
+    }
+    showStatus(t('messages.sessionAutoImportFailed') + ': ' + errorMessage, 'error')
+  })
 })
 
 onUnmounted(() => {
   // 清理事件监听器
   if (unlistenProgress) {
     unlistenProgress()
+  }
+  if (unlistenAutoImported) {
+    unlistenAutoImported()
+  }
+  if (unlistenAutoImportFailed) {
+    unlistenAutoImportFailed()
   }
 })
 </script>

@@ -340,6 +340,13 @@
       @close="showOutlookManager = false"
     />
 
+    <!-- Proxy Config Modal -->
+    <ProxyConfig
+      v-if="showProxyConfig"
+      @close="showProxyConfig = false"
+      @config-saved="handleProxyConfigSaved"
+    />
+
 
 
     <!-- Notification Manager -->
@@ -399,6 +406,20 @@
           </svg>
           <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+        </button>
+        <!-- 代理设置按钮 -->
+        <button
+          type="button"
+          class="control-btn proxy-toggle"
+          @click="showProxyConfig = true; showSettingsMenu = false"
+          :aria-label="$t('app.proxySettings')"
+          :title="$t('app.proxySettings')"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
           </svg>
         </button>
         <!-- 语言切换按钮 -->
@@ -462,6 +483,7 @@ import { useI18n } from 'vue-i18n'
 import TokenList from './components/TokenList.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
 import OutlookManager from './components/OutlookManager.vue'
+import ProxyConfig from './components/ProxyConfig.vue'
 import ExternalLinkDialog from './components/ExternalLinkDialog.vue'
 import NotificationManager from './components/NotificationManager.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
@@ -531,6 +553,12 @@ const manualCheckForUpdates = async () => {
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
 const showOutlookManager = ref(false)
+const showProxyConfig = ref(false)
+
+// 代理配置保存处理
+const handleProxyConfigSaved = () => {
+  // 通知已在 ProxyConfig 组件中显示,这里不需要重复显示
+}
 
 // 组件引用
 const tokenListRef = ref(null)
@@ -906,10 +934,15 @@ onMounted(async () => {
   await listen('session-auto-imported', async (event) => {
     console.log('Session auto-imported:', event.payload)
 
-    // 打开 TokenList 并添加 token
-    if (!showTokenList.value) {
-      showTokenList.value = true
+    // 如果 TokenList 已打开,说明是从 TokenForm 触发的自动导入
+    // TokenForm 会自己处理,App.vue 不需要重复处理
+    if (showTokenList.value) {
+      console.log('TokenList is already open, skipping duplicate handling')
+      return
     }
+
+    // 打开 TokenList 并添加 token
+    showTokenList.value = true
 
     // 等待 TokenList 准备好
     await nextTick()

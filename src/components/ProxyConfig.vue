@@ -107,16 +107,27 @@
       </div>
       
       <div class="modal-footer">
-        <button 
-          @click="testConnection" 
-          :class="['btn', 'secondary', { loading: isTesting }]"
-          :disabled="!canTest || isTesting || isLoading"
-        >
-          <svg v-if="!isTesting" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          {{ $t('proxyConfig.testConnection') }}
-        </button>
+        <div class="footer-left">
+          <button 
+            @click="testConnection" 
+            :class="['btn', 'secondary', { loading: isTesting }]"
+            :disabled="!canTest || isTesting || isLoading"
+          >
+            <svg v-if="!isTesting" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            {{ $t('proxyConfig.testConnection') }}
+          </button>
+          
+          <span v-if="lastTestResult && lastTestResult.success" :class="['latency-badge', getLatencyClass(lastTestResult.latency)]">
+            <span class="status-dot"></span>
+            {{ lastTestResult.latency }}ms
+          </span>
+          <span v-else-if="lastTestResult && !lastTestResult.success" class="latency-badge failed">
+            <span class="status-dot"></span>
+            {{ $t('proxyConfig.messages.testFailedStatus') }}
+          </span>
+        </div>
         
         <button 
           @click="saveConfig" 
@@ -133,7 +144,7 @@
           v-if="hasExistingConfig"
           @click="showConfirmDelete = true" 
           class="btn danger"
-          :disabled="isLoading || isSaving || isTesting"
+          :disabled="isLoading || isSaving"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -188,6 +199,7 @@ const isSaving = ref(false)
 const isTesting = ref(false)
 const hasExistingConfig = ref(false)
 const showConfirmDelete = ref(false)
+const lastTestResult = ref(null) // { success: boolean, latency: number }
 
 // Computed
 const needsServerConfig = computed(() => {
@@ -239,6 +251,14 @@ const getProxyTypeHelp = computed(() => {
       return ''
   }
 })
+
+// 根据延迟返回对应的 CSS 类
+const getLatencyClass = (latency) => {
+  if (latency < 100) return 'excellent'
+  if (latency < 300) return 'good'
+  if (latency < 500) return 'fair'
+  return 'poor'
+}
 
 // Methods
 const isValidUrl = (urlString) => {
@@ -326,6 +346,7 @@ const deleteConfig = async () => {
 
 const testConnection = async () => {
   isTesting.value = true
+  const startTime = performance.now()
   
   try {
     await invoke('test_proxy_config', {
@@ -338,8 +359,13 @@ const testConnection = async () => {
       customUrl: config.value.customUrl || null
     })
     
+    const endTime = performance.now()
+    const latency = Math.round(endTime - startTime)
+    lastTestResult.value = { success: true, latency }
+    
     window.$notify.success(t('proxyConfig.messages.testSuccess'))
   } catch (error) {
+    lastTestResult.value = { success: false, latency: 0 }
     window.$notify.error(`${t('proxyConfig.messages.testFailed')}: ${error}`)
   } finally {
     isTesting.value = false
@@ -532,9 +558,72 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  align-items: center;
   padding: 16px 24px;
   border-top: 1px solid var(--color-border, #e5e7eb);
   background: var(--color-surface-alt, #f9fafb);
+}
+
+.footer-left {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-right: auto;
+}
+
+.footer-left .btn {
+  margin-right: 0;
+}
+
+.latency-badge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.latency-badge.excellent {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.latency-badge.good {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.latency-badge.fair {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.latency-badge.poor {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.latency-badge.failed {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 
 .modal-footer .btn {
@@ -708,6 +797,37 @@ onMounted(() => {
 
 [data-theme='dark'] .confirm-dialog p {
   color: var(--color-text-secondary, #9ca3af);
+}
+
+/* Dark theme latency badge styles */
+[data-theme='dark'] .latency-badge.excellent {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(110, 231, 183, 0.4);
+}
+
+[data-theme='dark'] .latency-badge.good {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+[data-theme='dark'] .latency-badge.fair {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+[data-theme='dark'] .latency-badge.poor {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.4);
+}
+
+[data-theme='dark'] .latency-badge.failed {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+  border-color: rgba(156, 163, 175, 0.4);
 }
 </style>
 

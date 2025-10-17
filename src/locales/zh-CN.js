@@ -522,7 +522,10 @@ export default {
       deleteFailed: '删除代理配置失败',
       testSuccess: '代理连接测试成功',
       testFailed: '代理连接测试失败',
-      proxyConfigSaved: '代理配置已保存并生效'
+      proxyConfigSaved: '代理配置已保存并生效',
+      lastTest: '最后测试',
+      testSuccessWithLatency: '成功',
+      testFailedStatus: '失败'
     }
   }
 }

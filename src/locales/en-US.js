@@ -522,7 +522,10 @@ export default {
       deleteFailed: 'Failed to delete proxy configuration',
       testSuccess: 'Proxy connection test successful',
       testFailed: 'Proxy connection test failed',
-      proxyConfigSaved: 'Proxy configuration saved and applied'
+      proxyConfigSaved: 'Proxy configuration saved and applied',
+      lastTest: 'Last Test',
+      testSuccessWithLatency: 'Success',
+      testFailedStatus: 'Failed'
     }
   }
 }

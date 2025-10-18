@@ -5,16 +5,25 @@ use serde_json;
 use std::sync::Arc;
 
 /// 尝试从配置文件加载代理配置
+/// 路径与 Tauri 的 app_data_dir() 保持一致
 fn try_load_proxy_config() -> Option<ProxyConfig> {
-    // 尝试从标准位置加载配置
-    // 注意: 这里我们直接构造配置路径,因为没有 AppHandle
-    if let Some(data_dir) = dirs::data_dir() {
-        let config_path = data_dir.join("com.cubezhao.atm").join("proxy_config.json");
-        if config_path.exists() {
-            if let Ok(json) = std::fs::read_to_string(&config_path) {
-                if let Ok(config) = serde_json::from_str::<ProxyConfig>(&json) {
-                    return Some(config);
-                }
+    // 根据不同平台构造应用数据目录
+    // macOS: ~/Library/Application Support/com.cubezhao.atm
+    // Linux: ~/.local/share/atm
+    // Windows: C:\Users\<user>\AppData\Roaming\com.cubezhao.atm
+    #[cfg(target_os = "macos")]
+    let config_path = dirs::data_dir()?.join("com.cubezhao.atm").join("proxy_config.json");
+
+    #[cfg(target_os = "linux")]
+    let config_path = dirs::data_local_dir()?.join("atm").join("proxy_config.json");
+
+    #[cfg(target_os = "windows")]
+    let config_path = dirs::data_dir()?.join("com.cubezhao.atm").join("proxy_config.json");
+
+    if config_path.exists() {
+        if let Ok(json) = std::fs::read_to_string(&config_path) {
+            if let Ok(config) = serde_json::from_str::<ProxyConfig>(&json) {
+                return Some(config);
             }
         }
     }

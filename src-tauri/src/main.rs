@@ -1312,6 +1312,7 @@ async fn get_sync_status(
 // 代理配置相关命令
 #[tauri::command]
 async fn save_proxy_config(
+    app: tauri::AppHandle,
     proxy_type: String,
     enabled: bool,
     host: Option<String>,
@@ -1339,13 +1340,13 @@ async fn save_proxy_config(
         custom_url,
     };
 
-    proxy_config::save_proxy_config(&config)
+    proxy_config::save_proxy_config(&app, &config)
         .map_err(|e| format!("Failed to save proxy config: {}", e))
 }
 
 #[tauri::command]
-async fn load_proxy_config() -> Result<proxy_config::ProxyConfig, String> {
-    proxy_config::load_proxy_config()
+async fn load_proxy_config(app: tauri::AppHandle) -> Result<proxy_config::ProxyConfig, String> {
+    proxy_config::load_proxy_config(&app)
         .map_err(|e| format!("Failed to load proxy config: {}", e))
 }
 
@@ -1382,20 +1383,15 @@ async fn test_proxy_config(
 }
 
 #[tauri::command]
-async fn delete_proxy_config() -> Result<(), String> {
-    proxy_config::delete_proxy_config()
+async fn delete_proxy_config(app: tauri::AppHandle) -> Result<(), String> {
+    proxy_config::delete_proxy_config(&app)
         .map_err(|e| format!("Failed to delete proxy config: {}", e))
 }
 
 #[tauri::command]
-async fn proxy_config_exists() -> Result<bool, String> {
-    // 获取配置文件路径
-    let config_path = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("ATM")
-        .join("proxy_config.json");
-    
-    Ok(config_path.exists())
+async fn proxy_config_exists(app: tauri::AppHandle) -> Result<bool, String> {
+    proxy_config::proxy_config_exists(&app)
+        .map_err(|e| format!("Failed to check proxy config: {}", e))
 }
 
 // 辅助函数：初始化存储管理器

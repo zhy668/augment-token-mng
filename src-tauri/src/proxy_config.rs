@@ -87,7 +87,9 @@ impl ProxyConfig {
             match self.proxy_type {
                 ProxyType::CustomUrl => {
                     // CustomUrl (如 Supabase Edge Functions) 不是传统代理
-                    // 不在这里配置代理，而是在请求时特殊处理
+                    // 显式禁用所有代理,确保直接连接到 Edge Function
+                    // 这样可以避免系统代理干扰
+                    builder = builder.no_proxy();
                 }
                 _ => {
                     // 构建传统代理 URL
@@ -123,7 +125,9 @@ impl ProxyConfig {
             match self.proxy_type {
                 ProxyType::CustomUrl => {
                     // CustomUrl (如 Supabase Edge Functions) 不是传统代理
-                    // 不在这里配置代理，而是在请求时特殊处理
+                    // 显式禁用所有代理,确保直接连接到 Edge Function
+                    // 这样可以避免系统代理干扰
+                    builder = builder.no_proxy();
                 }
                 _ => {
                     // 构建传统代理 URL
@@ -202,22 +206,24 @@ impl ProxyConfigManager {
     }
 }
 
-/// 测试代理配置
+/// 获取代理配置文件路径
+fn get_proxy_config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    // 确保目录存在
+    fs::create_dir_all(&app_data_dir)
+        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+
+    Ok(app_data_dir.join("proxy_config.json"))
+}
+
 /// 保存代理配置到文件
-pub fn save_proxy_config(config: &ProxyConfig) -> Result<(), String> {
-    use std::fs;
-    
-    // 获取配置目录
-    let config_dir = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("ATM");
-    
-    // 创建目录（如果不存在）
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config directory: {}", e))?;
-    
-    let config_path = config_dir.join("proxy_config.json");
-    
+pub fn save_proxy_config(app_handle: &tauri::AppHandle, config: &ProxyConfig) -> Result<(), String> {
+    let config_path = get_proxy_config_path(app_handle)?;
+
     // 如果配置文件已存在且新密码为空，则保留原有密码
     let mut final_config = config.clone();
     if config_path.exists() && config.password.as_ref().map_or(true, |p| p.is_empty()) {
@@ -225,68 +231,62 @@ pub fn save_proxy_config(config: &ProxyConfig) -> Result<(), String> {
         if let Ok(existing_json) = fs::read_to_string(&config_path) {
             if let Ok(existing_config) = serde_json::from_str::<ProxyConfig>(&existing_json) {
                 // 如果新密码为空但旧密码不为空，使用旧密码
-                if config.password.as_ref().map_or(true, |p| p.is_empty()) 
+                if config.password.as_ref().map_or(true, |p| p.is_empty())
                     && existing_config.password.is_some() {
                     final_config.password = existing_config.password;
                 }
             }
         }
     }
-    
+
     // 序列化配置
     let json = serde_json::to_string_pretty(&final_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    
+
     // 写入文件
     fs::write(&config_path, json)
         .map_err(|e| format!("Failed to write config file: {}", e))?;
-    
+
     Ok(())
 }
 
 /// 从文件加载代理配置
-pub fn load_proxy_config() -> Result<ProxyConfig, String> {
-    use std::fs;
-    
-    // 获取配置文件路径
-    let config_path = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("ATM")
-        .join("proxy_config.json");
-    
+pub fn load_proxy_config(app_handle: &tauri::AppHandle) -> Result<ProxyConfig, String> {
+    let config_path = get_proxy_config_path(app_handle)?;
+
     // 如果文件不存在，返回默认配置
     if !config_path.exists() {
         return Ok(ProxyConfig::default());
     }
-    
+
     // 读取文件
     let json = fs::read_to_string(&config_path)
         .map_err(|e| format!("Failed to read config file: {}", e))?;
-    
+
     // 反序列化配置
     let config: ProxyConfig = serde_json::from_str(&json)
         .map_err(|e| format!("Failed to parse config file: {}", e))?;
-    
+
     Ok(config)
 }
 
 /// 删除代理配置文件
-pub fn delete_proxy_config() -> Result<(), String> {
-    use std::fs;
-    
-    // 获取配置文件路径
-    let config_path = dirs::config_dir()
-        .ok_or("Failed to get config directory")?
-        .join("ATM")
-        .join("proxy_config.json");
-    
+pub fn delete_proxy_config(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    let config_path = get_proxy_config_path(app_handle)?;
+
     // 如果文件存在，删除它
     if config_path.exists() {
         fs::remove_file(&config_path)
             .map_err(|e| format!("Failed to delete config file: {}", e))?;
     }
-    
+
     Ok(())
+}
+
+/// 检查代理配置文件是否存在
+pub fn proxy_config_exists(app_handle: &tauri::AppHandle) -> Result<bool, String> {
+    let config_path = get_proxy_config_path(app_handle)?;
+    Ok(config_path.exists())
 }
 
 pub async fn test_proxy_connection(config: &ProxyConfig) -> Result<(), String> {

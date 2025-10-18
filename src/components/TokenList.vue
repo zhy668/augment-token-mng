@@ -192,6 +192,29 @@
             </div>
             <div class="dialog-body">
               <p class="dialog-message">{{ $t('tokenList.batchImportMessage') }}</p>
+
+              <!-- 格式说明和填充按钮 -->
+              <div class="format-options">
+                <div class="format-option">
+                  <div class="format-header">
+                    <span class="format-title">{{ $t('tokenList.format1Title') }}</span>
+                  </div>
+                  <p class="format-desc">{{ $t('tokenList.format1Desc') }}</p>
+                  <button @click="fillSessionTemplate" class="btn-fill-template">
+                    {{ $t('tokenList.fillTemplate') }}
+                  </button>
+                </div>
+                <div class="format-option">
+                  <div class="format-header">
+                    <span class="format-title">{{ $t('tokenList.format2Title') }}</span>
+                  </div>
+                  <p class="format-desc">{{ $t('tokenList.format2Desc') }}</p>
+                  <button @click="fillTokenTemplate" class="btn-fill-template">
+                    {{ $t('tokenList.fillTemplate') }}
+                  </button>
+                </div>
+              </div>
+
               <div class="import-input-section">
                 <textarea
                   v-model="importJsonText"
@@ -329,6 +352,27 @@ const isImporting = ref(false)
 const importPreview = ref([])
 const importErrors = ref([])
 
+// 填充 Session 模板
+const fillSessionTemplate = () => {
+  importJsonText.value = JSON.stringify([
+    'session1'
+  ], null, 2)
+  validateImportJson()
+}
+
+// 填充 Token 模板
+const fillTokenTemplate = () => {
+  importJsonText.value = JSON.stringify([
+    {
+      access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      tenant_url: 'https://example.com',
+      email_note: 'user@example.com',
+      portal_url: 'https://portal.example.com'
+    }
+  ], null, 2)
+  validateImportJson()
+}
+
 // 计算可删除的 token 数量
 const deletableTokensCount = computed(() => {
   return tokens.value.filter(token =>
@@ -430,45 +474,82 @@ const validateImportJson = () => {
       return false
     }
 
-    // 验证每个 token 对象
-    const validTokens = []
-    parsed.forEach((item) => {
-      const errors = []
+    // 检测数组类型: 字符串数组(Session) 或 对象数组(Token)
+    const firstItem = parsed[0]
+    const isSessionArray = typeof firstItem === 'string'
+    const isTokenArray = typeof firstItem === 'object' && firstItem !== null
 
-      if (!item.access_token || typeof item.access_token !== 'string' || !item.access_token.trim()) {
-        errors.push(t('tokenList.missingAccessToken'))
-      }
+    if (!isSessionArray && !isTokenArray) {
+      importErrors.value.push('数组元素必须是字符串(Session)或对象(Token)')
+      return false
+    }
 
-      if (!item.tenant_url || typeof item.tenant_url !== 'string' || !item.tenant_url.trim()) {
-        errors.push(t('tokenList.missingTenantUrl'))
-      }
-
-      // 验证 URL 格式
-      if (item.tenant_url) {
-        try {
-          new URL(item.tenant_url)
-        } catch {
-          errors.push(t('tokenList.invalidTenantUrl'))
+    // 验证 Session 数组
+    if (isSessionArray) {
+      const validSessions = []
+      parsed.forEach((item, index) => {
+        if (typeof item !== 'string') {
+          importErrors.value.push(`[${index + 1}] 必须是字符串`)
+        } else if (!item.trim()) {
+          importErrors.value.push(`[${index + 1}] Session 不能为空`)
+        } else if (item.length < 10) {
+          importErrors.value.push(`[${index + 1}] ${t('tokenList.invalidSession')}`)
+        } else {
+          validSessions.push({ auth_session: item })
         }
-      }
+      })
+      importPreview.value = validSessions
+      return validSessions.length > 0
+    }
 
-      if (item.portal_url) {
-        try {
-          new URL(item.portal_url)
-        } catch {
-          errors.push(t('tokenList.invalidPortalUrl'))
+    // 验证 Token 对象数组
+    if (isTokenArray) {
+      const validTokens = []
+      parsed.forEach((item, index) => {
+        const errors = []
+
+        if (typeof item !== 'object' || item === null) {
+          importErrors.value.push(`[${index + 1}] 必须是对象`)
+          return
         }
-      }
 
-      if (errors.length > 0) {
-        importErrors.value.push(...errors)
-      } else {
-        validTokens.push(item)
-      }
-    })
+        // 验证必需字段
+        if (!item.access_token || typeof item.access_token !== 'string' || !item.access_token.trim()) {
+          errors.push(`[${index + 1}] ${t('tokenList.missingAccessToken')}`)
+        }
 
-    importPreview.value = validTokens
-    return validTokens.length > 0
+        if (!item.tenant_url || typeof item.tenant_url !== 'string' || !item.tenant_url.trim()) {
+          errors.push(`[${index + 1}] ${t('tokenList.missingTenantUrl')}`)
+        }
+
+        // 验证 URL 格式
+        if (item.tenant_url) {
+          try {
+            new URL(item.tenant_url)
+          } catch {
+            errors.push(`[${index + 1}] ${t('tokenList.invalidTenantUrl')}`)
+          }
+        }
+
+        if (item.portal_url) {
+          try {
+            new URL(item.portal_url)
+          } catch {
+            errors.push(`[${index + 1}] ${t('tokenList.invalidPortalUrl')}`)
+          }
+        }
+
+        if (errors.length > 0) {
+          importErrors.value.push(...errors)
+        } else {
+          validTokens.push(item)
+        }
+      })
+      importPreview.value = validTokens
+      return validTokens.length > 0
+    }
+
+    return false
   } catch (error) {
     importErrors.value.push(`${t('tokenList.importJsonParseError')}: ${error.message}`)
     return false
@@ -486,30 +567,116 @@ const executeBatchImport = async () => {
   try {
     let successCount = 0
     let skippedCount = 0
+    let sessionExtractionErrors = []
+    let duplicateIds = []  // 收集重复的 token ID
 
-    importPreview.value.forEach(item => {
-      const tokenData = {
-        tenantUrl: item.tenant_url,
-        accessToken: item.access_token,
-        portalUrl: item.portal_url || null,
-        emailNote: item.email_note || null,
-        authSession: item.auth_session || null,
-        suspensions: item.suspensions || null
-      }
+    // 检测导入模式: Session 数组 或 Token 对象数组
+    const firstItem = importPreview.value[0]
+    const isSessionMode = firstItem.auth_session && !firstItem.access_token
 
-      const result = addToken(tokenData)
-      if (result.success) {
-        successCount++
-      } else {
-        skippedCount++
+    if (isSessionMode) {
+      // Session 模式: 遍历所有 session,调用后端提取
+      for (let i = 0; i < importPreview.value.length; i++) {
+        const item = importPreview.value[i]
+
+        try {
+          // 更新进度提示
+          const progressMsg = t('tokenList.extractingFromSession', {
+            current: i + 1,
+            total: importPreview.value.length
+          })
+          console.log(progressMsg)
+
+          // 调用后端 API 从 session 提取 token
+          const result = await invoke('add_token_from_session', {
+            session: item.auth_session
+          })
+
+          // 提取成功,添加 token
+          const tokenData = {
+            tenantUrl: result.tenant_url,
+            accessToken: result.access_token,
+            portalUrl: result.user_info?.portal_url || null,
+            emailNote: result.user_info?.email_note || null,
+            authSession: item.auth_session,
+            suspensions: result.user_info?.suspensions || null
+          }
+
+          const addResult = addToken(tokenData)
+          if (addResult.success) {
+            successCount++
+          } else if (addResult.duplicateId) {
+            // 记录重复的 token ID
+            duplicateIds.push(addResult.duplicateId)
+            skippedCount++
+          } else {
+            skippedCount++
+          }
+        } catch (error) {
+          console.error('Failed to extract token from session:', error)
+          sessionExtractionErrors.push({
+            index: i + 1,
+            error: error.toString()
+          })
+          skippedCount++
+        }
       }
-    })
+    } else {
+      // Token 模式: 直接添加所有 token
+      importPreview.value.forEach(item => {
+        const tokenData = {
+          tenantUrl: item.tenant_url,
+          accessToken: item.access_token,
+          portalUrl: item.portal_url || null,
+          emailNote: item.email_note || null,
+          authSession: null,
+          suspensions: item.suspensions || null
+        }
+
+        const result = addToken(tokenData)
+        if (result.success) {
+          successCount++
+        } else if (result.duplicateId) {
+          // 记录重复的 token ID
+          duplicateIds.push(result.duplicateId)
+          skippedCount++
+        } else {
+          skippedCount++
+        }
+      })
+    }
 
     // 关闭对话框
     showBatchImportDialog.value = false
 
     // 显示结果
-    if (skippedCount > 0) {
+    if (sessionExtractionErrors.length > 0) {
+      // 有 session 提取失败的情况
+      const errorDetails = sessionExtractionErrors
+        .map(e => `[${e.index}] ${e.error}`)
+        .join('\n')
+
+      window.$notify.warning(
+        t('messages.batchImportSuccessWithSkipped', {
+          success: successCount,
+          skipped: skippedCount
+        }) + `\n\n${t('tokenList.sessionExtractionFailed')}:\n${errorDetails}`
+      )
+    } else if (duplicateIds.length > 0) {
+      // 有重复的 token
+      if (duplicateIds.length === 1 && successCount === 0) {
+        // 只有一个重复且没有成功导入的,高亮并滚动到重复的 token
+        highlightAndScrollTo(duplicateIds[0])
+      } else {
+        // 有多个重复或有部分成功导入的,显示提示
+        window.$notify.success(
+          t('messages.batchImportSuccessWithSkipped', {
+            success: successCount,
+            skipped: skippedCount
+          })
+        )
+      }
+    } else if (skippedCount > 0) {
       window.$notify.success(
         t('messages.batchImportSuccessWithSkipped', {
           success: successCount,
@@ -1466,6 +1633,55 @@ defineExpose({
   color: var(--color-text-muted, #9ca3af);
 }
 
+.format-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.format-option {
+  padding: 16px;
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  background: var(--color-surface-secondary, #f9fafb);
+}
+
+.format-header {
+  margin-bottom: 8px;
+}
+
+.format-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+}
+
+.format-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.btn-fill-template {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-primary, #2563eb);
+  border-radius: 6px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-primary, #2563eb);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-fill-template:hover {
+  background: var(--color-primary, #2563eb);
+  color: #ffffff;
+}
+
 .import-input-section {
   margin: 16px 0;
 }
@@ -1675,6 +1891,22 @@ defineExpose({
   background: rgba(245, 158, 11, 0.2);
   border-color: rgba(245, 158, 11, 0.4);
   color: #fbbf24;
+}
+
+[data-theme='dark'] .format-option {
+  background: rgba(55, 65, 81, 0.3);
+  border-color: rgba(75, 85, 99, 0.6);
+}
+
+[data-theme='dark'] .btn-fill-template {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #3b82f6);
+}
+
+[data-theme='dark'] .btn-fill-template:hover {
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
 }
 
 @media (max-width: 480px) {

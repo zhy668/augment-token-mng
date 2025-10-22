@@ -12,7 +12,7 @@ mod http_client;
 mod proxy_config;
 mod proxy_helper;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, get_batch_credit_consumption, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult, BatchCreditConsumptionResponse};
 use augment_user_info::{get_user_info, CompleteUserInfo};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
@@ -115,6 +115,14 @@ async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenSt
     batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
+}
+
+/// 批量获取 Credit 消费数据(stats 和 chart),只交换一次 app_session
+#[tauri::command]
+async fn fetch_batch_credit_consumption(
+    auth_session: String,
+) -> Result<BatchCreditConsumptionResponse, String> {
+    get_batch_credit_consumption(&auth_session).await
 }
 
 // Version comparison helper
@@ -1539,6 +1547,7 @@ fn main() {
             get_augment_token,
             check_account_status,
             batch_check_tokens_status,
+            fetch_batch_credit_consumption,
             add_token_from_session,
             open_url,
             // 新的简化命令

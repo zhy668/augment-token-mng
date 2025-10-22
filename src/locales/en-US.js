@@ -535,5 +535,23 @@ export default {
       testSuccessWithLatency: 'Success',
       testFailedStatus: 'Failed'
     }
+  },
+  credit: {
+    title: 'Credit Usage Statistics',
+    viewUsage: 'View Usage Details',
+    usageStats: 'Usage Statistics',
+    modelDistribution: 'Model Usage Distribution',
+    today: 'Today',
+    remaining: 'Remaining',
+    thisWeek: 'This Week',
+    thisCycle: 'This Cycle',
+    cycleTrend: 'Cycle Trend',
+    credits: 'credits',
+    loading: 'Loading...',
+    error: 'Failed to load',
+    noData: 'No data available',
+    refresh: 'Refresh',
+    close: 'Close',
+    percentage: 'Percentage'
   }
 }

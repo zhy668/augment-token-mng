@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
 use regex::Regex;
 use crate::http_client::create_proxy_client;
+use crate::augment_user_info::exchange_auth_session_for_app_session;
 
 const CLIENT_ID: &str = "v";
 const AUTH_BASE_URL: &str = "https://auth.augmentcode.com";
@@ -784,4 +785,119 @@ fn generate_random_string(length: usize) -> String {
     let mut random_bytes = vec![0u8; length];
     rng.fill_bytes(&mut random_bytes);
     base64_url_encode(&random_bytes)
+}
+
+// ============ Credit Consumption API ============
+
+/// Credit 消费数据点
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreditDataPoint {
+    #[serde(rename(serialize = "group_key", deserialize = "groupKey"))]
+    pub group_key: Option<String>, // 模型名称
+    #[serde(rename(serialize = "date_range", deserialize = "dateRange"))]
+    pub date_range: Option<DateRange>,
+    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"))]
+    pub credits_consumed: String,
+}
+
+/// 日期范围
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DateRange {
+    #[serde(rename(serialize = "start_date_iso", deserialize = "startDateIso"))]
+    pub start_date_iso: String,
+    #[serde(rename(serialize = "end_date_iso", deserialize = "endDateIso"))]
+    pub end_date_iso: String,
+}
+
+/// Credit 消费响应
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreditConsumptionResponse {
+    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"))]
+    pub data_points: Vec<CreditDataPoint>,
+}
+
+/// 批量获取 Credit 消费数据的响应
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BatchCreditConsumptionResponse {
+    pub stats_data: CreditConsumptionResponse,
+    pub chart_data: CreditConsumptionResponse,
+}
+
+/// 批量获取 Credit 消费数据(stats 和 chart)
+pub async fn get_batch_credit_consumption(
+    auth_session: &str,
+) -> Result<BatchCreditConsumptionResponse, String> {
+    // 只交换一次 app_session
+    println!("Exchanging auth_session for app_session...");
+    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
+    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
+
+    // 使用 ProxyClient
+    let client = create_proxy_client()?;
+
+    // 并行获取两个数据
+    let stats_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=NONE&granularity=DAY&billingCycle=CURRENT_BILLING_CYCLE";
+    let chart_url = "https://app.augmentcode.com/api/credit-consumption?groupBy=MODEL_NAME&granularity=TOTAL&billingCycle=CURRENT_BILLING_CYCLE";
+
+    println!("Fetching stats from: {}", stats_url);
+    println!("Fetching chart from: {}", chart_url);
+
+    let (stats_result, chart_result) = tokio::join!(
+        async {
+            let response = client
+                .get(stats_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch stats data: {}", e))?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Stats API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read stats response body: {}", e))?;
+
+            println!("Stats response: {}", response_text);
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse stats response: {}. Response body: {}", e, response_text))
+        },
+        async {
+            let response = client
+                .get(chart_url)
+                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch chart data: {}", e))?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Chart API returned status {}: {}", status, error_body));
+            }
+
+            let response_text = response.text().await
+                .map_err(|e| format!("Failed to read chart response body: {}", e))?;
+
+            println!("Chart response: {}", response_text);
+
+            serde_json::from_str::<CreditConsumptionResponse>(&response_text)
+                .map_err(|e| format!("Failed to parse chart response: {}. Response body: {}", e, response_text))
+        }
+    );
+
+    let stats_data = stats_result?;
+    let chart_data = chart_result?;
+
+    Ok(BatchCreditConsumptionResponse {
+        stats_data,
+        chart_data,
+    })
 }

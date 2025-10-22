@@ -52,49 +52,40 @@ pub async fn exchange_auth_session_for_app_session(auth_session: &str) -> Result
     // 创建带 cookie store 的客户端
     let client = create_http_client_with_cookies(jar.clone())?;
 
-    // HEAD 敲门
-    let _ = client
-        .head("https://app.augmentcode.com/login")
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        .send()
-        .await;
-
-    // GET 触发授权流
-    let _ = client
+    // 直接 GET /login 触发授权流,同时检查响应中的 cookies
+    let login_response = client
         .get("https://app.augmentcode.com/login")
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .send()
         .await
         .map_err(|e| format!("Failed to exchange session: {}", e))?;
 
-    // 从 cookie jar 中提取 app._session cookie
-    // 使用 iter 方法遍历所有 cookies
-    let _app_domain = "app.augmentcode.com";
-
-    // 尝试直接从 jar 中获取 cookie 字符串
-    // reqwest::cookie::Jar 没有直接的 iter 方法,我们需要通过发送请求来获取 cookies
-    // 或者使用不同的方法
-
-    // 发送一个简单的请求来触发 cookie 的设置
-    let final_response = client
-        .get("https://app.augmentcode.com/api/user")
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        .send()
-        .await;
-
-    // 从响应中提取 cookies
-    if let Ok(resp) = final_response {
-        for cookie in resp.cookies() {
-            if cookie.name() == "_session" {
-                return Ok(urlencoding::decode(cookie.value())
-                    .unwrap_or_else(|_| cookie.value().into())
-                    .to_string());
-            }
+    // 先尝试从 login 响应中提取 _session cookie
+    for cookie in login_response.cookies() {
+        if cookie.name() == "_session" {
+            return Ok(urlencoding::decode(cookie.value())
+                .unwrap_or_else(|_| cookie.value().into())
+                .to_string());
         }
     }
 
-    // 如果上面没找到,尝试从 jar 中获取
-    // 注意: reqwest 的 Jar 不提供直接访问,我们需要通过其他方式
+    // 如果 login 响应中没有,再请求 /api/user
+    let user_response = client
+        .get("https://app.augmentcode.com/api/user")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get user info: {}", e))?;
+
+    // 从 user 响应中提取 cookies
+    for cookie in user_response.cookies() {
+        if cookie.name() == "_session" {
+            return Ok(urlencoding::decode(cookie.value())
+                .unwrap_or_else(|_| cookie.value().into())
+                .to_string());
+        }
+    }
+
     Err("Failed to extract app session cookie".to_string())
 }
 

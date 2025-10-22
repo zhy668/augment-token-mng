@@ -51,6 +51,17 @@
                 >
                   {{ balanceDisplay }}
                 </span>
+                <!-- Credit 统计按钮 -->
+                <button
+                  v-if="token.auth_session"
+                  @click="showCreditUsageModal = true"
+                  class="credit-stats-btn"
+                  :title="$t('credit.viewUsage')"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                  </svg>
+                </button>
               </template>
             </div>
           </template>
@@ -426,6 +437,17 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Credit Usage Modal -->
+    <Transition name="modal" appear>
+      <CreditUsageModal
+        v-if="showCreditUsageModal && token.auth_session"
+        :auth-session="token.auth_session"
+        :credits-balance="remainingCredits"
+        @close="showCreditUsageModal = false"
+        @refresh-balance="handleCreditUsageRefresh"
+      />
+    </Transition>
   </Teleport>
 </template>
 
@@ -434,6 +456,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import ExternalLinkDialog from './ExternalLinkDialog.vue'
+import CreditUsageModal from './CreditUsageModal.vue'
 
 const { t } = useI18n()
 
@@ -470,6 +493,7 @@ const showCheckMenu = ref(false)
 const showSuspensionsModal = ref(false)
 const showTraeVersionDialog = ref(false)
 const showCopyMenu = ref(false)
+const showCreditUsageModal = ref(false)
 
 // 图标映射
 const editorIcons = {
@@ -606,6 +630,18 @@ const balanceDisplay = computed(() => {
     return canStillUse.value ? t('tokenCard.canUse') : t('tokenCard.exhausted')
   }
   return `${t('tokenCard.balance')}: ${credits}`
+})
+
+const remainingCredits = computed(() => {
+  const currentCredits = portalInfo.value?.data?.credits_balance
+  if (currentCredits !== undefined && currentCredits !== null) {
+    return currentCredits
+  }
+  const fallbackCredits = props.token.portal_info?.credits_balance
+  if (fallbackCredits !== undefined && fallbackCredits !== null) {
+    return fallbackCredits
+  }
+  return null
 })
 
 // 获取状态样式类
@@ -1214,6 +1250,10 @@ const refreshAccountStatus = async () => {
   return await checkAccountStatus()
 }
 
+const handleCreditUsageRefresh = () => {
+  checkAccountStatus(false)
+}
+
 // 暴露方法给父组件
 defineExpose({
   refreshAccountStatus
@@ -1349,6 +1389,34 @@ defineExpose({
 
 .portal-row {
   margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.credit-stats-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--color-btn-primary-bg);
+  transition: background-color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.credit-stats-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-btn-primary-bg);
+}
+
+.credit-stats-btn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .created-date {
@@ -1525,6 +1593,16 @@ defineExpose({
 [data-theme='dark'] .portal-meta.balance.exhausted {
   color: #fca5a5;
   background: rgba(220, 38, 38, 0.2);
+}
+
+[data-theme='dark'] .credit-stats-btn {
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #a78bfa;
+}
+
+[data-theme='dark'] .credit-stats-btn:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.4);
 }
 
 .email-icon {

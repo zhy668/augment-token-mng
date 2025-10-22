@@ -293,9 +293,10 @@ pub async fn test_proxy_connection(config: &ProxyConfig) -> Result<(), String> {
     // 对于 CustomUrl 类型（如 Supabase Edge Functions），需要特殊处理
     if config.enabled && config.proxy_type == ProxyType::CustomUrl {
         if let Some(custom_url) = &config.custom_url {
-            // 创建普通客户端（不配置代理）
+            // 创建普通客户端（显式禁用代理,避免系统代理干扰）
             let client = reqwest::Client::builder()
                 .timeout(Duration::from_secs(10))
+                .no_proxy()  // 显式禁用所有代理
                 .build()
                 .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
             

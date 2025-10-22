@@ -535,5 +535,23 @@ export default {
       testSuccessWithLatency: '成功',
       testFailedStatus: '失败'
     }
+  },
+  credit: {
+    title: 'Credit 使用统计',
+    viewUsage: '查看使用详情',
+    usageStats: '使用统计',
+    modelDistribution: '模型使用分布',
+    today: '今日消耗',
+    remaining: '剩余次数',
+    thisWeek: '本周消耗',
+    thisCycle: '本周期消耗',
+    cycleTrend: '本周期趋势',
+    credits: 'credits',
+    loading: '加载中...',
+    error: '加载失败',
+    noData: '暂无数据',
+    refresh: '刷新',
+    close: '关闭',
+    percentage: '占比'
   }
 }

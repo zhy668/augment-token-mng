@@ -56,7 +56,16 @@
               </svg>
             </div>
             <h3>{{ $t('tokenList.empty') }}</h3>
-            <p>{{ $t('tokenList.emptyDescription') }}</p>
+            <button
+              class="batch-import-btn-empty"
+              @click="showBatchImportConfirm"
+              :title="$t('tokenList.batchImport')"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+              </svg>
+              {{ $t('tokenList.batchImport') }}
+            </button>
           </div>
 
           <!-- Token List -->
@@ -1343,7 +1352,39 @@ defineExpose({
 
 .empty-state p {
   color: var(--color-text-muted, #6b7280);
-  margin: 0;
+  margin: 0 0 24px 0;
+}
+
+/* 空状态下的批量导入按钮 */
+.batch-import-btn-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--color-primary, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.batch-import-btn-empty:hover {
+  background: var(--color-primary-hover, #1d4ed8);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+.batch-import-btn-empty:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.batch-import-btn-empty svg {
+  flex-shrink: 0;
 }
 
 .loading-state {

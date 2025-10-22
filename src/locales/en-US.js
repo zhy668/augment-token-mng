@@ -154,7 +154,6 @@ export default {
   tokenList: {
     title: 'Saved Tokens',
     empty: 'No saved tokens yet',
-    emptyDescription: 'Close this window and generate your first token on the main page',
     loading: 'Loading tokens...',
     listTitle: 'Token List ({count})',
     refresh: 'Refresh',

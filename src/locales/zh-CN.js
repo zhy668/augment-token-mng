@@ -154,7 +154,6 @@ export default {
   tokenList: {
     title: '已保存Token',
     empty: '还没有保存的Token',
-    emptyDescription: '关闭此窗口，在主页面生成你的第一个Token',
     loading: '正在加载Token...',
     listTitle: 'Token列表 ({count})',
     refresh: '刷新',

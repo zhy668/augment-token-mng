@@ -44,11 +44,11 @@ struct GitHubRelease {
     body: Option<String>,
 }
 
-// App Session 缓存结构
+// App Session 缓存结构 (公开以便其他模块使用)
 #[derive(Clone)]
-struct AppSessionCache {
-    app_session: String,
-    created_at: SystemTime,
+pub struct AppSessionCache {
+    pub app_session: String,
+    pub created_at: SystemTime,
 }
 
 // Global state to store OAuth state and storage managers
@@ -59,7 +59,7 @@ struct AppState {
     storage_manager: Arc<Mutex<Option<Arc<DualStorage>>>>,
     database_manager: Arc<Mutex<Option<Arc<DatabaseManager>>>>,
     // App session 缓存: key 为 auth_session, value 为缓存的 app_session
-    app_session_cache: Mutex<HashMap<String, AppSessionCache>>,
+    app_session_cache: Arc<Mutex<HashMap<String, AppSessionCache>>>,
 }
 
 #[tauri::command]
@@ -122,8 +122,11 @@ async fn check_account_status(token: String, tenant_url: String) -> Result<Accou
 }
 
 #[tauri::command]
-async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenStatusResult>, String> {
-    batch_check_account_status(tokens)
+async fn batch_check_tokens_status(
+    tokens: Vec<TokenInfo>,
+    state: State<'_, AppState>,
+) -> Result<Vec<TokenStatusResult>, String> {
+    batch_check_account_status(tokens, state.app_session_cache.clone())
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
@@ -1614,7 +1617,7 @@ fn main() {
                 outlook_manager: Mutex::new(OutlookManager::new()),
                 storage_manager: Arc::new(Mutex::new(None)),
                 database_manager: Arc::new(Mutex::new(None)),
-                app_session_cache: Mutex::new(HashMap::new()),
+                app_session_cache: Arc::new(Mutex::new(HashMap::new())),
             };
 
             app.manage(app_state);

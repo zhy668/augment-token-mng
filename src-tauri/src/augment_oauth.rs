@@ -336,19 +336,21 @@ pub async fn check_account_ban_status(
 
 // 批量检测账号状态
 pub async fn batch_check_account_status(
-    tokens: Vec<TokenInfo>
+    tokens: Vec<TokenInfo>,
+    app_session_cache: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, crate::AppSessionCache>>>,
 ) -> Result<Vec<TokenStatusResult>, String> {
 
 
     // 创建并发任务并立即spawn
     let mut handles = Vec::new();
-    
+
     for token_info in tokens {
         let mut token = token_info.access_token.clone();
         let mut tenant_url = token_info.tenant_url.clone();
         let token_id = token_info.id.clone();
         let portal_url = token_info.portal_url.clone();
         let auth_session = token_info.auth_session.clone();
+        let cache = app_session_cache.clone();
 
         let handle = tokio::spawn(async move {
             println!("Checking status for token: {:?}", token_id);
@@ -481,11 +483,111 @@ pub async fn batch_check_account_status(
                 };
             }
 
-            // 4. 如果账号未封禁且有Portal URL，获取Portal信息
-            let (portal_info, portal_error) = if let Some(ref portal_url_ref) = portal_url {
+            // 4. 获取余额和过期时间信息
+            // 优先使用 auth_session,其次使用 portal_url
+            let (portal_info, portal_error) = if let Some(ref session) = auth_session {
+                // 优先使用 auth_session 获取信息(使用缓存)
+                println!("Using auth_session to fetch credits and expiry for {:?}", token_id);
+
+                // 1. 检查缓存
+                let cached_app_session = {
+                    let cache_lock = cache.lock().unwrap();
+                    cache_lock.get(session).map(|c| c.app_session.clone())
+                };
+
+                // 2. 尝试使用缓存的 app_session
+                let user_info_result = if let Some(app_session) = cached_app_session {
+                    println!("Using cached app_session for user info");
+                    match crate::augment_user_info::get_user_info_with_app_session(&app_session).await {
+                        Ok(info) => Ok(info),
+                        Err(e) => {
+                            println!("Cached app_session failed: {}, will refresh", e);
+                            // 缓存失效,获取新的
+                            match crate::augment_user_info::exchange_auth_session_for_app_session(session).await {
+                                Ok(new_app_session) => {
+                                    // 更新缓存
+                                    {
+                                        let mut cache_lock = cache.lock().unwrap();
+                                        cache_lock.insert(
+                                            session.clone(),
+                                            crate::AppSessionCache {
+                                                app_session: new_app_session.clone(),
+                                                created_at: std::time::SystemTime::now(),
+                                            },
+                                        );
+                                    }
+                                    crate::augment_user_info::get_user_info_with_app_session(&new_app_session).await
+                                }
+                                Err(e) => Err(e)
+                            }
+                        }
+                    }
+                } else {
+                    // 没有缓存,获取新的
+                    println!("No cached app_session, exchanging new one");
+                    match crate::augment_user_info::exchange_auth_session_for_app_session(session).await {
+                        Ok(new_app_session) => {
+                            // 更新缓存
+                            {
+                                let mut cache_lock = cache.lock().unwrap();
+                                cache_lock.insert(
+                                    session.clone(),
+                                    crate::AppSessionCache {
+                                        app_session: new_app_session.clone(),
+                                        created_at: std::time::SystemTime::now(),
+                                    },
+                                );
+                            }
+                            crate::augment_user_info::get_user_info_with_app_session(&new_app_session).await
+                        }
+                        Err(e) => Err(e)
+                    }
+                };
+
+                // 3. 处理结果
+                match user_info_result {
+                    Ok(user_info) => {
+                        let credits_balance = user_info.credits_balance.unwrap_or(0);
+                        let expiry_date = user_info.expiry_date;
+
+                        // 判断是否可以继续使用
+                        let can_still_use = if credits_balance == 0 {
+                            // 如果余额为0，检查订阅状态
+                            match check_subscription_info(token.clone(), tenant_url.clone()).await {
+                                Ok(can_use) => can_use,
+                                Err(err) => {
+                                    println!("Failed to check subscription info: {}", err);
+                                    false
+                                }
+                            }
+                        } else {
+                            true
+                        };
+
+                        // 如果账号状态为 EXPIRED，则无论上面检测结果如何，都视为不可使用
+                        let can_still_use = if status_result.status == "EXPIRED" {
+                            false
+                        } else {
+                            can_still_use
+                        };
+
+                        (Some(PortalInfo {
+                            credits_balance,
+                            expiry_date,
+                            can_still_use,
+                        }), None)
+                    }
+                    Err(err) => {
+                        println!("Failed to fetch user info with auth_session: {}", err);
+                        (None, Some(format!("Failed to fetch user info: {}", err)))
+                    }
+                }
+            } else if let Some(ref portal_url_ref) = portal_url {
+                // 没有 auth_session,使用 portal_url
+                println!("Using portal_url to fetch credits and expiry for {:?}", token_id);
                 match get_portal_info(portal_url_ref).await {
                     Ok(mut portal_info) => {
-                        // 4. 如果credits_balance为0，检查订阅状态
+                        // 如果credits_balance为0，检查订阅状态
                         if portal_info.credits_balance == 0 {
                             match check_subscription_info(token.clone(), tenant_url.clone()).await {
                                 Ok(can_use) => {
@@ -510,6 +612,8 @@ pub async fn batch_check_account_status(
                     Err(err) => (None, Some(err))
                 }
             } else {
+                // 既没有 auth_session 也没有 portal_url
+                println!("No auth_session or portal_url available for {:?}", token_id);
                 (None, None)
             };
 
@@ -817,7 +921,7 @@ pub struct DateRange {
 /// Credit 消费响应
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreditConsumptionResponse {
-    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"))]
+    #[serde(rename(serialize = "data_points", deserialize = "dataPoints"), default)]
     pub data_points: Vec<CreditDataPoint>,
 }
 
@@ -826,27 +930,6 @@ pub struct CreditConsumptionResponse {
 pub struct BatchCreditConsumptionResponse {
     pub stats_data: CreditConsumptionResponse,
     pub chart_data: CreditConsumptionResponse,
-}
-
-/// 验证 app_session 是否有效
-pub async fn validate_app_session(app_session: &str) -> bool {
-    let client = match create_proxy_client() {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-
-    // 尝试访问一个简单的 API 来验证 session
-    let response = client
-        .get("https://app.augmentcode.com/api/user")
-        .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        .send()
-        .await;
-
-    match response {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
-    }
 }
 
 /// 使用已有的 app_session 获取 Credit 消费数据
@@ -921,16 +1004,4 @@ pub async fn get_batch_credit_consumption_with_app_session(
         stats_data,
         chart_data,
     })
-}
-
-/// 批量获取 Credit 消费数据(stats 和 chart)
-pub async fn get_batch_credit_consumption(
-    auth_session: &str,
-) -> Result<BatchCreditConsumptionResponse, String> {
-    // 只交换一次 app_session
-    println!("Exchanging auth_session for app_session...");
-    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
-    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
-
-    get_batch_credit_consumption_with_app_session(&app_session).await
 }

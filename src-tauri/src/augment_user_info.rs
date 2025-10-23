@@ -13,8 +13,8 @@ pub struct UserInfo {
 pub struct SubscriptionInfo {
     #[serde(rename = "portalUrl")]
     pub portal_url: Option<String>,
-    #[serde(rename = "subscriptionEndDate")]
-    pub subscription_end_date: Option<String>,
+    #[serde(rename = "billingPeriodEnd")]
+    pub billing_period_end: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -153,7 +153,7 @@ pub async fn get_user_info_with_app_session(app_session: &str) -> Result<Complet
     );
 
     let user_info = user_result.ok();
-    let subscription_info = subscription_result.ok();
+    let subscription_info: Option<SubscriptionInfo> = subscription_result.ok();
     let credits_info = credits_result.ok();
 
     // 计算 ban_status
@@ -187,7 +187,7 @@ pub async fn get_user_info_with_app_session(app_session: &str) -> Result<Complet
         email_note: user_info.as_ref().and_then(|u| u.email.clone()),
         suspensions: user_info.and_then(|u| u.suspensions),
         portal_url: subscription_info.as_ref().and_then(|s| s.portal_url.clone()),
-        expiry_date: subscription_info.and_then(|s| s.subscription_end_date),
+        expiry_date: subscription_info.and_then(|s| s.billing_period_end),
         credits_balance: credits_info.and_then(|c| c.usage_units_available),
         ban_status,
     })

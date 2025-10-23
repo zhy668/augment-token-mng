@@ -28,7 +28,7 @@
       <div class="stat-card">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+            <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
           </svg>
         </div>
         <div class="stat-content">
@@ -36,6 +36,12 @@
             <div class="metric-block">
               <div class="metric-label">{{ $t('credit.today') }}</div>
               <div class="metric-value">{{ todayCreditsDisplay }}</div>
+              <div class="metric-unit">{{ $t('credit.credits') }}</div>
+            </div>
+            <div class="metric-divider" aria-hidden="true"></div>
+            <div class="metric-block">
+              <div class="metric-label">{{ $t('credit.total') }}</div>
+              <div class="metric-value">{{ totalCreditsDisplay }}</div>
               <div class="metric-unit">{{ $t('credit.credits') }}</div>
             </div>
             <div class="metric-divider" aria-hidden="true"></div>
@@ -97,6 +103,16 @@ const todayCredits = computed(() => {
   return latestPoint?.credits_consumed || '0'
 })
 
+const totalCredits = computed(() => {
+  if (!props.statsData?.data_points?.length) return '0'
+  // 计算所有数据点的总消耗
+  const total = props.statsData.data_points.reduce((sum, point) => {
+    const consumed = parseInt(point.credits_consumed) || 0
+    return sum + consumed
+  }, 0)
+  return total.toString()
+})
+
 const formatCredits = (value) => {
   if (value === null || value === undefined || value === '') {
     return '--'
@@ -109,6 +125,8 @@ const formatCredits = (value) => {
 }
 
 const todayCreditsDisplay = computed(() => formatCredits(todayCredits.value))
+
+const totalCreditsDisplay = computed(() => formatCredits(totalCredits.value))
 
 const remainingCreditsDisplay = computed(() => formatCredits(props.remainingCredits))
 

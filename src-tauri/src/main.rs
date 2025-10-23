@@ -12,8 +12,8 @@ mod http_client;
 mod proxy_config;
 mod proxy_helper;
 
-use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, get_batch_credit_consumption, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult, BatchCreditConsumptionResponse};
-use augment_user_info::{get_user_info, CompleteUserInfo};
+use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, complete_augment_oauth_flow, check_account_ban_status, batch_check_account_status, extract_token_from_session, get_batch_credit_consumption_with_app_session, AugmentOAuthState, AugmentTokenResponse, AccountStatus, TokenInfo, TokenStatusResult, BatchCreditConsumptionResponse};
+use augment_user_info::{get_user_info, get_user_info_with_app_session, CompleteUserInfo, exchange_auth_session_for_app_session};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
 use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus, AccountInfo};
@@ -21,6 +21,8 @@ use database::{DatabaseConfig, DatabaseConfigManager, DatabaseManager};
 use storage::{DualStorage, LocalFileStorage, PostgreSQLStorage, TokenStorage, SyncManager};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::collections::HashMap;
+use std::time::SystemTime;
 use tauri::{State, Manager, Emitter, WebviewWindowBuilder, WebviewUrl};
 use chrono;
 use serde::{Serialize, Deserialize};
@@ -42,6 +44,13 @@ struct GitHubRelease {
     body: Option<String>,
 }
 
+// App Session 缓存结构
+#[derive(Clone)]
+struct AppSessionCache {
+    app_session: String,
+    created_at: SystemTime,
+}
+
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
@@ -49,6 +58,8 @@ struct AppState {
     outlook_manager: Mutex<OutlookManager>,
     storage_manager: Arc<Mutex<Option<Arc<DualStorage>>>>,
     database_manager: Arc<Mutex<Option<Arc<DatabaseManager>>>>,
+    // App session 缓存: key 为 auth_session, value 为缓存的 app_session
+    app_session_cache: Mutex<HashMap<String, AppSessionCache>>,
 }
 
 #[tauri::command]
@@ -117,12 +128,55 @@ async fn batch_check_tokens_status(tokens: Vec<TokenInfo>) -> Result<Vec<TokenSt
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
 
-/// 批量获取 Credit 消费数据(stats 和 chart),只交换一次 app_session
+/// 批量获取 Credit 消费数据(stats 和 chart),使用缓存的 app_session
 #[tauri::command]
 async fn fetch_batch_credit_consumption(
     auth_session: String,
+    state: State<'_, AppState>,
 ) -> Result<BatchCreditConsumptionResponse, String> {
-    get_batch_credit_consumption(&auth_session).await
+    // 1. 检查缓存中是否有有效的 app_session
+    let cached_app_session = {
+        let cache = state.app_session_cache.lock().unwrap();
+        cache.get(&auth_session).map(|c| c.app_session.clone())
+    };
+
+    // 2. 如果有缓存，先尝试使用缓存的 app_session
+    if let Some(app_session) = cached_app_session {
+        println!("Using cached app_session for credit consumption");
+
+        // 尝试使用缓存的 app_session 获取数据
+        match get_batch_credit_consumption_with_app_session(&app_session).await {
+            Ok(result) => {
+                println!("Successfully fetched credit data with cached app_session");
+                return Ok(result);
+            }
+            Err(e) => {
+                // 如果失败（可能是 session 过期），记录日志并继续获取新的
+                println!("Cached app_session failed: {}, will refresh", e);
+            }
+        }
+    }
+
+    // 3. 没有缓存或缓存失效，获取新的 app_session
+    println!("Exchanging auth_session for new app_session...");
+    let app_session = exchange_auth_session_for_app_session(&auth_session).await?;
+    println!("New app session obtained: {}", &app_session[..20.min(app_session.len())]);
+
+    // 4. 更新缓存
+    {
+        let mut cache = state.app_session_cache.lock().unwrap();
+        cache.insert(
+            auth_session.clone(),
+            AppSessionCache {
+                app_session: app_session.clone(),
+                created_at: SystemTime::now(),
+            },
+        );
+        println!("App session cached for future use");
+    }
+
+    // 5. 使用新的 app_session 获取数据
+    get_batch_credit_consumption_with_app_session(&app_session).await
 }
 
 // Version comparison helper
@@ -192,7 +246,72 @@ struct TokenFromSessionResponse {
     user_info: CompleteUserInfo,
 }
 
-// 内部函数,不发送进度事件
+// 内部函数,不发送进度事件,使用缓存的 app_session
+async fn add_token_from_session_internal_with_cache(
+    session: &str,
+    state: &AppState,
+) -> Result<TokenFromSessionResponse, String> {
+    // 1. 从 session 提取 token
+    let token_response = extract_token_from_session(session).await?;
+
+    // 2. 检查缓存中是否有有效的 app_session
+    let cached_app_session = {
+        let cache = state.app_session_cache.lock().unwrap();
+        cache.get(session).map(|c| c.app_session.clone())
+    };
+
+    // 3. 尝试使用缓存的 app_session 获取用户信息
+    let user_info = if let Some(app_session) = cached_app_session {
+        println!("Using cached app_session for user info");
+        match get_user_info_with_app_session(&app_session).await {
+            Ok(info) => {
+                println!("Successfully fetched user info with cached app_session");
+                info
+            }
+            Err(e) => {
+                println!("Cached app_session failed: {}, will refresh", e);
+                // 缓存失效，获取新的
+                let app_session = exchange_auth_session_for_app_session(session).await?;
+                // 更新缓存
+                {
+                    let mut cache = state.app_session_cache.lock().unwrap();
+                    cache.insert(
+                        session.to_string(),
+                        AppSessionCache {
+                            app_session: app_session.clone(),
+                            created_at: SystemTime::now(),
+                        },
+                    );
+                }
+                get_user_info_with_app_session(&app_session).await?
+            }
+        }
+    } else {
+        // 没有缓存，获取新的 app_session
+        println!("No cached app_session, exchanging new one");
+        let app_session = exchange_auth_session_for_app_session(session).await?;
+        // 更新缓存
+        {
+            let mut cache = state.app_session_cache.lock().unwrap();
+            cache.insert(
+                session.to_string(),
+                AppSessionCache {
+                    app_session: app_session.clone(),
+                    created_at: SystemTime::now(),
+                },
+            );
+        }
+        get_user_info_with_app_session(&app_session).await?
+    };
+
+    Ok(TokenFromSessionResponse {
+        access_token: token_response.access_token,
+        tenant_url: token_response.tenant_url,
+        user_info,
+    })
+}
+
+// 内部函数,不发送进度事件（保留用于向后兼容）
 async fn add_token_from_session_internal(session: &str) -> Result<TokenFromSessionResponse, String> {
     // 1. 从 session 提取 token
     let token_response = extract_token_from_session(session).await?;
@@ -208,14 +327,66 @@ async fn add_token_from_session_internal(session: &str) -> Result<TokenFromSessi
 }
 
 #[tauri::command]
-async fn add_token_from_session(session: String, app: tauri::AppHandle) -> Result<TokenFromSessionResponse, String> {
+async fn add_token_from_session(
+    session: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<TokenFromSessionResponse, String> {
     // 1. 从 session 提取 token
     let _ = app.emit("session-import-progress", "sessionImportExtractingToken");
     let token_response = extract_token_from_session(&session).await?;
 
-    // 2. 获取用户信息
+    // 2. 检查缓存中是否有有效的 app_session
     let _ = app.emit("session-import-progress", "sessionImportGettingUserInfo");
-    let user_info = get_user_info(&session).await?;
+
+    let cached_app_session = {
+        let cache = state.app_session_cache.lock().unwrap();
+        cache.get(&session).map(|c| c.app_session.clone())
+    };
+
+    // 3. 尝试使用缓存的 app_session 获取用户信息
+    let user_info = if let Some(app_session) = cached_app_session {
+        println!("Using cached app_session for user info");
+        match get_user_info_with_app_session(&app_session).await {
+            Ok(info) => {
+                println!("Successfully fetched user info with cached app_session");
+                info
+            }
+            Err(e) => {
+                println!("Cached app_session failed: {}, will refresh", e);
+                // 缓存失效，获取新的
+                let app_session = exchange_auth_session_for_app_session(&session).await?;
+                // 更新缓存
+                {
+                    let mut cache = state.app_session_cache.lock().unwrap();
+                    cache.insert(
+                        session.clone(),
+                        AppSessionCache {
+                            app_session: app_session.clone(),
+                            created_at: SystemTime::now(),
+                        },
+                    );
+                }
+                get_user_info_with_app_session(&app_session).await?
+            }
+        }
+    } else {
+        // 没有缓存，获取新的 app_session
+        println!("No cached app_session, exchanging new one");
+        let app_session = exchange_auth_session_for_app_session(&session).await?;
+        // 更新缓存
+        {
+            let mut cache = state.app_session_cache.lock().unwrap();
+            cache.insert(
+                session.clone(),
+                AppSessionCache {
+                    app_session: app_session.clone(),
+                    created_at: SystemTime::now(),
+                },
+            );
+        }
+        get_user_info_with_app_session(&app_session).await?
+    };
 
     let _ = app.emit("session-import-progress", "sessionImportComplete");
 
@@ -609,8 +780,9 @@ async fn open_internal_browser(
                                 let session_value = session_cookie.value().to_string();
                                 eprintln!("Found session cookie, attempting to import token...");
 
-                                // 调用内部函数获取 token
-                                match add_token_from_session_internal(&session_value).await {
+                                // 获取 AppState 并调用带缓存的内部函数
+                                let state = app_handle_clone.state::<AppState>();
+                                match add_token_from_session_internal_with_cache(&session_value, &state).await {
                                     Ok(token_data) => {
                                         eprintln!("Successfully imported token from session");
 
@@ -1442,6 +1614,7 @@ fn main() {
                 outlook_manager: Mutex::new(OutlookManager::new()),
                 storage_manager: Arc::new(Mutex::new(None)),
                 database_manager: Arc::new(Mutex::new(None)),
+                app_session_cache: Mutex::new(HashMap::new()),
             };
 
             app.manage(app_state);

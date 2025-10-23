@@ -796,8 +796,13 @@ pub struct CreditDataPoint {
     pub group_key: Option<String>, // 模型名称
     #[serde(rename(serialize = "date_range", deserialize = "dateRange"))]
     pub date_range: Option<DateRange>,
-    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"))]
+    #[serde(rename(serialize = "credits_consumed", deserialize = "creditsConsumed"), default = "default_credits_consumed")]
     pub credits_consumed: String,
+}
+
+/// 默认值函数：当 creditsConsumed 字段缺失时返回 "0"
+fn default_credits_consumed() -> String {
+    "0".to_string()
 }
 
 /// 日期范围
@@ -823,15 +828,31 @@ pub struct BatchCreditConsumptionResponse {
     pub chart_data: CreditConsumptionResponse,
 }
 
-/// 批量获取 Credit 消费数据(stats 和 chart)
-pub async fn get_batch_credit_consumption(
-    auth_session: &str,
-) -> Result<BatchCreditConsumptionResponse, String> {
-    // 只交换一次 app_session
-    println!("Exchanging auth_session for app_session...");
-    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
-    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
+/// 验证 app_session 是否有效
+pub async fn validate_app_session(app_session: &str) -> bool {
+    let client = match create_proxy_client() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
 
+    // 尝试访问一个简单的 API 来验证 session
+    let response = client
+        .get("https://app.augmentcode.com/api/user")
+        .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await;
+
+    match response {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+/// 使用已有的 app_session 获取 Credit 消费数据
+pub async fn get_batch_credit_consumption_with_app_session(
+    app_session: &str,
+) -> Result<BatchCreditConsumptionResponse, String> {
     // 使用 ProxyClient
     let client = create_proxy_client()?;
 
@@ -846,7 +867,7 @@ pub async fn get_batch_credit_consumption(
         async {
             let response = client
                 .get(stats_url)
-                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .header("Accept", "application/json")
                 .send()
@@ -870,7 +891,7 @@ pub async fn get_batch_credit_consumption(
         async {
             let response = client
                 .get(chart_url)
-                .header("Cookie", format!("_session={}", urlencoding::encode(&app_session)))
+                .header("Cookie", format!("_session={}", urlencoding::encode(app_session)))
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .header("Accept", "application/json")
                 .send()
@@ -900,4 +921,16 @@ pub async fn get_batch_credit_consumption(
         stats_data,
         chart_data,
     })
+}
+
+/// 批量获取 Credit 消费数据(stats 和 chart)
+pub async fn get_batch_credit_consumption(
+    auth_session: &str,
+) -> Result<BatchCreditConsumptionResponse, String> {
+    // 只交换一次 app_session
+    println!("Exchanging auth_session for app_session...");
+    let app_session = exchange_auth_session_for_app_session(auth_session).await?;
+    println!("App session obtained: {}", &app_session[..20.min(app_session.len())]);
+
+    get_batch_credit_consumption_with_app_session(&app_session).await
 }

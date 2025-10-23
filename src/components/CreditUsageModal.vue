@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click="handleClose">
+  <div class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <div class="header-title">

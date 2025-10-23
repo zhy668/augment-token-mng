@@ -172,7 +172,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close', 'success', 'update-token', 'add-token'])
+const emit = defineEmits(['close', 'success', 'update-token', 'add-token', 'manual-import-completed'])
 
 // Reactive data
 const formData = ref({

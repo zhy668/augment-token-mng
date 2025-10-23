@@ -11,13 +11,6 @@
             </div>
           </div>
           <div class="header-actions">
-
-            <button @click="handleSave" class="btn success small" :disabled="isSaving">
-              <svg v-if="!isSaving" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-              </svg>
-              {{ isSaving ? $t('loading.saving') : $t('tokenList.save') }}
-            </button>
             <!-- 数据库配置按钮 -->
             <button @click="showDatabaseConfig = true" class="btn info small">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -334,7 +327,6 @@ const props = defineProps({
 // 内部状态管理 - TokenList直接管理tokens和存储状态
 const tokens = ref([])
 const isLoading = ref(false)
-const hasUnsavedChanges = ref(false)
 const isDatabaseAvailable = ref(false)
 
 // 初始化就绪标记
@@ -770,12 +762,11 @@ const tokenCardRefs = ref({})
 
 // Computed properties for storage status display
 const storageStatusText = computed(() => {
-  const baseText = isDatabaseAvailable.value ? t('storage.dualStorage') : t('storage.localStorage')
-  return hasUnsavedChanges.value ? `${baseText}-${t('storage.unsaved')}` : baseText
+  return isDatabaseAvailable.value ? t('storage.dualStorage') : t('storage.localStorage')
 })
 
 const storageStatusClass = computed(() => {
-  return hasUnsavedChanges.value ? 'unsaved' : 'saved'
+  return 'saved'
 })
 
 
@@ -816,7 +807,7 @@ const setTokenCardRef = (el, tokenId) => {
 
 // 处理 Token 更新事件
 const handleTokenUpdated = () => {
-  hasUnsavedChanges.value = true
+  // Token 更新时不再设置未保存状态，关闭时会自动保存
 }
 
 // 检查所有Token的账号状态
@@ -906,9 +897,6 @@ const updateTokensFromResults = (results) => {
       console.log(`Updated token ${token.id} status to: ${statusResult.status}`)
     }
   })
-
-  // 标记有未保存的更改
-  hasUnsavedChanges.value = true
 }
 
 const loadTokens = async (showSuccessMessage = false) => {
@@ -925,14 +913,12 @@ const loadTokens = async (showSuccessMessage = false) => {
       tokens.value = []
     }
 
-    hasUnsavedChanges.value = false
     if (showSuccessMessage) {
       window.$notify.success(t('messages.tokenLoadSuccess'))
     }
   } catch (error) {
     window.$notify.error(`${t('messages.tokenLoadFailed')}: ${error}`)
     tokens.value = []
-    hasUnsavedChanges.value = false
   } finally {
     isLoading.value = false
   }
@@ -942,7 +928,6 @@ const saveTokens = async (showSuccessMessage = false) => {
   try {
     const jsonString = JSON.stringify(tokens.value, null, 2)
     await invoke('save_tokens_json', { jsonString })
-    hasUnsavedChanges.value = false
     if (showSuccessMessage) {
       window.$notify.success(t('messages.tokenSaved'))
     }
@@ -963,9 +948,7 @@ const deleteToken = (tokenId) => {
   // 从内存中删除
   tokens.value = tokens.value.filter(token => token.id !== tokenId)
   window.$notify.success(t('messages.tokenDeleted'))
-  hasUnsavedChanges.value = true
-  
-  
+
   // 异步删除后端数据（不阻塞UI）
   invoke('delete_token', { tokenId }).catch(error => {
     console.log('Backend delete failed:', error)
@@ -996,12 +979,12 @@ const handleTokenFormSuccess = () => {
   if (editingToken.value) {
     // 编辑模式总是关闭
     closeTokenForm()
-    window.$notify.success(t('messages.tokenUpdatedToMemory'))
+    window.$notify.success(t('messages.tokenUpdated'))
   } else {
     // 添加模式：只有成功时才关闭和提示
     if (lastAddTokenSuccess.value) {
       closeTokenForm()
-      window.$notify.success(t('messages.tokenAddedToMemory'))
+      window.$notify.success(t('messages.tokenSaved'))
     }
     // 如果失败（重复），不关闭对话框，已经显示了警告并高亮了重复的 token
   }
@@ -1019,7 +1002,6 @@ const handleUpdateToken = (updatedTokenData) => {
       email_note: updatedTokenData.emailNote || null,
       updated_at: new Date().toISOString()  // 更新 updated_at 时间戳
     }
-    hasUnsavedChanges.value = true
   }
 }
 
@@ -1090,7 +1072,6 @@ const addToken = (tokenData) => {
   }
 
   tokens.value.push(newToken)
-  hasUnsavedChanges.value = true
   return { success: true, token: newToken }
 }
 
@@ -1149,30 +1130,28 @@ const highlightAndScrollTo = (tokenId) => {
   })
 }
 
-// 处理关闭事件
-const handleClose = () => {
-  // 如果有未保存的更改，显示提示并阻止关闭
-  if (hasUnsavedChanges.value) {
-    window.$notify.warning(t('messages.unsavedChangesClose'))
-    return
+// 处理关闭事件 - 关闭前自动保存
+const handleClose = async () => {
+  try {
+    // 关闭前自动保存
+    await handleSave()
+    // 保存成功后关闭
+    emit('close')
+  } catch (error) {
+    // 保存失败时阻止关闭
+    window.$notify.error(t('messages.autoSaveFailedCannotClose'))
   }
-
-  // 没有未保存更改，正常关闭
-  emit('close')
 }
 
 // 处理刷新事件 - 智能刷新逻辑
 const handleRefresh = async () => {
-  // 如果有未保存的更改，警告用户
-  if (hasUnsavedChanges.value) {
-    window.$notify.warning(t('messages.unsavedChangesRefresh'))
-    return
-  }
-
   if (isRefreshing.value) return
   isRefreshing.value = true
 
   try {
+    // 刷新前先保存当前数据
+    await handleSave()
+
     // 统一开始通知
     window.$notify.info(t('messages.refreshingTokenStatus'))
 
@@ -1221,30 +1200,25 @@ const handleDatabaseConfigDeleted = async () => {
 
 
 
-// 智能保存方法
+// 自动保存方法（静默保存，不显示提示）
 const handleSave = async () => {
   if (isSaving.value) return
 
   isSaving.value = true
   try {
     if (isDatabaseAvailable.value) {
-      window.$notify.info(t('messages.bidirectionalSyncing'))
-
-      // 将内存中的 tokens 转换为 JSON 字符串传给后端
+      // 双向存储模式：执行双向同步
       const tokensJson = JSON.stringify(tokens.value)
       await invoke('bidirectional_sync_tokens_with_data', { tokensJson })
-
-      window.$notify.success(t('messages.bidirectionalSyncSaveComplete'))
-
       // 双向同步完成后刷新本地显示
       await loadTokens(false)
-      hasUnsavedChanges.value = false
     } else {
       // 本地存储模式：直接保存
-      await saveTokens(true)
+      await saveTokens(false)
     }
   } catch (error) {
-    window.$notify.error(`${t('messages.saveFailed')}: ${error}`)
+    // 保存失败时抛出错误，由调用方处理
+    throw error
   } finally {
     isSaving.value = false
   }

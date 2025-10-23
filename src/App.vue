@@ -896,7 +896,7 @@ const saveToken = async () => {
     // 通过TokenList添加token
     if (tokenListRef.value) {
       tokenListRef.value.addToken(tokenData)
-      showStatus(t('messages.tokenAddedToMemory'), 'success')
+      showStatus(t('messages.tokenSaved'), 'success')
     } else {
       // 如果仍然无法获取 ref，说明有问题
       showStatus(t('messages.tokenSaveFailed') + ': TokenList not available', 'error')

@@ -266,7 +266,7 @@ const saveAndClose = async () => {
       portalUrl: portalUrl.value.trim() || null,
       emailNote: emailNote.value.trim() || null
     })
-    showStatus('Token已添加到内存，请手动保存', 'success')
+    showStatus('Token已保存', 'success')
     emit('token-saved')
     setTimeout(() => {
       emit('close')

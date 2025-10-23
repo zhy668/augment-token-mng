@@ -202,7 +202,11 @@
                     <span class="format-title">{{ $t('tokenList.format1Title') }}</span>
                   </div>
                   <p class="format-desc">{{ $t('tokenList.format1Desc') }}</p>
-                  <button @click="fillSessionTemplate" class="btn-fill-template">
+                  <button
+                    @click="fillSessionTemplate()"
+                    @contextmenu="handleContextMenu($event, 'session')"
+                    class="btn-fill-template"
+                  >
                     {{ $t('tokenList.fillTemplate') }}
                   </button>
                 </div>
@@ -211,7 +215,11 @@
                     <span class="format-title">{{ $t('tokenList.format2Title') }}</span>
                   </div>
                   <p class="format-desc">{{ $t('tokenList.format2Desc') }}</p>
-                  <button @click="fillTokenTemplate" class="btn-fill-template">
+                  <button
+                    @click="fillTokenTemplate()"
+                    @contextmenu="handleContextMenu($event, 'token')"
+                    class="btn-fill-template"
+                  >
                     {{ $t('tokenList.fillTemplate') }}
                   </button>
                 </div>
@@ -264,6 +272,43 @@
           </div>
         </div>
       </Transition>
+    </Teleport>
+
+    <!-- Context Menu for Fill Template -->
+    <Teleport to="body">
+      <div
+        v-if="showContextMenu"
+        class="context-menu-overlay"
+        @click="closeContextMenu"
+      >
+        <div
+          class="context-menu"
+          :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+          @click.stop
+        >
+          <div class="context-menu-header">{{ $t('tokenList.selectFillCount') }}</div>
+          <div class="context-menu-custom">
+            <input
+              v-model.number="customFillCount"
+              type="number"
+              min="1"
+              max="100"
+              :placeholder="$t('tokenList.customCount')"
+              class="custom-count-input"
+              @click.stop
+            />
+            <button @click="fillWithCustomCount" class="btn-custom-fill">
+              {{ $t('common.confirm') }}
+            </button>
+          </div>
+          <div class="context-menu-divider"></div>
+          <div class="context-menu-item" @click="selectFillCount(1)">1</div>
+          <div class="context-menu-item" @click="selectFillCount(3)">3</div>
+          <div class="context-menu-item" @click="selectFillCount(5)">5</div>
+          <div class="context-menu-item" @click="selectFillCount(10)">10</div>
+          <div class="context-menu-item" @click="selectFillCount(20)">20</div>
+        </div>
+      </div>
     </Teleport>
 
     <!-- Batch Delete Confirmation Dialog -->
@@ -353,24 +398,34 @@ const isImporting = ref(false)
 const importPreview = ref([])
 const importErrors = ref([])
 
+// 右键菜单状态
+const showContextMenu = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuType = ref('') // 'session' 或 'token'
+const customFillCount = ref(1)
+
 // 填充 Session 模板
-const fillSessionTemplate = () => {
-  importJsonText.value = JSON.stringify([
-    'session1'
-  ], null, 2)
+const fillSessionTemplate = (count = 1) => {
+  const sessions = []
+  for (let i = 0; i < count; i++) {
+    sessions.push(i === 0 ? 'session1' : '')
+  }
+  importJsonText.value = JSON.stringify(sessions, null, 2)
   validateImportJson()
 }
 
 // 填充 Token 模板
-const fillTokenTemplate = () => {
-  importJsonText.value = JSON.stringify([
-    {
-      access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-      tenant_url: 'https://example.com',
-      email_note: 'user@example.com',
-      portal_url: 'https://portal.example.com'
-    }
-  ], null, 2)
+const fillTokenTemplate = (count = 1) => {
+  const tokens = []
+  for (let i = 0; i < count; i++) {
+    tokens.push({
+      access_token: i === 0 ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' : '',
+      tenant_url: i === 0 ? 'https://example.com' : '',
+      email_note: i === 0 ? 'user@example.com' : '',
+      portal_url: i === 0 ? 'https://portal.example.com' : ''
+    })
+  }
+  importJsonText.value = JSON.stringify(tokens, null, 2)
   validateImportJson()
 }
 
@@ -435,6 +490,43 @@ const toggleSort = () => {
       highlightTimer = null
     }
   }
+}
+
+// 处理右键菜单
+const handleContextMenu = (event, type) => {
+  event.preventDefault()
+  contextMenuType.value = type
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  showContextMenu.value = true
+}
+
+// 关闭右键菜单
+const closeContextMenu = () => {
+  showContextMenu.value = false
+}
+
+// 选择填充数量
+const selectFillCount = (count) => {
+  if (contextMenuType.value === 'session') {
+    fillSessionTemplate(count)
+  } else if (contextMenuType.value === 'token') {
+    fillTokenTemplate(count)
+  }
+  closeContextMenu()
+}
+
+// 使用自定义数量填充
+const fillWithCustomCount = () => {
+  const count = parseInt(customFillCount.value)
+  if (isNaN(count) || count < 1) {
+    window.$notify.warning(t('tokenList.invalidFillCount'))
+    return
+  }
+  if (count > 100) {
+    window.$notify.warning(t('tokenList.fillCountTooLarge'))
+    return
+  }
+  selectFillCount(count)
 }
 
 // 显示批量删除确认对话框
@@ -1743,6 +1835,99 @@ defineExpose({
   gap: 8px;
   color: var(--color-success, #10b981);
   font-weight: 600;
+}
+
+/* 右键菜单 */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20000;
+}
+
+.context-menu {
+  position: fixed;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 20001;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.context-menu-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-surface-hover, #f3f4f6);
+  border-bottom: 1px solid var(--color-divider, #e1e5e9);
+}
+
+.context-menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--color-text-primary, #374151);
+  transition: background 0.2s ease;
+  font-size: 14px;
+}
+
+.context-menu-item:hover {
+  background: var(--color-primary-light, #e0f2fe);
+  color: var(--color-primary, #0ea5e9);
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--color-divider, #e1e5e9);
+  margin: 4px 0;
+}
+
+.context-menu-custom {
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.custom-count-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--color-divider, #e1e5e9);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--color-text-primary, #374151);
+  background: var(--color-surface, #ffffff);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.custom-count-input:focus {
+  border-color: var(--color-primary, #0ea5e9);
+}
+
+.custom-count-input::placeholder {
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.btn-custom-fill {
+  padding: 6px 12px;
+  background: var(--color-primary, #0ea5e9);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-custom-fill:hover {
+  background: var(--color-primary-dark, #0284c7);
 }
 
 /* 批量删除对话框 */

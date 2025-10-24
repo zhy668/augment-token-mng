@@ -1330,6 +1330,7 @@ defineExpose({
   deleteToken, // 允许App.vue删除token
   tokens: readonly(tokens), // 只读访问tokens
   saveTokens,   // 允许App.vue保存tokens
+  handleSave,   // 暴露自动保存方法(用于窗口关闭前保存,支持双向同步)
   waitUntilReady, // 暴露就绪等待方法
   highlightAndScrollTo // 暴露高亮和滚动方法
 })

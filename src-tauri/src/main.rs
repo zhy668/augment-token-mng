@@ -715,6 +715,8 @@ async fn open_internal_browser(
             // 检查当前页面状态
             const isLoginPage = window.location.hostname.includes('login.augmentcode.com') ||
                                 window.location.href.includes('/login');
+            const isAppPage = window.location.hostname.includes('app.augmentcode.com');
+            const isAuthPage = window.location.hostname.includes('auth.augmentcode.com');
 
             // 根据状态设置按钮
             if (isLoginPage) {
@@ -722,16 +724,31 @@ async fn open_internal_browser(
                 button.textContent = '🔒 登录后自动导入';
                 button.disabled = true;
                 button.style.cssText = 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.9; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
-            } else {
-                // 其他页面(主页/auth页面),显示正在导入
+                navbar.appendChild(button);
+            } else if (isAuthPage) {
+                // Auth页面,显示正在导入
                 button.textContent = '⏳ 正在导入...';
                 button.disabled = true;
                 button.style.cssText = 'background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
+                navbar.appendChild(button);
+            } else if (isAppPage) {
+                // App页面,显示可点击按钮
+                button.textContent = '📥 点击导入';
+                button.disabled = false;
+                button.style.cssText = 'background: #3b82f6; color: white; border: 1px solid #2563eb; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap; transition: all 0.2s;';
+                button.onmouseover = function() {
+                    this.style.background = '#2563eb';
+                };
+                button.onmouseout = function() {
+                    this.style.background = '#3b82f6';
+                };
+                button.onclick = function() {
+                    // 跳转到 auth 页面触发自动导入
+                    window.location.href = 'https://auth.augmentcode.com';
+                };
+                navbar.appendChild(button);
             }
-
-            // 按钮仅用于显示状态,不需要交互事件
-
-            navbar.appendChild(button);
+            // 其他页面不显示按钮
 
             // 插入到页面
             if (document.body) {

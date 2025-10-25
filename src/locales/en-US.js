@@ -230,6 +230,7 @@ export default {
     canUse: 'Can Use',
     exhausted: 'Usage Exhausted',
     tokenInvalid: 'Token Invalid',
+    networkError: 'Network Error',
     clickToViewDetails: 'Click to view details',
     suspensionDetails: 'Suspension Details',
     suspensionType: 'Suspension Type',

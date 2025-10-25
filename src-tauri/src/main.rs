@@ -124,9 +124,8 @@ async fn check_account_status(token: String, tenant_url: String) -> Result<Accou
 #[tauri::command]
 async fn batch_check_tokens_status(
     tokens: Vec<TokenInfo>,
-    state: State<'_, AppState>,
 ) -> Result<Vec<TokenStatusResult>, String> {
-    batch_check_account_status(tokens, state.app_session_cache.clone())
+    batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }

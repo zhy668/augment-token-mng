@@ -89,6 +89,15 @@
                   </svg>
                 </button>
                 <button
+                  class="open-folder-btn"
+                  @click="openDataFolder"
+                  :title="$t('bookmarkManager.openDataFolder')"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+                  </svg>
+                </button>
+                <button
                   class="batch-delete-btn"
                   @click="showBatchDeleteConfirm"
                   :disabled="deletableTokensCount === 0"
@@ -1222,6 +1231,16 @@ const highlightAndScrollTo = (tokenId) => {
   })
 }
 
+// 打开数据文件夹
+const openDataFolder = async () => {
+  try {
+    await invoke('open_data_folder')
+    // 静默执行，不显示状态提示
+  } catch (error) {
+    window.$notify.error(`${t('bookmarkManager.messages.openFolderFailed')}: ${error}`)
+  }
+}
+
 // 处理关闭事件 - 关闭前自动保存
 const handleClose = async () => {
   try {
@@ -1548,6 +1567,31 @@ defineExpose({
     width: 10px;
     height: 10px;
   }
+}
+
+/* 打开文件夹按钮 - 与排序按钮样式一致 */
+.open-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0;
+}
+
+.open-folder-btn:hover {
+  background: var(--color-surface-hover, #e9ecef);
+  color: var(--color-primary, #667eea);
+  border-color: var(--color-primary, #667eea);
+}
+
+.open-folder-btn svg {
+  flex-shrink: 0;
 }
 
 /* 批量删除按钮 - 与排序按钮样式一致 */

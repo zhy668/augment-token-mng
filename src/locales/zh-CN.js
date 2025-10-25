@@ -350,6 +350,8 @@ export default {
     back: '返回'
   },
   messages: {
+    autoSaveSuccess: '自动保存成功',
+    autoSaveFailed: '自动保存失败',
     tokenSaved: 'Token保存成功',
     tokenUpdated: 'Token更新成功',
     tokenLoadSuccess: 'Token加载成功',

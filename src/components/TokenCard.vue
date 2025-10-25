@@ -1184,7 +1184,6 @@ const checkAccountStatus = async (showNotification = true) => {
       statusType = 'error'
     }
 
-    // Portal信息现在已经包含在批量API结果中，无需单独处理
 
     // 发送账号状态消息（不包含次数信息）
     if (showNotification) {

@@ -15,6 +15,16 @@ export default defineConfig(async () => ({
     }),
   ],
 
+  // 多页面配置
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        emailHelper: resolve(__dirname, 'email-helper.html'),
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors

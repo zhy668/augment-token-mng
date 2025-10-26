@@ -28,11 +28,12 @@
           </svg>
           {{ $t('app.bookmarkManager') }}
         </button>
-        <button @click="showOutlookManager = true" class="btn warning">
+
+        <button @click="openEmailHelperWindow" class="btn warning">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
           </svg>
-          {{ $t('app.outlookManager') }}
+          {{ $t('app.emailHelper') }}
         </button>
 
         <button @click="showTokenList = true" class="btn primary">
@@ -334,11 +335,7 @@
       @close="showBookmarkManager = false"
     />
 
-    <!-- Outlook Manager Modal -->
-    <OutlookManager
-      v-if="showOutlookManager"
-      @close="showOutlookManager = false"
-    />
+
 
     <!-- Proxy Config Modal -->
     <ProxyConfig
@@ -483,7 +480,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
 import TokenList from './components/TokenList.vue'
 import BookmarkManager from './components/BookmarkManager.vue'
-import OutlookManager from './components/OutlookManager.vue'
 import ProxyConfig from './components/ProxyConfig.vue'
 import ExternalLinkDialog from './components/ExternalLinkDialog.vue'
 import NotificationManager from './components/NotificationManager.vue'
@@ -553,8 +549,16 @@ const manualCheckForUpdates = async () => {
 
 const showTokenList = ref(false)
 const showBookmarkManager = ref(false)
-const showOutlookManager = ref(false)
 const showProxyConfig = ref(false)
+
+// 打开邮箱助手窗口
+const openEmailHelperWindow = async () => {
+  try {
+    await invoke('open_email_helper_window')
+  } catch (error) {
+    console.error('Failed to open email helper window:', error)
+  }
+}
 
 // 代理配置保存处理
 const handleProxyConfigSaved = () => {

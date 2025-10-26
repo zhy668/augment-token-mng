@@ -5,7 +5,6 @@ mod augment_oauth;
 mod augment_user_info;
 mod bookmarks;
 mod http_server;
-mod outlook_manager;
 mod database;
 mod storage;
 mod http_client;
@@ -16,7 +15,6 @@ use augment_oauth::{create_augment_oauth_state, generate_augment_authorize_url, 
 use augment_user_info::{get_user_info, get_user_info_with_app_session, CompleteUserInfo, exchange_auth_session_for_app_session};
 use bookmarks::{BookmarkManager, Bookmark};
 use http_server::HttpServer;
-use outlook_manager::{OutlookManager, OutlookCredentials, EmailListResponse, EmailDetailsResponse, AccountStatus as OutlookAccountStatus, AccountInfo};
 use database::{DatabaseConfig, DatabaseConfigManager, DatabaseManager};
 use storage::{DualStorage, LocalFileStorage, PostgreSQLStorage, TokenStorage, SyncManager};
 use std::sync::{Arc, Mutex};
@@ -51,15 +49,39 @@ pub struct AppSessionCache {
     pub created_at: SystemTime,
 }
 
+// 一键获取模式配置
+#[derive(Clone)]
+struct QuickGetMode {
+    email: String,
+    password: String,
+    register_only: bool,
+}
+
 // Global state to store OAuth state and storage managers
 struct AppState {
     augment_oauth_state: Mutex<Option<AugmentOAuthState>>,
     http_server: Mutex<Option<HttpServer>>,
-    outlook_manager: Mutex<OutlookManager>,
     storage_manager: Arc<Mutex<Option<Arc<DualStorage>>>>,
     database_manager: Arc<Mutex<Option<Arc<DatabaseManager>>>>,
     // App session 缓存: key 为 auth_session, value 为缓存的 app_session
     app_session_cache: Arc<Mutex<HashMap<String, AppSessionCache>>>,
+    // 邮箱助手相关状态
+    monitoring_email: Mutex<Option<String>>,
+    verification_code: Mutex<Option<String>>,
+    quick_get_mode: Mutex<Option<QuickGetMode>>,
+    current_login_window: Mutex<Option<String>>, // 当前登录窗口标签
+    card_bin: Mutex<String>, // 信用卡BIN码
+    card_address: Mutex<CardAddress>, // 信用卡地址信息
+}
+
+// 信用卡地址信息结构
+#[derive(Debug, Clone, Default)]
+struct CardAddress {
+    country: String,
+    province: String,
+    city: String,
+    street: String,
+    postal_code: String,
 }
 
 #[tauri::command]
@@ -670,12 +692,21 @@ async fn open_internal_browser(
     app: tauri::AppHandle,
     url: String,
     title: Option<String>,
+    state: State<'_, AppState>,
 ) -> Result<String, String> {
     use tauri::webview::PageLoadEvent;
     use std::time::Duration;
 
     let window_label = format!("browser_{}", chrono::Utc::now().timestamp());
     let app_handle = app.clone();
+
+    // 获取监控邮箱
+    let monitoring_email = {
+        let email_guard = state.monitoring_email.lock().unwrap();
+        email_guard.clone()
+    };
+
+    eprintln!("[InternalBrowser] Opening browser, monitoring email: {:?}", monitoring_email);
 
     let window = WebviewWindowBuilder::new(
         &app,
@@ -687,24 +718,128 @@ async fn open_internal_browser(
     .center()
     .resizable(true)
     .incognito(true)  // 无痕模式,关闭后自动清除所有数据
-    .initialization_script(r#"
+    .initialization_script(&format!(r#"
         console.log('[Tauri] Initialization script loaded');
 
+        // 自动填充邮箱 - 使用更激进的策略
+        const monitoringEmail = '{}';
+
+        function tryAutoFillEmail() {{
+            const emailInput = document.querySelector('input[type="email"]') ||
+                              document.querySelector('input[autocomplete="email"]') ||
+                              document.querySelector('input[name="email"]');
+
+            if (emailInput && monitoringEmail && !emailInput.value) {{
+                emailInput.value = monitoringEmail;
+                emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                emailInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                emailInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                console.log('[Tauri] Auto-filled email:', monitoringEmail);
+                return true;
+            }}
+            return false;
+        }}
+
+        // 监听 DOM 变化,一旦发现邮箱输入框就填充
+        const emailObserver = new MutationObserver(() => {{
+            if (tryAutoFillEmail()) {{
+                console.log('[Tauri] Email filled via MutationObserver');
+            }}
+        }});
+
+        // 开始观察
+        if (document.body) {{
+            emailObserver.observe(document.body, {{ childList: true, subtree: true }});
+        }} else {{
+            document.addEventListener('DOMContentLoaded', () => {{
+                emailObserver.observe(document.body, {{ childList: true, subtree: true }});
+            }});
+        }}
+
+        // 同时使用定时器作为备份
+        let fillAttempts = 0;
+        const fillInterval = setInterval(() => {{
+            if (tryAutoFillEmail() || fillAttempts++ > 20) {{
+                clearInterval(fillInterval);
+                if (fillAttempts > 20) {{
+                    emailObserver.disconnect();
+                }}
+            }}
+        }}, 500);
+
+        // 全局变量 - 用于控制继续按钮检查
+        window.continueCheckInterval = null;
+        window.continueButtonClicked = false;
+
+        // 自动点击 continue 按钮
+        function tryAutoClickContinue() {{
+            const continueBtn = document.querySelector('button[type="submit"]') ||
+                               Array.from(document.querySelectorAll('button')).find(btn =>
+                                 btn.textContent.toLowerCase().includes('continue') ||
+                                 btn.textContent.includes('继续')
+                               );
+
+            if (continueBtn && !continueBtn.disabled && !continueBtn.hasAttribute('disabled')) {{
+                console.log('[AutoClick] Clicking continue button');
+                continueBtn.click();
+                return true;
+            }}
+
+            return false;
+        }}
+
+        // 定时检查 continue 按钮(仅在邮箱输入页面,邮箱填充后开始,等待6秒)
+        setTimeout(() => {{
+            // 只在登录/注册页面检查继续按钮
+            const currentUrl = window.location.href;
+            if (!currentUrl.includes('/login') && !currentUrl.includes('/signup')) {{
+                console.log('[AutoClick] Not on login/signup page, skipping continue button checks');
+                return;
+            }}
+
+            let checkCount = 0;
+            const maxChecks = 5; // 最多检查5次
+            window.continueCheckInterval = setInterval(() => {{
+                if (window.continueButtonClicked) {{
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Continue button already clicked, stopping checks');
+                    return;
+                }}
+
+                checkCount++;
+                if (checkCount > maxChecks) {{
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Max checks reached (5 attempts)');
+                    return;
+                }}
+
+                console.log(`[AutoClick] Checking continue button (attempt ${{checkCount}}/${{maxChecks}})`);
+                if (tryAutoClickContinue()) {{
+                    window.continueButtonClicked = true;
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Continue button clicked successfully, stopped checking');
+                }}
+            }}, 3000);
+        }}, 6000);
+
         // 创建导航栏的函数
-        function createNavbar() {
+        function createNavbar() {{
             console.log('[Tauri] Creating navbar...');
 
             // 只在 augmentcode.com 域名下显示
-            if (!window.location.hostname.includes('augmentcode.com')) {
+            if (!window.location.hostname.includes('augmentcode.com')) {{
                 console.log('[Tauri] Not on augmentcode.com, skipping navbar');
                 return;
-            }
+            }}
 
             // 检查是否已存在
-            if (document.getElementById('tauri-navbar')) {
+            if (document.getElementById('tauri-navbar')) {{
                 console.log('[Tauri] Navbar already exists');
                 return;
-            }
+            }}
 
             const navbar = document.createElement('div');
             navbar.id = 'tauri-navbar';
@@ -718,46 +853,46 @@ async fn open_internal_browser(
                                 window.location.href.includes('/login');
 
             // 根据状态设置按钮
-            if (isLoginPage) {
+            if (isLoginPage) {{
                 // 在登录页面,提示登录后会自动导入
                 button.textContent = '🔒 登录后自动导入';
                 button.disabled = true;
                 button.style.cssText = 'background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.9; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
-            } else {
+            }} else {{
                 // 其他页面(主页/auth页面),显示正在导入
                 button.textContent = '⏳ 正在导入...';
                 button.disabled = true;
                 button.style.cssText = 'background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap;';
-            }
+            }}
 
             // 按钮仅用于显示状态,不需要交互事件
 
             navbar.appendChild(button);
 
             // 插入到页面
-            if (document.body) {
+            if (document.body) {{
                 document.body.appendChild(navbar);
                 console.log('[Tauri] Navbar inserted at right middle');
-            } else if (document.documentElement) {
+            }} else if (document.documentElement) {{
                 document.documentElement.appendChild(navbar);
                 console.log('[Tauri] Navbar inserted to documentElement');
-            }
-        }
+            }}
+        }}
 
         // 多种方式尝试插入导航栏
-        if (document.readyState === 'loading') {
+        if (document.readyState === 'loading') {{
             document.addEventListener('DOMContentLoaded', createNavbar);
-        } else {
+        }} else {{
             createNavbar();
-        }
+        }}
 
         // 监听页面变化,确保导航栏始终存在
-        setInterval(function() {
-            if (!document.getElementById('tauri-navbar')) {
+        setInterval(function() {{
+            if (!document.getElementById('tauri-navbar')) {{
                 createNavbar();
-            }
-        }, 1000);
-    "#)
+            }}
+        }}, 1000);
+    "#, monitoring_email.unwrap_or_default()))
     .on_page_load(move |window, payload| {
         if payload.event() == PageLoadEvent::Finished {
             let url_str = payload.url().to_string();
@@ -1079,100 +1214,968 @@ async fn open_editor_with_protocol(
         .map_err(|e| format!("Failed to open editor with protocol: {}", e))
 }
 
-// Outlook 邮箱管理命令
+// 邮箱助手相关命令
 #[tauri::command]
-async fn outlook_save_credentials(
+async fn set_monitoring_email(email: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut monitoring_email = state.monitoring_email.lock().unwrap();
+    *monitoring_email = Some(email.clone());
+    eprintln!("[EmailHelper] Set monitoring email: {}", email);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_verification_code(app: tauri::AppHandle, code: String, state: State<'_, AppState>) -> Result<(), String> {
+    use tauri::Manager;
+
+    let mut verification_code = state.verification_code.lock().unwrap();
+    *verification_code = Some(code.clone());
+    eprintln!("[EmailHelper] Set verification code: {}", code);
+
+    // 查找登录窗口并直接注入验证码
+    let windows = app.webview_windows();
+    for (label, window) in windows.iter() {
+        if label.starts_with("login_") {
+            eprintln!("[EmailHelper] Found login window: {}", label);
+
+            // 构造 JavaScript 代码来填充验证码
+            let js_code = format!(r#"
+                (function() {{
+                    const code = '{}';
+                    console.log('[AutoFill] Injected code:', code);
+
+                    const codeInput = document.querySelector('input[type="text"][placeholder*="code" i]') ||
+                                     document.querySelector('input[type="text"][placeholder*="验证码" i]') ||
+                                     document.querySelector('input[name*="code" i]') ||
+                                     document.querySelector('input[name*="otp" i]') ||
+                                     document.querySelector('input[autocomplete="one-time-code"]');
+
+                    if (codeInput) {{
+                        codeInput.value = code;
+                        codeInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        codeInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        console.log('[AutoFill] Auto-filled verification code:', code);
+
+                        // 停止继续按钮检查
+                        console.log('[AutoFill] Attempting to stop continue button checking...');
+                        console.log('[AutoFill] continueCheckInterval exists:', !!window.continueCheckInterval);
+                        if (window.continueCheckInterval) {{
+                            clearInterval(window.continueCheckInterval);
+                            window.continueCheckInterval = null;
+                            window.continueButtonClicked = true;
+                            console.log('[AutoFill] ✓ Successfully stopped continue button checking');
+                        }} else {{
+                            console.log('[AutoFill] ✗ continueCheckInterval not found, setting flag anyway');
+                            window.continueButtonClicked = true;
+                        }}
+
+                        // 尝试查找并点击提交按钮
+                        setTimeout(() => {{
+                            const submitBtn = document.querySelector('button[type="submit"]') ||
+                                            Array.from(document.querySelectorAll('button')).find(btn =>
+                                              btn.textContent.includes('确定') ||
+                                              btn.textContent.toLowerCase().includes('submit') ||
+                                              btn.textContent.toLowerCase().includes('continue') ||
+                                              btn.textContent.includes('继续')
+                                            );
+
+                            if (submitBtn && !submitBtn.disabled) {{
+                                console.log('[AutoFill] Clicking submit button');
+                                submitBtn.click();
+
+                                // 提交后等待人机验证,不要进行任何自动操作
+                                console.log('[AutoFill] Waiting for human verification, no auto actions');
+                            }} else {{
+                                console.log('[AutoFill] Submit button not found or disabled');
+                            }}
+                        }}, 500);
+
+                        return true;
+                    }} else {{
+                        console.log('[AutoFill] Code input not found');
+                        return false;
+                    }}
+                }})();
+            "#, code);
+
+            // 执行 JavaScript 代码
+            match window.eval(&js_code) {
+                Ok(_) => {
+                    eprintln!("[EmailHelper] Successfully injected verification code to login window");
+                }
+                Err(e) => {
+                    eprintln!("[EmailHelper] Failed to inject verification code: {}", e);
+                }
+            }
+
+            break;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_current_verification_code(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let verification_code = state.verification_code.lock().unwrap();
+    Ok(serde_json::json!({
+        "code": verification_code.clone()
+    }))
+}
+
+#[tauri::command]
+async fn clear_verification_code(state: State<'_, AppState>) -> Result<(), String> {
+    let mut verification_code = state.verification_code.lock().unwrap();
+    *verification_code = None;
+    eprintln!("[EmailHelper] Cleared verification code");
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_card_bin(bin: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut card_bin = state.card_bin.lock().unwrap();
+    *card_bin = bin.clone();
+    eprintln!("[EmailHelper] Set card BIN: {}", bin);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_card_bin(state: State<'_, AppState>) -> Result<String, String> {
+    let card_bin = state.card_bin.lock().unwrap();
+    Ok(card_bin.clone())
+}
+
+#[tauri::command]
+async fn set_card_address(
+    country: String,
+    province: String,
+    city: String,
+    street: String,
+    postal_code: String,
+    state: State<'_, AppState>
+) -> Result<(), String> {
+    let mut card_address = state.card_address.lock().unwrap();
+    *card_address = CardAddress {
+        country,
+        province,
+        city,
+        street,
+        postal_code,
+    };
+    eprintln!("[EmailHelper] Set card address: {:?}", *card_address);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_card_address(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let card_address = state.card_address.lock().unwrap();
+    Ok(serde_json::json!({
+        "country": card_address.country,
+        "province": card_address.province,
+        "city": card_address.city,
+        "street": card_address.street,
+        "postalCode": card_address.postal_code
+    }))
+}
+
+#[tauri::command]
+async fn set_quick_get_mode(
     email: String,
-    refresh_token: String,
-    client_id: String,
+    password: String,
+    register_only: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let credentials = OutlookCredentials {
-        email,
-        refresh_token,
-        client_id,
-        created_at: chrono::Utc::now(),
+    let mut quick_get_mode = state.quick_get_mode.lock().unwrap();
+    *quick_get_mode = Some(QuickGetMode {
+        email: email.clone(),
+        password,
+        register_only,
+    });
+    eprintln!("[EmailHelper] Set quick get mode for: {}, register_only: {}", email, register_only);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_token_from_session_cookie(session_cookie: String, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    // 使用 extract_token_from_session 函数
+    let token_info = extract_token_from_session(&session_cookie)
+        .await
+        .map_err(|e| format!("Failed to extract token from session: {}", e))?;
+
+    // 获取用户信息
+    let app_session = exchange_auth_session_for_app_session(&session_cookie)
+        .await
+        .map_err(|e| format!("Failed to exchange session: {}", e))?;
+
+    let user_info = get_user_info_with_app_session(&app_session)
+        .await
+        .map_err(|e| format!("Failed to get user info: {}", e))?;
+
+    Ok(serde_json::json!({
+        "tenant_url": token_info.tenant_url,
+        "access_token": token_info.access_token,
+        "portal_url": user_info.portal_url,
+        "email": user_info.email_note,
+    }))
+}
+
+#[tauri::command]
+async fn save_token_from_email_helper(
+    tenant_url: String,
+    access_token: String,
+    portal_url: Option<String>,
+    email_note: String,
+    session_cookie: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    use storage::{TokenStorage, TokenData};
+    use chrono::Utc;
+
+    // 获取存储管理器
+    let storage = {
+        let guard = state.storage_manager.lock().unwrap();
+        guard.clone().ok_or("Storage manager not initialized")?
     };
 
-    let mut manager = state.outlook_manager.lock().unwrap();
-    manager.save_credentials(credentials)
+    // 创建新 token
+    let mut new_token = TokenData::new(
+        uuid::Uuid::new_v4().to_string(),
+        tenant_url,
+        access_token,
+        portal_url,
+        Some(email_note.clone()),
+    );
+
+    // 设置 auth_session
+    new_token.auth_session = Some(session_cookie);
+
+    // 保存
+    storage.save_token(&new_token).await
+        .map_err(|e| format!("Failed to save token: {}", e))?;
+
+    eprintln!("[EmailHelper] Token saved for email: {}", email_note);
+    Ok(())
 }
 
 #[tauri::command]
-async fn outlook_get_all_accounts(
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
-    let manager = state.outlook_manager.lock().unwrap();
-    manager.get_all_accounts()
+async fn open_email_helper_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+
+    // 检查窗口是否已经存在
+    if let Some(window) = app.get_webview_window("email-helper") {
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    // 在开发模式下使用完整 URL,生产模式下使用相对路径
+    #[cfg(debug_assertions)]
+    let url = WebviewUrl::External("http://localhost:1420/email-helper.html".parse().unwrap());
+
+    #[cfg(not(debug_assertions))]
+    let url = WebviewUrl::App("email-helper.html".into());
+
+    // 创建新窗口
+    let _window = WebviewWindowBuilder::new(
+        &app,
+        "email-helper",
+        url
+    )
+    .title("邮箱助手 - Email Helper")
+    .inner_size(850.0, 750.0)
+    .min_inner_size(850.0, 700.0)
+    .center()
+    .resizable(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]
-async fn outlook_get_all_accounts_info(
+async fn open_login_window(
+    app: tauri::AppHandle,
+    should_clear_cache: bool,
+    is_batch_mode: bool,
     state: State<'_, AppState>,
-) -> Result<Vec<AccountInfo>, String> {
-    let manager = state.outlook_manager.lock().unwrap();
-    manager.get_all_accounts_info()
-}
+) -> Result<String, String> {
+    let window_label = format!("login_{}", chrono::Utc::now().timestamp());
 
-#[tauri::command]
-async fn outlook_delete_account(
-    email: String,
-    state: State<'_, AppState>,
-) -> Result<bool, String> {
-    let mut manager = state.outlook_manager.lock().unwrap();
-    manager.delete_account(&email)
-}
-
-#[tauri::command]
-async fn outlook_check_account_status(
-    email: String,
-    state: State<'_, AppState>,
-) -> Result<OutlookAccountStatus, String> {
-    // 克隆必要的数据以避免跨 await 持有锁
-    let credentials = {
-        let manager = state.outlook_manager.lock().unwrap();
-        manager.get_credentials(&email)?
+    // 获取监控邮箱
+    let monitoring_email = {
+        let email_guard = state.monitoring_email.lock().unwrap();
+        email_guard.clone()
     };
 
-    // 创建临时管理器实例进行状态检查
-    let temp_manager = OutlookManager::new();
-    temp_manager.check_account_status_with_credentials(&credentials).await
+    eprintln!("[Login] Opening login window, batch mode: {}, monitoring email: {:?}", is_batch_mode, monitoring_email);
+
+    // 保存当前登录窗口标签
+    {
+        let mut window_guard = state.current_login_window.lock().unwrap();
+        *window_guard = Some(window_label.clone());
+    }
+
+    let monitoring_email_clone = monitoring_email.clone();
+    let app_clone = app.clone();
+    let window = WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        WebviewUrl::External("https://app.augmentcode.com/login".parse().unwrap())
+    )
+    .title("登录 Augment Code")
+    .inner_size(1000.0, 700.0)
+    .center()
+    .resizable(true)
+    .incognito(should_clear_cache)
+    .on_navigation(move |url| {
+        // 允许所有导航
+        eprintln!("[Login] Navigating to: {}", url);
+        true
+    })
+    .initialization_script(&format!(r#"
+        console.log('[Tauri] Login window initialization script loaded');
+
+        // 全局变量 - 用于控制继续按钮检查
+        window.continueCheckInterval = null;
+        window.continueButtonClicked = false;
+
+        // 自动填充邮箱 - 使用更激进的策略
+        const monitoringEmail = '{}';
+
+        function tryAutoFillEmail() {{
+            const emailInput = document.querySelector('input[type="email"]') ||
+                              document.querySelector('input[autocomplete="email"]') ||
+                              document.querySelector('input[name="email"]');
+
+            if (emailInput && monitoringEmail && !emailInput.value) {{
+                emailInput.value = monitoringEmail;
+                emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                emailInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                emailInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                console.log('[Tauri] Auto-filled email:', monitoringEmail);
+                return true;
+            }}
+            return false;
+        }}
+
+        // 监听 DOM 变化,一旦发现邮箱输入框就填充
+        const observer = new MutationObserver(() => {{
+            if (tryAutoFillEmail()) {{
+                console.log('[Tauri] Email filled via MutationObserver');
+            }}
+        }});
+
+        // 开始观察
+        if (document.body) {{
+            observer.observe(document.body, {{ childList: true, subtree: true }});
+        }} else {{
+            document.addEventListener('DOMContentLoaded', () => {{
+                observer.observe(document.body, {{ childList: true, subtree: true }});
+            }});
+        }}
+
+        // 同时使用定时器作为备份
+        let fillAttempts = 0;
+        const fillInterval = setInterval(() => {{
+            if (tryAutoFillEmail() || fillAttempts++ > 20) {{
+                clearInterval(fillInterval);
+                if (fillAttempts > 20) {{
+                    observer.disconnect();
+                }}
+            }}
+        }}, 500);
+
+        // 自动点击 continue 按钮
+        function tryAutoClickContinue() {{
+            const continueBtn = document.querySelector('button[type="submit"]') ||
+                               Array.from(document.querySelectorAll('button')).find(btn =>
+                                 btn.textContent.toLowerCase().includes('continue') ||
+                                 btn.textContent.includes('继续')
+                               );
+
+            if (continueBtn && !continueBtn.disabled && !continueBtn.hasAttribute('disabled')) {{
+                console.log('[AutoClick] Clicking continue button');
+                continueBtn.click();
+                return true;
+            }}
+
+            return false;
+        }}
+
+        // 定时检查 continue 按钮(仅在邮箱输入页面,邮箱填充后开始,等待6秒)
+        setTimeout(() => {{
+            // 只在登录/注册页面检查继续按钮
+            const currentUrl = window.location.href;
+            if (!currentUrl.includes('/login') && !currentUrl.includes('/signup')) {{
+                console.log('[AutoClick] Not on login/signup page, skipping continue button checks');
+                return;
+            }}
+
+            let checkCount = 0;
+            const maxChecks = 5; // 最多检查5次
+            window.continueCheckInterval = setInterval(() => {{
+                if (window.continueButtonClicked) {{
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Continue button already clicked, stopping checks');
+                    return;
+                }}
+
+                checkCount++;
+                if (checkCount > maxChecks) {{
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Max checks reached (5 attempts)');
+                    return;
+                }}
+
+                console.log(`[AutoClick] Checking continue button (attempt ${{checkCount}}/${{maxChecks}})`);
+                if (tryAutoClickContinue()) {{
+                    window.continueButtonClicked = true;
+                    clearInterval(window.continueCheckInterval);
+                    window.continueCheckInterval = null;
+                    console.log('[AutoClick] Continue button clicked successfully, stopped checking');
+                }}
+            }}, 3000);
+        }}, 6000);
+
+        // 处理 URL 的函数
+        function handleUrl(currentUrl, isInitial = false) {{
+            if (isInitial) {{
+                console.log('[Tauri] Initial URL check:', currentUrl);
+            }} else {{
+                console.log('[Tauri] ✓ URL changed to:', currentUrl);
+            }}
+
+                if (currentUrl.includes('auth.augmentcode.com') ||
+                    currentUrl.includes('app.augmentcode.com/get-started') ||
+                    currentUrl.includes('app.augmentcode.com/account')) {{
+                    console.log('[Tauri] Detected auth/get-started/account page, will check for session cookie');
+                    // 等待一下让 cookie 设置完成
+                    setTimeout(() => {{
+                        // 通知 Rust 后端检查 cookie
+                        if (window.__TAURI__ && window.__TAURI__.event) {{
+                            window.__TAURI__.event.emit('check-session-cookie');
+                        }}
+                    }}, 1000);
+                }}
+
+                // 如果是验证码页面,打印日志
+                if (currentUrl.includes('passwordless-email-challenge')) {{
+                    console.log('[Tauri] Verification code page detected, waiting for code injection from backend');
+                }}
+
+                // 如果跳转到 onboard 页面,自动完成选择和点击
+                if (currentUrl.includes('app.augmentcode.com/onboard')) {{
+                    console.log('[Tauri] ✓ Onboard page detected, will auto-select Other option and continue');
+
+                    // 使用轮询方式等待按钮加载完成
+                    let retryCount = 0;
+                    const maxRetries = 20; // 最多重试20次(10秒)
+
+                    const trySelectOption = () => {{
+                        const allButtons = document.querySelectorAll('button');
+
+                        if (allButtons.length > 0) {{
+                            console.log('[Onboard] Found', allButtons.length, 'button elements');
+                            handleOnboardSelection();
+                        }} else if (retryCount < maxRetries) {{
+                            retryCount++;
+                            console.log(`[Onboard] Buttons not found, retrying... (${{retryCount}}/${{maxRetries}})`);
+                            setTimeout(trySelectOption, 500);
+                        }} else {{
+                            console.log('[Onboard] Timeout waiting for buttons');
+                        }}
+                    }};
+
+                    // 延迟1秒后开始尝试
+                    setTimeout(trySelectOption, 1000);
+
+                    function handleOnboardSelection() {{
+                        // 1. 查找所有选项按钮(排除 Continue 按钮)
+                        const allButtons = document.querySelectorAll('button');
+                        console.log('[Onboard] Found', allButtons.length, 'button elements');
+
+                        // 输出所有 button 的文本内容和类名
+                        Array.from(allButtons).forEach((btn, index) => {{
+                            const text = btn.textContent.trim();
+                            const className = btn.className;
+                            if (text) console.log(`[Onboard] Button[${{index}}]: "${{text}}" (class: ${{className}})`);
+                        }});
+
+                        // 查找 "Other" 按钮
+                        const otherButton = Array.from(allButtons).find(btn => {{
+                            const text = btn.textContent.trim().toLowerCase();
+                            return text === 'other';
+                        }});
+
+                        let selectedButton = null;
+                        if (otherButton) {{
+                            selectedButton = otherButton;
+                            console.log(`[Onboard] Found "Other" button: "${{selectedButton.textContent.trim()}}"`);
+                        }} else {{
+                            console.log('[Onboard] "Other" button not found');
+                        }}
+
+                        if (selectedButton) {{
+                            console.log('[Onboard] ✓ Clicking selected option...');
+                            selectedButton.click();
+
+                            // 2. 等待一下后点击 Continue 按钮
+                            setTimeout(() => {{
+                                const continueBtn = Array.from(document.querySelectorAll('button')).find(btn =>
+                                    btn.textContent.toLowerCase().includes('continue') ||
+                                    btn.textContent.includes('继续')
+                                );
+                                if (continueBtn) {{
+                                    console.log('[Onboard] Clicking Continue button');
+                                    continueBtn.click();
+
+                                    // 3. 等待2秒后点击 Add Payment Method 按钮(增加等待时间)
+                                    setTimeout(() => {{
+                                        console.log('[Onboard] Looking for Add Payment Method button...');
+                                        const addPaymentBtn = document.querySelector('button.payment-button') ||
+                                                            Array.from(document.querySelectorAll('button')).find(btn => {{
+                                                                const text = btn.textContent.trim();
+                                                                return text.includes('Add Payment Method') ||
+                                                                       text.includes('payment');
+                                                            }});
+                                        if (addPaymentBtn) {{
+                                            console.log('[Onboard] Found Add Payment Method button:', addPaymentBtn.textContent.trim());
+                                            console.log('[Onboard] Clicking Add Payment Method button');
+                                            addPaymentBtn.click();
+                                        }} else {{
+                                            console.log('[Onboard] Add Payment Method button not found');
+                                            // 输出所有按钮帮助调试
+                                            const allBtns = document.querySelectorAll('button');
+                                            console.log('[Onboard] All buttons on page:');
+                                            Array.from(allBtns).forEach((btn, idx) => {{
+                                                console.log(`  [${{idx}}]: "${{btn.textContent.trim()}}"`);
+                                            }});
+                                        }}
+                                    }}, 2000);
+                                }} else {{
+                                    console.log('[Onboard] Continue button not found');
+                                }}
+                            }}, 500);
+                        }} else {{
+                            console.log('[Onboard] No valid option found (all buttons filtered out)');
+                        }}
+                    }}
+                }}
+
+            // 如果跳转到支付页面,自动填充信用卡信息
+            // 只在主支付页面执行,不在 iframe 中执行
+            if ((currentUrl.includes('buy.stripe.com') || currentUrl.includes('billing.augmentcode.com/c/pay'))
+                && window.self === window.top) {{
+                console.log('[Tauri] Main payment page detected, will auto-fill card info');
+                setTimeout(() => {{
+                    autoFillPaymentInfo();
+                }}, 2000);
+            }}
+        }}
+
+        // 监听 URL 变化
+        window.lastUrl = window.location.href;
+
+        // 初始检查一次当前 URL
+        handleUrl(window.lastUrl, true);
+
+        // 定时检查 URL 变化
+        setInterval(() => {{
+            const currentUrl = window.location.href;
+            if (currentUrl !== window.lastUrl) {{
+                window.lastUrl = currentUrl;
+                handleUrl(currentUrl, false);
+            }}
+        }}, 500);
+
+        // ========== 卡号生成相关函数 (参考 zhifu.js) ==========
+
+        // Luhn 算法生成校验位
+        function generateCheckDigit(number) {{
+            let sum = 0;
+            let shouldDouble = true;
+            for (let i = number.length - 1; i >= 0; i--) {{
+                let digit = parseInt(number.charAt(i), 10);
+                if (shouldDouble) {{
+                    digit *= 2;
+                    if (digit > 9) digit -= 9;
+                }}
+                sum += digit;
+                shouldDouble = !shouldDouble;
+            }}
+            return ((10 - (sum % 10)) % 10).toString();
+        }}
+
+        // 根据 BIN 判断 CVV 长度
+        function getCvvLength(bin) {{
+            return (bin.startsWith('34') || bin.startsWith('37')) ? 4 : 3;
+        }}
+
+        // 生成随机 CVV
+        function generateRandomCVV(length) {{
+            return Math.floor(Math.random() * (10 ** length)).toString().padStart(length, '0');
+        }}
+
+        // 生成随机有效期
+        function generateRandomExpiryDate() {{
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+            let year = currentYear + Math.floor(Math.random() * 5);
+            let month = (year === currentYear)
+                ? currentMonth + Math.floor(Math.random() * (13 - currentMonth))
+                : Math.floor(Math.random() * 12) + 1;
+            return {{
+                month: month.toString().padStart(2, '0'),
+                year: (year % 100).toString().padStart(2, '0')
+            }};
+        }}
+
+        // 生成单个卡号
+        function generateCard(bin) {{
+            const cvvLength = getCvvLength(bin);
+            let number = bin;
+            const targetLength = (cvvLength === 4) ? 15 : 16;
+            while (number.length < targetLength - 1) {{
+                number += Math.floor(Math.random() * 10);
+            }}
+            number += generateCheckDigit(number);
+            const cvv = generateRandomCVV(cvvLength);
+            const expiryDate = generateRandomExpiryDate();
+            return {{
+                number: number,
+                month: expiryDate.month,
+                year: expiryDate.year,
+                cvv: cvv
+            }};
+        }}
+
+        // 生成中国地址
+        function generateChineseAddress() {{
+            // 使用 Stripe 下拉框中的 value 值(完整省份名称)
+            const provinces = [
+                '安徽省', '北京市', '重庆市', '福建省', '甘肃省', '广东省',
+                '贵州省', '海南省', '河北省', '河南省', '黑龙江省', '湖北省',
+                '湖南省', '吉林省', '江苏省', '江西省', '辽宁省', '青海省',
+                '山东省', '山西省', '陕西省', '上海市', '四川省', '天津市',
+                '云南省', '浙江省'
+            ];
+
+            const cities = [
+                '北京', '上海', '广州', '深圳', '杭州', '成都',
+                '武汉', '长沙', '郑州', '石家庄', '济南', '西安',
+                '福州', '合肥', '南昌', '昆明', '贵阳', '南宁',
+                '天津', '重庆', '长春', '沈阳', '哈尔滨', '太原',
+                '兰州', '西宁', '海口', '南京', '苏州', '宁波'
+            ];
+
+            const streets = [
+                '中山路', '人民路', '解放路', '建设路', '和平路', '胜利路',
+                '文化路', '新华路', '光明路', '友谊路', '团结路', '幸福路',
+                '长江路', '黄河路', '珠江路', '淮河路', '松花江路', '嘉陵江路'
+            ];
+
+            const randomProvince = provinces[Math.floor(Math.random() * provinces.length)];
+            const randomCity = cities[Math.floor(Math.random() * cities.length)];
+            const randomStreet = streets[Math.floor(Math.random() * streets.length)];
+            const streetNumber = Math.floor(Math.random() * 900) + 100;
+            const zipCode = Math.floor(Math.random() * 900000) + 100000; // 6位邮编
+
+            return {{
+                address: `${{randomStreet}}${{streetNumber}}号`,
+                city: randomCity,
+                province: randomProvince,
+                postalCode: zipCode.toString(),
+                country: 'CN'
+            }};
+        }}
+
+        // 生成完整的卡号信息
+        async function generateCardInfo() {{
+            try {{
+                // 从后端获取 BIN 和地址配置
+                let bin = '515462002040'; // 默认值
+                let addressConfig = null;
+
+                try {{
+                    if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {{
+                        bin = await window.__TAURI__.core.invoke('get_card_bin');
+                        console.log('[Payment] Got BIN from backend:', bin);
+
+                        addressConfig = await window.__TAURI__.core.invoke('get_card_address');
+                        console.log('[Payment] Got address config from backend:', addressConfig);
+                    }}
+                }} catch (error) {{
+                    console.log('[Payment] Failed to get config from backend, using default:', error);
+                }}
+
+                // 生成卡号
+                const card = generateCard(bin);
+
+                // 生成地址 - 优先使用配置的地址,没有配置则随机生成
+                let address;
+                if (addressConfig && (addressConfig.country || addressConfig.province || addressConfig.city || addressConfig.street || addressConfig.postalCode)) {{
+                    // 使用配置的地址,未配置的字段随机生成
+                    const randomAddress = generateChineseAddress();
+                    address = {{
+                        country: addressConfig.country || randomAddress.country,
+                        province: addressConfig.province || randomAddress.province,
+                        city: addressConfig.city || randomAddress.city,
+                        address: addressConfig.street || randomAddress.address,
+                        postalCode: addressConfig.postalCode || randomAddress.postalCode
+                    }};
+                    console.log('[Payment] Using configured address (with random fallback):', address);
+                }} else {{
+                    // 完全随机生成
+                    address = generateChineseAddress();
+                    console.log('[Payment] Using random address:', address);
+                }}
+
+                return {{
+                    cardNumber: card.number,
+                    month: card.month,
+                    year: card.year,
+                    cvc: card.cvv,
+                    name: 'Test User',
+                    address: address
+                }};
+            }} catch (error) {{
+                console.error('[Payment] Error generating card info:', error);
+                return null;
+            }}
+        }}
+
+        // 自动填充支付信息函数
+        async function autoFillPaymentInfo() {{
+            console.log('[Payment] Starting auto-fill payment info');
+
+            // 生成卡号信息
+            const cardInfo = await generateCardInfo();
+            if (!cardInfo) {{
+                console.error('[Payment] Failed to generate card info');
+                return;
+            }}
+
+            const {{ cardNumber, month, year, cvc, name, address }} = cardInfo;
+            console.log('[Payment] Generated card info:', {{ cardNumber, month, year, cvc, name }});
+
+            try {{
+                // 辅助函数:设置输入框的值并触发事件
+                async function setNativeValue(element, value) {{
+                    if (!element) return false;
+
+                    // 如果是 select 下拉框,需要特殊处理
+                    if (element.tagName === 'SELECT') {{
+                        // 尝试通过文本内容匹配选项
+                        const options = Array.from(element.options);
+                        let matchedOption = options.find(opt => opt.text.trim() === value);
+
+                        // 如果没有精确匹配,尝试部分匹配
+                        if (!matchedOption) {{
+                            matchedOption = options.find(opt => opt.text.includes(value) || value.includes(opt.text));
+                        }}
+
+                        if (matchedOption) {{
+                            element.value = matchedOption.value;
+                            console.log(`[Payment] Selected option: ${{matchedOption.text}} (value: ${{matchedOption.value}})`);
+                        }} else {{
+                            console.log(`[Payment] No matching option found for: ${{value}}`);
+                            console.log(`[Payment] Available options:`, options.map(opt => opt.text));
+                            return false;
+                        }}
+                    }} else {{
+                        // 普通输入框
+                        const valueSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')?.set;
+                        if (valueSetter) {{
+                            valueSetter.call(element, value);
+                        }} else {{
+                            element.value = value;
+                        }}
+                    }}
+
+                    ['input', 'change', 'blur'].forEach(eventType => {{
+                        element.dispatchEvent(new Event(eventType, {{ bubbles: true }}));
+                    }});
+
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    return true;
+                }}
+
+                // 查找并填充卡号
+                const cardNumberInput = document.getElementById('cardNumber');
+                if (cardNumberInput) {{
+                    await setNativeValue(cardNumberInput, cardNumber);
+                    console.log('[Payment] Card number filled');
+                }} else {{
+                    console.log('[Payment] Card number input not found');
+                }}
+
+                // 查找并填充有效期
+                const cardExpiryInput = document.getElementById('cardExpiry');
+                if (cardExpiryInput) {{
+                    await setNativeValue(cardExpiryInput, `${{month}}/${{year}}`);
+                    console.log('[Payment] Card expiry filled');
+                }} else {{
+                    console.log('[Payment] Card expiry input not found');
+                }}
+
+                // 查找并填充 CVC
+                const cardCvcInput = document.getElementById('cardCvc');
+                if (cardCvcInput) {{
+                    await setNativeValue(cardCvcInput, cvc);
+                    console.log('[Payment] Card CVC filled');
+                }} else {{
+                    console.log('[Payment] Card CVC input not found');
+                }}
+
+                // 查找并填充姓名
+                const billingNameInput = document.getElementById('billingName');
+                if (billingNameInput) {{
+                    await setNativeValue(billingNameInput, name);
+                    console.log('[Payment] Billing name filled');
+                }} else {{
+                    console.log('[Payment] Billing name input not found');
+                }}
+
+                // 填充地址信息
+                const addressMappings = [
+                    {{ id: 'billingAddressLine1', value: address.address, label: '地址' }},
+                    {{ id: 'billingLocality', value: address.city, label: '城市' }},
+                    {{ id: 'billingAdministrativeArea', value: address.province, label: '省份' }},
+                    {{ id: 'billingPostalCode', value: address.postalCode, label: '邮政编码' }}
+                ];
+
+                for (const mapping of addressMappings) {{
+                    const element = document.getElementById(mapping.id);
+                    if (element && mapping.value) {{
+                        await setNativeValue(element, mapping.value);
+                        console.log(`[Payment] ${{mapping.label}}已填写: ${{mapping.value}}`);
+                    }} else if (!element) {{
+                        console.log(`[Payment] ${{mapping.label}}字段未找到 (ID: ${{mapping.id}})`);
+                    }}
+                }}
+
+                // 等待一下后点击提交按钮
+                setTimeout(() => {{
+                    const submitButton = document.querySelector("button[data-testid='hosted-payment-submit-button']");
+                    if (submitButton) {{
+                        console.log('[Payment] Clicking submit button');
+                        submitButton.click();
+                    }} else {{
+                        console.log('[Payment] Submit button not found');
+                    }}
+                }}, 1000);
+
+            }} catch (error) {{
+                console.error('[Payment] Error filling payment info:', error);
+            }}
+        }}
+    "#, monitoring_email.unwrap_or_default()))
+    .on_page_load(move |window, payload| {
+        use tauri::webview::PageLoadEvent;
+        if payload.event() == PageLoadEvent::Finished {
+            let url_str = payload.url().to_string();
+
+            // 检查是否是 auth.augmentcode.com 或 app.augmentcode.com/account 或 app.augmentcode.com/get-started
+            if url_str.contains("auth.augmentcode.com") ||
+               url_str.contains("app.augmentcode.com/account") ||
+               url_str.contains("app.augmentcode.com/get-started") {
+                let window_clone = window.clone();
+                let app_handle_clone = app_clone.clone();
+
+                eprintln!("[Login] Page loaded: {}, checking for session cookie", url_str);
+
+                // 在后台线程中获取 Cookie
+                tauri::async_runtime::spawn(async move {
+                    // 检查是否是 register_only 模式
+                    let is_register_only = {
+                        let app_state: tauri::State<AppState> = app_handle_clone.state();
+                        let mode_guard = app_state.quick_get_mode.lock().unwrap();
+                        mode_guard.as_ref().map(|m| m.register_only).unwrap_or(false)
+                    };
+
+                    eprintln!("[Login] Checking session cookie, register_only: {}, url: {}", is_register_only, url_str);
+
+                    // 如果是 register_only 模式,不要在登录成功后立即发送 session cookie
+                    // 只在 get-started 或 account 页面发送(表示 onboarding 完成)
+                    if is_register_only {
+                        if !url_str.contains("app.augmentcode.com/get-started") && !url_str.contains("app.augmentcode.com/account") {
+                            eprintln!("[Login] Register-only mode, skipping session cookie check until onboarding complete (waiting for get-started or account page)");
+                            return;
+                        }
+                        eprintln!("[Login] Register-only mode, onboarding complete, will get session cookie");
+                    }
+
+                    // 等待一小段时间确保 Cookie 已设置
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+                    match window_clone.cookies_for_url(
+                        "https://auth.augmentcode.com".parse().unwrap()
+                    ) {
+                        Ok(cookies) => {
+                            // 查找 session Cookie
+                            if let Some(session_cookie) = cookies.iter()
+                                .find(|c| c.name() == "session")
+                            {
+                                let session_value = session_cookie.value().to_string();
+                                eprintln!("[Login] Found session cookie, sending to frontend");
+
+                                // 发送 session cookie 到前端
+                                let _ = app_handle_clone.emit(
+                                    "session-cookie-received",
+                                    session_value
+                                );
+
+                                eprintln!("[Login] Session cookie sent to frontend");
+
+                            } else {
+                                eprintln!("[Login] Session cookie not found");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[Login] Failed to get cookies: {}", e);
+                        }
+                    }
+                });
+            }
+        }
+    })
+    .build()
+    .map_err(|e| format!("Failed to create login window: {}", e))?;
+
+    Ok(format!("Login window opened: {}", window_label))
 }
 
+// 关闭登录窗口
 #[tauri::command]
-async fn outlook_get_emails(
-    email: String,
-    folder: String,
-    page: i32,
-    page_size: i32,
+async fn close_login_window(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
-) -> Result<EmailListResponse, String> {
-    // 克隆必要的数据以避免跨 await 持有锁
-    let credentials = {
-        let manager = state.outlook_manager.lock().unwrap();
-        manager.get_credentials(&email)?
+) -> Result<String, String> {
+    // 获取当前登录窗口标签
+    let window_label = {
+        let window_guard = state.current_login_window.lock().unwrap();
+        window_guard.clone()
     };
 
-    // 创建临时管理器实例进行邮件获取
-    let temp_manager = OutlookManager::new();
-    temp_manager.get_emails_with_credentials(&credentials, &folder, page, page_size).await
-}
+    if let Some(label) = window_label {
+        eprintln!("[Login] Closing login window: {}", label);
 
-#[tauri::command]
-async fn outlook_get_email_details(
-    email: String,
-    message_id: String,
-    state: State<'_, AppState>,
-) -> Result<EmailDetailsResponse, String> {
-    // 克隆必要的数据以避免跨 await 持有锁
-    let credentials = {
-        let manager = state.outlook_manager.lock().unwrap();
-        manager.get_credentials(&email)?
-    };
+        // 查找并关闭窗口
+        if let Some(window) = app.get_webview_window(&label) {
+            window.close().map_err(|e| format!("Failed to close window: {}", e))?;
 
-    // 创建临时管理器实例进行邮件详情获取
-    let temp_manager = OutlookManager::new();
-    temp_manager.get_email_details_with_credentials(&credentials, &message_id).await
+            // 清除当前登录窗口标签
+            let mut window_guard = state.current_login_window.lock().unwrap();
+            *window_guard = None;
+
+            Ok(format!("Login window closed: {}", label))
+        } else {
+            Err(format!("Login window not found: {}", label))
+        }
+    } else {
+        Err("No login window is currently open".to_string())
+    }
 }
 
 // 数据库配置相关命令
@@ -1614,10 +2617,15 @@ fn main() {
             let app_state = AppState {
                 augment_oauth_state: Mutex::new(None),
                 http_server: Mutex::new(None),
-                outlook_manager: Mutex::new(OutlookManager::new()),
                 storage_manager: Arc::new(Mutex::new(None)),
                 database_manager: Arc::new(Mutex::new(None)),
                 app_session_cache: Arc::new(Mutex::new(HashMap::new())),
+                monitoring_email: Mutex::new(None),
+                verification_code: Mutex::new(None),
+                quick_get_mode: Mutex::new(None),
+                current_login_window: Mutex::new(None),
+                card_bin: Mutex::new("515462002040".to_string()), // 默认BIN,与 zhifu.js 一致
+                card_address: Mutex::new(CardAddress::default()), // 默认空地址
             };
 
             app.manage(app_state);
@@ -1742,14 +2750,21 @@ fn main() {
             open_data_folder,
             open_editor_with_protocol,
             create_jetbrains_token_file,
-            // Outlook 邮箱管理命令
-            outlook_save_credentials,
-            outlook_get_all_accounts,
-            outlook_get_all_accounts_info,
-            outlook_delete_account,
-            outlook_check_account_status,
-            outlook_get_emails,
-            outlook_get_email_details,
+            // 邮箱助手命令
+            open_email_helper_window,
+            set_monitoring_email,
+            set_verification_code,
+            get_current_verification_code,
+            clear_verification_code,
+            set_card_bin,
+            get_card_bin,
+            set_card_address,
+            get_card_address,
+            set_quick_get_mode,
+            open_login_window,
+            close_login_window,
+            get_token_from_session_cookie,
+            save_token_from_email_helper,
             // 数据库配置命令
             save_database_config,
             load_database_config,

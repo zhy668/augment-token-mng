@@ -999,8 +999,42 @@ const loadTokens = async (showSuccessMessage = false) => {
 
     // 确保是数组
     if (Array.isArray(parsedTokens)) {
+      // 根据邮箱备注(email_note)去重,保留最新的
+      const uniqueTokens = []
+      const emailNoteMap = new Map()
+
+      parsedTokens.forEach(token => {
+        if (token.email_note) {
+          // 如果已存在相同 email_note,比较 updated_at 保留最新的
+          if (emailNoteMap.has(token.email_note)) {
+            const existing = emailNoteMap.get(token.email_note)
+            const existingTime = new Date(existing.updated_at || existing.created_at || 0).getTime()
+            const currentTime = new Date(token.updated_at || token.created_at || 0).getTime()
+
+            // 保留时间更新的
+            if (currentTime > existingTime) {
+              emailNoteMap.set(token.email_note, token)
+            }
+          } else {
+            emailNoteMap.set(token.email_note, token)
+          }
+        } else {
+          // 如果没有 email_note,保留该 token
+          uniqueTokens.push(token)
+        }
+      })
+
+      // 将 Map 中的值添加到结果数组
+      uniqueTokens.push(...emailNoteMap.values())
+
       // 使用展开运算符创建新数组，确保触发响应式更新
-      tokens.value = [...parsedTokens]
+      tokens.value = [...uniqueTokens]
+
+      // 如果去重了,显示日志
+      const removedCount = parsedTokens.length - uniqueTokens.length
+      if (removedCount > 0) {
+        console.log(`[TokenList] Removed ${removedCount} duplicate tokens (based on email_note)`)
+      }
     } else {
       tokens.value = []
     }

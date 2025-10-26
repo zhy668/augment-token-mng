@@ -285,13 +285,13 @@
             <button @click="saveSettingsWithToken" :disabled="!canGetToken || isGettingToken" class="btn primary">
               {{ isGettingToken ? $t('emailHelper.gettingToken') : $t('emailHelper.saveSettings') }}
             </button>
-            <button @click="exportEmails" :disabled="emails.length === 0" class="btn secondary">
+            <button @click.stop="exportEmails" :disabled="emails.length === 0" class="btn secondary">
               {{ $t('emailHelper.exportEmails') }}
             </button>
-            <button @click="importEmails" class="btn secondary">
+            <button @click.stop="importEmails" class="btn secondary">
               {{ $t('emailHelper.importEmails') }}
             </button>
-            <button @click="clearAllEmails" :disabled="emails.length === 0" class="btn danger">
+            <button @click.stop="clearAllEmails" :disabled="emails.length === 0" class="btn danger">
               {{ $t('emailHelper.clearAll') }}
             </button>
           </div>
@@ -556,6 +556,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { save } from '@tauri-apps/plugin-dialog'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
 
 const emit = defineEmits(['show-status'])
 
@@ -1744,30 +1746,51 @@ const formatEmailTime = (dateString) => {
 }
 
 // 导出邮箱列表
-const exportEmails = () => {
+const exportEmails = async () => {
+  console.log('[EmailHelper] Export emails clicked, emails count:', emails.value.length)
+
   if (emails.value.length === 0) {
     showStatus(t('emailHelper.noEmailsToExport'), 'warning')
     return
   }
 
-  // 生成导出内容（只导出邮箱地址，不导出密码）
-  let exportContent = ''
-  emails.value.forEach((emailInfo) => {
-    exportContent += `${emailInfo.email}\n`
-  })
+  try {
+    // 生成导出内容（只导出邮箱地址，不导出密码）
+    let exportContent = ''
+    emails.value.forEach((emailInfo) => {
+      exportContent += `${emailInfo.email}\n`
+    })
 
-  // 创建下载链接
-  const blob = new Blob([exportContent], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `augment_emails_${new Date().toISOString().split('T')[0]}.txt`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+    console.log('[EmailHelper] Export content generated, length:', exportContent.length)
 
-  showStatus(t('emailHelper.exportSuccess'), 'success')
+    // 使用 Tauri 文件保存对话框让用户选择保存位置
+    const defaultFileName = `augment_emails_${new Date().toISOString().split('T')[0]}.txt`
+    const filePath = await save({
+      defaultPath: defaultFileName,
+      filters: [{
+        name: 'Text Files',
+        extensions: ['txt']
+      }]
+    })
+
+    // 用户取消了保存
+    if (!filePath) {
+      console.log('[EmailHelper] Export cancelled by user')
+      showStatus('导出已取消', 'info')
+      return
+    }
+
+    console.log('[EmailHelper] Saving to:', filePath)
+
+    // 写入文件
+    await writeTextFile(filePath, exportContent)
+
+    console.log('[EmailHelper] Export completed successfully')
+    showStatus(t('emailHelper.exportSuccess'), 'success')
+  } catch (error) {
+    console.error('[EmailHelper] Export failed:', error)
+    showStatus('导出失败: ' + error.message, 'error')
+  }
 }
 
 // 停止一键获取

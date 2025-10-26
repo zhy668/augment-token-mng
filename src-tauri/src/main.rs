@@ -146,9 +146,9 @@ async fn check_account_status(token: String, tenant_url: String) -> Result<Accou
 #[tauri::command]
 async fn batch_check_tokens_status(
     tokens: Vec<TokenInfo>,
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
 ) -> Result<Vec<TokenStatusResult>, String> {
-    batch_check_account_status(tokens, state.app_session_cache.clone())
+    batch_check_account_status(tokens)
         .await
         .map_err(|e| format!("Failed to batch check tokens status: {}", e))
 }
@@ -2613,6 +2613,8 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let app_state = AppState {
                 augment_oauth_state: Mutex::new(None),

@@ -89,6 +89,15 @@
                   </svg>
                 </button>
                 <button
+                  class="open-folder-btn"
+                  @click="openDataFolder"
+                  :title="$t('bookmarkManager.openDataFolder')"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+                  </svg>
+                </button>
+                <button
                   class="batch-delete-btn"
                   @click="showBatchDeleteConfirm"
                   :disabled="deletableTokensCount === 0"
@@ -356,6 +365,7 @@
 
 <script setup>
 import { ref, nextTick, onMounted, computed, readonly, watch } from 'vue'
+import { watchDebounced } from '@vueuse/core'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import TokenCard from './TokenCard.vue'
@@ -929,10 +939,6 @@ const checkAllAccountStatus = async () => {
     // 批量更新tokens状态
     updateTokensFromResults(results)
 
-    // 等待DOM更新后保存tokens
-    await nextTick()
-    await saveTokens(false)
-
   } catch (error) {
     console.error('Batch check error:', error)
     return {
@@ -1256,17 +1262,20 @@ const highlightAndScrollTo = (tokenId) => {
   })
 }
 
-// 处理关闭事件 - 关闭前自动保存
-const handleClose = async () => {
+// 打开数据文件夹
+const openDataFolder = async () => {
   try {
-    // 关闭前自动保存
-    await handleSave()
-    // 保存成功后关闭
-    emit('close')
+    await invoke('open_data_folder')
+    // 静默执行，不显示状态提示
   } catch (error) {
-    // 保存失败时阻止关闭
-    window.$notify.error(t('messages.autoSaveFailedCannotClose'))
+    window.$notify.error(`${t('bookmarkManager.messages.openFolderFailed')}: ${error}`)
   }
+}
+
+// 处理关闭事件
+const handleClose = () => {
+  // 防抖自动保存会处理保存,直接关闭即可
+  emit('close')
 }
 
 // 处理刷新事件 - 智能刷新逻辑
@@ -1275,9 +1284,6 @@ const handleRefresh = async () => {
   isRefreshing.value = true
 
   try {
-    // 刷新前先保存当前数据
-    await handleSave()
-
     // 统一开始通知
     window.$notify.info(t('messages.refreshingTokenStatus'))
 
@@ -1358,13 +1364,38 @@ onMounted(async () => {
   isReady.value = true
 })
 
+// 防抖自动保存 - 监听 tokens 变化
+watchDebounced(
+  tokens,
+  async (newTokens, oldTokens) => {
+    // 只有在组件就绪后才自动保存
+    if (!isReady.value) return
+
+    // 如果正在保存,跳过
+    if (isSaving.value) return
+
+    // 如果tokens为空且之前也为空,跳过
+    if (newTokens.length === 0 && (!oldTokens || oldTokens.length === 0)) return
+
+    try {
+      await handleSave()
+      window.$notify.success(t('messages.autoSaveSuccess'))
+    } catch (error) {
+      window.$notify.error(t('messages.autoSaveFailed') + ': ' + error)
+    }
+  },
+  {
+    debounce: 2000,  // 2秒防抖
+    deep: true       // 深度监听
+  }
+)
+
 // 暴露方法给父组件
 defineExpose({
   addToken,    // 允许App.vue添加token
   deleteToken, // 允许App.vue删除token
   tokens: readonly(tokens), // 只读访问tokens
   saveTokens,   // 允许App.vue保存tokens
-  handleSave,   // 暴露自动保存方法(用于窗口关闭前保存,支持双向同步)
   waitUntilReady, // 暴露就绪等待方法
   highlightAndScrollTo // 暴露高亮和滚动方法
 })
@@ -1582,6 +1613,31 @@ defineExpose({
     width: 10px;
     height: 10px;
   }
+}
+
+/* 打开文件夹按钮 - 与排序按钮样式一致 */
+.open-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0;
+}
+
+.open-folder-btn:hover {
+  background: var(--color-surface-hover, #e9ecef);
+  color: var(--color-primary, #667eea);
+  border-color: var(--color-primary, #667eea);
+}
+
+.open-folder-btn svg {
+  flex-shrink: 0;
 }
 
 /* 批量删除按钮 - 与排序按钮样式一致 */

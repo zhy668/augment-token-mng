@@ -371,6 +371,7 @@ export default {
     canUse: 'Can Use',
     exhausted: 'Usage Exhausted',
     tokenInvalid: 'Token Invalid',
+    networkError: 'Network Error',
     clickToViewDetails: 'Click to view details',
     suspensionDetails: 'Suspension Details',
     suspensionType: 'Suspension Type',
@@ -665,6 +666,8 @@ export default {
       customUrl: 'e.g., https://your-project.supabase.co/functions/v1/proxy'
     },
     messages: {
+      autoSaveSuccess: 'Auto-save success',
+      autoSaveFailed: 'Auto-save failed',
       saveSuccess: 'Proxy configuration saved',
       saveFailed: 'Failed to save proxy configuration',
       deleteSuccess: 'Proxy configuration deleted',
